@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package greetings;
+
+option go_package = "actsvr/greetings";
+
+message SayHello {
+  string name = 1;
+}
+
+message SayHi {
+    string name = 1;
+}
+
+message SayStop {
+    string name = 1;
+}

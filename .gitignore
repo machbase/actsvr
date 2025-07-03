@@ -1,0 +1,49 @@
+# macOS
+.DS_Store
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Logs
+logs
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Icon?
+Desktop.ini
+
+# Editor directories and files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Environment files
+.env
+.env.*
+
+# Build output
+dist/
+build/
+out/
+coverage/
+tmp/
+
+# Misc
+*.swp
+*.bak
+*.tmp
+*.orig
+*.rej
+*.swo
+*.swn
