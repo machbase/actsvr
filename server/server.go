@@ -3,6 +3,7 @@ package server
 import (
 	"actsvr/feature"
 	"context"
+	"flag"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,22 +14,30 @@ import (
 )
 
 type Server struct {
-	SystemName  string
-	Host        string
-	Port        int
+	SystemName string
+	Host       string
+	Port       int
+
 	actorSystem actor.ActorSystem
+}
+
+func NewServer() *Server {
+	svr := &Server{}
+	flag.StringVar(&svr.SystemName, "name", "ACTSVR", "the name of the actor system")
+	flag.StringVar(&svr.Host, "host", "0.0.0.0", "the host to bind the server to")
+	flag.IntVar(&svr.Port, "port", 4000, "the port to bind the server to")
+	return svr
 }
 
 func (s *Server) Serve(ctx context.Context) error {
 	logger := log.New(log.InfoLevel, os.Stdout)
 
-	// create an actor system. Check the reference
-	// doc for additional options
+	// create an actor system.
 	opts := []actor.Option{
 		actor.WithRemote(remote.NewConfig(s.Host, s.Port)),
 		actor.WithLogger(logger),
 	}
-	if as, err := actor.NewActorSystem("ACTSVR", opts...); err != nil {
+	if as, err := actor.NewActorSystem(s.SystemName, opts...); err != nil {
 		logger.Fatal(err)
 		os.Exit(1)
 	} else {
@@ -50,6 +59,9 @@ func (s *Server) Serve(ctx context.Context) error {
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
+	if s.actorSystem == nil || !s.actorSystem.Running() {
+		return nil
+	}
 	return s.actorSystem.Stop(ctx)
 }
 

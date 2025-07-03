@@ -1,11 +1,11 @@
 
 ## Build
 
-- `go run mage.go <target>`
+- `go run mage.go build <target>`
 
 ### Targets
 
-- `buildGreetings`: Hello world example
+- `greetings`: Hello world example
 
 
 ## VSCode

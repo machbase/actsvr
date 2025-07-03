@@ -6,14 +6,9 @@ import (
 	"github.com/magefile/mage/sh"
 )
 
-func BuildGreetings() error {
-	fmt.Println("Building greetings...")
-	return Build("greetings", "greetings")
-}
-
-func Build(tags string, bin string) error {
-	fmt.Println("Building with tags:", tags, "and output binary:", bin)
-	return sh.RunV("go", "build", "-tags", tags, "-o", "./tmp/"+bin)
+func Build(bin string) error {
+	fmt.Println("Building:", bin)
+	return sh.RunV("go", "build", "-o", "./tmp/"+bin, "./cmd/"+bin)
 }
 
 func Protoc() error {
@@ -27,10 +22,12 @@ func Protoc() error {
 
 	for _, file := range protoFiles {
 		fmt.Printf("protoc regen ./msg/%s...\n", file.proto)
-		sh.RunV("protoc", "-I", file.srcDir, file.proto,
-			"--experimental_allow_proto3_optional",
+		sh.RunV("protoc",
+			"-I", file.srcDir,
 			fmt.Sprintf("--go_out=%s", file.dstDir), "--go_opt=paths=source_relative",
 			fmt.Sprintf("--go-grpc_out=%s", file.dstDir), "--go-grpc_opt=paths=source_relative",
+			"--experimental_allow_proto3_optional",
+			file.proto,
 		)
 	}
 	return nil

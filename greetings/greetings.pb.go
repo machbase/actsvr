@@ -109,27 +109,27 @@ func (x *SayHi) GetName() string {
 	return ""
 }
 
-type SayStop struct {
+type Bye struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SayStop) Reset() {
-	*x = SayStop{}
+func (x *Bye) Reset() {
+	*x = Bye{}
 	mi := &file_greetings_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SayStop) String() string {
+func (x *Bye) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SayStop) ProtoMessage() {}
+func (*Bye) ProtoMessage() {}
 
-func (x *SayStop) ProtoReflect() protoreflect.Message {
+func (x *Bye) ProtoReflect() protoreflect.Message {
 	mi := &file_greetings_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -141,16 +141,60 @@ func (x *SayStop) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SayStop.ProtoReflect.Descriptor instead.
-func (*SayStop) Descriptor() ([]byte, []int) {
+// Deprecated: Use Bye.ProtoReflect.Descriptor instead.
+func (*Bye) Descriptor() ([]byte, []int) {
 	return file_greetings_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *SayStop) GetName() string {
+func (x *Bye) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
+}
+
+type Tick struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Tick          int64                  `protobuf:"varint,1,opt,name=tick,proto3" json:"tick,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Tick) Reset() {
+	*x = Tick{}
+	mi := &file_greetings_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Tick) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Tick) ProtoMessage() {}
+
+func (x *Tick) ProtoReflect() protoreflect.Message {
+	mi := &file_greetings_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Tick.ProtoReflect.Descriptor instead.
+func (*Tick) Descriptor() ([]byte, []int) {
+	return file_greetings_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Tick) GetTick() int64 {
+	if x != nil {
+		return x.Tick
+	}
+	return 0
 }
 
 var File_greetings_proto protoreflect.FileDescriptor
@@ -161,9 +205,11 @@ const file_greetings_proto_rawDesc = "" +
 	"\bSayHello\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"\x1b\n" +
 	"\x05SayHi\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"\x1d\n" +
-	"\aSayStop\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04nameB\x12Z\x10actsvr/greetingsb\x06proto3"
+	"\x04name\x18\x01 \x01(\tR\x04name\"\x19\n" +
+	"\x03Bye\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\x1a\n" +
+	"\x04Tick\x12\x12\n" +
+	"\x04tick\x18\x01 \x01(\x03R\x04tickB\x12Z\x10actsvr/greetingsb\x06proto3"
 
 var (
 	file_greetings_proto_rawDescOnce sync.Once
@@ -177,11 +223,12 @@ func file_greetings_proto_rawDescGZIP() []byte {
 	return file_greetings_proto_rawDescData
 }
 
-var file_greetings_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_greetings_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_greetings_proto_goTypes = []any{
 	(*SayHello)(nil), // 0: greetings.SayHello
 	(*SayHi)(nil),    // 1: greetings.SayHi
-	(*SayStop)(nil),  // 2: greetings.SayStop
+	(*Bye)(nil),      // 2: greetings.Bye
+	(*Tick)(nil),     // 3: greetings.Tick
 }
 var file_greetings_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -202,7 +249,7 @@ func file_greetings_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_greetings_proto_rawDesc), len(file_greetings_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

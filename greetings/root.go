@@ -3,12 +3,14 @@ package greetings
 import (
 	"actsvr/feature"
 	"context"
+	"time"
 
 	"github.com/tochemey/goakt/v3/actor"
 	"github.com/tochemey/goakt/v3/goaktpb"
+	"github.com/tochemey/goakt/v3/passivation"
 )
 
-func init() {
+func Featured() {
 	feature.AddFeature(func(ctx context.Context, as actor.ActorSystem) error {
 		_, err := NewRootActor(ctx, as)
 		return err
@@ -45,12 +47,27 @@ func (c *RootActor) PostStop(ctx *actor.Context) error {
 func (c *RootActor) Receive(ctx *actor.ReceiveContext) {
 	switch msg := ctx.Message().(type) {
 	case *goaktpb.PostStart:
-		ga := ctx.Spawn(GreetingActorName, &GreetingActor{}, actor.WithLongLived())
+		ctx.Spawn(TickerActorName, &TickerActor{},
+			actor.WithPassivationStrategy(passivation.NewMessageCountBasedStrategy(3)))
+		ctx.Spawn(GreetingActorName, &GreetingActor{},
+			actor.WithLongLived())
+
+		ga := ctx.Child(GreetingActorName)
 		ctx.Tell(ga, &SayHello{Name: ctx.Self().Name()})
 		ctx.Tell(ga, &SayHi{Name: ctx.Self().Name()})
 		ctx.Tell(ga, &goaktpb.PoisonPill{})
-	case *SayStop:
+	case *Bye:
 		log := ctx.ActorSystem().Logger()
-		log.Infof("Received message: --------> SayStop: %s", msg.Name)
+		log.Infof("Received message: --------> Bye: %s", msg.Name)
+
+		ta := ctx.Child(TickerActorName)
+		if ta != nil {
+			ctx.ActorSystem().Schedule(ctx.Context(),
+				&Tick{Tick: time.Now().UnixNano()},
+				ta,
+				time.Second,
+				actor.WithSender(ctx.Self()),
+			)
+		}
 	}
 }

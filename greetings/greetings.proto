@@ -12,6 +12,10 @@ message SayHi {
     string name = 1;
 }
 
-message SayStop {
+message Bye {
     string name = 1;
+}
+
+message Tick {
+    int64 tick = 1;
 }

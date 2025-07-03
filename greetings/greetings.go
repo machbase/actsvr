@@ -24,7 +24,7 @@ func (c *GreetingActor) PostStop(ctx *actor.Context) error {
 	log := ctx.ActorSystem().Logger()
 	log.Info(ctx.ActorName(), " --------> post-stop")
 	if c.parent != nil {
-		c.self.Tell(ctx.Context(), c.parent, &SayStop{Name: ctx.ActorName()})
+		c.self.Tell(ctx.Context(), c.parent, &Bye{Name: ctx.ActorName()})
 	}
 	return nil
 }
