@@ -1,25 +1,21 @@
 package main
 
 import (
-	"actsvr/greetings"
-
 	"actsvr/server"
 	"context"
 	"os"
 )
 
 func main() {
-	svr := server.NewServer()
-
-	greetings.Featured()
+	httpSvr := NewHttpServer()
+	httpSvr.Featured()
 
 	ctx := context.Background()
+	svr := server.NewServer()
 	if err := svr.Serve(ctx); err != nil {
 		panic(err)
 	}
-
 	svr.WaitInterrupt()
-
 	if err := svr.Shutdown(ctx); err != nil {
 		panic(err)
 	}

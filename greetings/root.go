@@ -11,7 +11,7 @@ import (
 )
 
 func Featured() {
-	feature.AddFeature(func(ctx context.Context, as actor.ActorSystem) error {
+	feature.AddFunc(func(ctx context.Context, as actor.ActorSystem) error {
 		_, err := NewRootActor(ctx, as)
 		return err
 	})
