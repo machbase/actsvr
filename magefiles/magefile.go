@@ -18,6 +18,7 @@ func Protoc() error {
 		dstDir string
 	}{
 		{srcDir: "./greetings", proto: "greetings.proto", dstDir: "./greetings"},
+		{srcDir: "./trjd", proto: "trjd.proto", dstDir: "./trjd"},
 	}
 
 	for _, file := range protoFiles {

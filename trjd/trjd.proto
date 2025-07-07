@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package trjd;
+
+option go_package = "actsvr/trjd";
+
+message ImportRequest {
+  string workId = 1;
+  string src = 2;
+  string dstHost = 3;
+  int32  dstPort = 4;
+  string dstUser = 5;
+  string dstPass = 6;
+  string dstTable = 7;
+}
+
+message ImportProgress {
+  string workId = 1;
+  string src = 2;
+  int32  state = 3;       // WorkerState
+  string message = 4;     // error message if state is "error"
+  double progress = 5;    // 0.0 to 1.0
+  int64  success = 6;     // number of successful imports
+  int64  fail = 7;        // number of failed imports
+}
