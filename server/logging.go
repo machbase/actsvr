@@ -20,7 +20,7 @@ type LogConfig struct {
 	LocalTime  bool
 	Timeformat string
 	Append     bool
-	Debug      bool
+	Verbose    int
 }
 
 func DefaultLogConfig() LogConfig {
@@ -33,7 +33,7 @@ func DefaultLogConfig() LogConfig {
 		LocalTime:  true,
 		Timeformat: "2006-01-02 15:04:05.000000 Z0700 MST",
 		Append:     true,
-		Debug:      false,
+		Verbose:    0, // 0: no debug, 1: info 2: debug
 	}
 }
 
@@ -41,7 +41,7 @@ type Log struct {
 	w          io.Writer
 	tz         *time.Location
 	timeformat string
-	level      log.Level
+	verbose    int
 }
 
 func NewLog(cfg LogConfig) *Log {
@@ -69,15 +69,11 @@ func NewLog(cfg LogConfig) *Log {
 	if !cfg.LocalTime {
 		tz = time.UTC
 	}
-	level := log.InfoLevel
-	if cfg.Debug {
-		level = log.DebugLevel
-	}
 	return &Log{
 		w:          w,
 		tz:         tz,
 		timeformat: cfg.Timeformat,
-		level:      level,
+		verbose:    cfg.Verbose,
 	}
 }
 
@@ -100,12 +96,16 @@ func (l *Log) write(level log.Level, msg string) {
 
 // Info starts a new message with info level.
 func (l *Log) Info(args ...any) {
-	l.write(log.InfoLevel, fmt.Sprint(args...))
+	if l.verbose > 0 {
+		l.write(log.InfoLevel, fmt.Sprint(args...))
+	}
 }
 
 // Infof starts a new message with info level.
 func (l *Log) Infof(f string, args ...any) {
-	l.write(log.InfoLevel, fmt.Sprintf(f, args...))
+	if l.verbose > 0 {
+		l.write(log.InfoLevel, fmt.Sprintf(f, args...))
+	}
 }
 
 // Warn starts a new message with warn level.
@@ -154,21 +154,28 @@ func (l *Log) Panicf(f string, args ...any) {
 
 // Debug starts a new message with debug level.
 func (l *Log) Debug(args ...any) {
-	if l.level >= log.DebugLevel {
+	if l.verbose > 1 {
 		l.write(log.DebugLevel, fmt.Sprint(args...))
 	}
 }
 
 // Debugf starts a new message with debug level.
 func (l *Log) Debugf(f string, args ...any) {
-	if l.level >= log.DebugLevel {
+	if l.verbose > 1 {
 		l.write(log.DebugLevel, fmt.Sprintf(f, args...))
 	}
 }
 
 // LogLevel returns the log level being used
 func (l *Log) LogLevel() log.Level {
-	return l.level
+	switch l.verbose {
+	default:
+		return log.WarningLevel
+	case 1:
+		return log.InfoLevel
+	case 2:
+		return log.DebugLevel
+	}
 }
 
 // LogOutput returns the log output that is set

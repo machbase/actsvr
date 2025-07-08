@@ -18,9 +18,10 @@ type Server struct {
 	Host       string
 	Port       int
 
-	logConf        LogConfig
-	actorSystem    actor.ActorSystem
-	onceParseFlags sync.Once
+	logConf         LogConfig
+	actorSystem     actor.ActorSystem
+	onceParseFlags  sync.Once
+	interruptSignal chan os.Signal
 }
 
 func NewServer() *Server {
@@ -40,7 +41,7 @@ func NewServer() *Server {
 	flag.BoolVar(&s.logConf.LocalTime, "log-localtime", s.logConf.LocalTime, "whether to use local time in the log file")
 	flag.BoolVar(&s.logConf.Append, "log-append", s.logConf.Append, "whether to append to the log file or overwrite it")
 	flag.StringVar(&s.logConf.Timeformat, "log-timeformat", s.logConf.Timeformat, "the time format to use in the log file")
-	flag.BoolVar(&s.logConf.Debug, "log-debug", s.logConf.Debug, "whether to enable debug logging")
+	flag.IntVar(&s.logConf.Verbose, "log-verbose", s.logConf.Verbose, "0: no debug, 1: info, 2: debug")
 
 	return s
 }
@@ -91,7 +92,20 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 func (s *Server) WaitInterrupt() {
-	interruptSignal := make(chan os.Signal, 1)
-	signal.Notify(interruptSignal, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-	<-interruptSignal
+	s.interruptSignal = make(chan os.Signal, 1)
+	signal.Notify(s.interruptSignal, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	<-s.interruptSignal
+}
+
+func (s *Server) Notify() {
+	if s.interruptSignal == nil {
+		return
+	}
+	signal.Stop(s.interruptSignal)
+	close(s.interruptSignal)
+	s.interruptSignal = nil
+}
+
+func (s *Server) ActorSystem() actor.ActorSystem {
+	return s.actorSystem
 }

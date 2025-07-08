@@ -42,16 +42,23 @@ func (w *Worker) Receive(ctx *actor.ReceiveContext) {
 }
 
 func (w *Worker) doImport(ctx *actor.ReceiveContext, req *ImportRequest) {
+	replyError := func(err error) {
+		if prog := req.NewProgress(WorkStateError); prog != nil {
+			prog.Message = fmt.Sprintf("Worker %s error %v", ctx.Self().Name(), err)
+			ctx.Tell(ctx.Sender(), prog)
+		}
+		ctx.Err(err)
+	}
 	data, err := os.Open(req.Src)
 	if err != nil {
-		ctx.Err(err)
+		replyError(err)
 		return
 	}
-	defer data.Close()
 
 	fileInfo, _ := data.Stat()
 	fileSize := fileInfo.Size()
 	progReader := NewProgressReader(data, fileSize)
+	defer progReader.Close()
 
 	// machcli database
 	db, err := machcli.NewDatabase(&machcli.Config{
@@ -62,27 +69,27 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext, req *ImportRequest) {
 		MaxOpenQuery: -1,
 	})
 	if err != nil {
-		ctx.Err(err)
+		replyError(err)
 		return
 	}
 	defer db.Close()
 
 	conn, err := db.Connect(ctx.Context(), api.WithPassword(req.DstUser, req.DstPass))
 	if err != nil {
-		ctx.Err(err)
+		replyError(err)
 		return
 	}
 	defer conn.Close()
 
 	appender, err := conn.Appender(ctx.Context(), req.DstTable)
 	if err != nil {
-		ctx.Err(err)
+		replyError(err)
 		return
 	}
 	defer func() {
 		succ, fail, err := appender.Close()
 		if err != nil {
-			ctx.Err(err)
+			replyError(err)
 			return
 		}
 		if prog := req.NewProgress(WorkStateDone); prog != nil {
@@ -97,11 +104,7 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext, req *ImportRequest) {
 		ctx.Tell(ctx.Sender(), prog)
 	}
 	if err := w.processImport(req.Src, progReader, appender); err != nil {
-		if prog := req.NewProgress(WorkStateError); prog != nil {
-			prog.Message = fmt.Sprintf("Worker %s error %v", ctx.Self().Name(), err)
-			ctx.Tell(ctx.Sender(), prog)
-		}
-		ctx.Err(err)
+		replyError(err)
 		return
 	}
 }
