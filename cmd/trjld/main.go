@@ -106,7 +106,7 @@ func (c *Runner) Receive(ctx *actor.ReceiveContext) {
 	switch msg := ctx.Message().(type) {
 	case *goaktpb.PostStart:
 		for file, workerId := range c.workers {
-			fmt.Println("-------- Importing file:", file, "with worker ID:", workerId)
+			fmt.Println("Importing file:", file, "with worker ID:", workerId)
 			req := &trjd.ImportRequest{
 				WorkId:   workerId.String(),
 				Src:      file,
@@ -123,14 +123,14 @@ func (c *Runner) Receive(ctx *actor.ReceiveContext) {
 	case *trjd.ImportProgress:
 		switch trjd.WorkState(msg.State) {
 		case trjd.WorkStateIdle:
-			fmt.Println("-------- Starting import for:", msg.Src)
-		case trjd.WorkStateRunning:
-			fmt.Printf("-------- Import in progress for: %s, Progress: %.2f%%\n", msg.Src, msg.Progress*100)
+			fmt.Println("Import starts for:", msg.Src)
+		case trjd.WorkStateProgress:
+			fmt.Printf("Import in progress for: %s, Progress: %.2f%%\n", msg.Src, msg.Progress*100)
 		case trjd.WorkStateDone:
-			fmt.Println("-------- Import done for:", msg.Src, "Success:", msg.Success, "Fail:", msg.Fail)
+			fmt.Println("Import done for:", msg.Src, "Success:", msg.Success, "Fail:", msg.Fail)
 			c.workerWg.Done()
 		case trjd.WorkStateError:
-			fmt.Println("-------- Import error for:", msg.Src, "Message:", msg.Message)
+			fmt.Println("Import error for:", msg.Src, "Message:", msg.Message)
 			c.workerWg.Done()
 		}
 	default:

@@ -21,7 +21,7 @@ type WorkState int
 
 const (
 	WorkStateIdle WorkState = iota
-	WorkStateRunning
+	WorkStateProgress
 	WorkStateDone
 	WorkStateError
 )
@@ -103,13 +103,19 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext, req *ImportRequest) {
 	if prog := req.NewProgress(WorkStateIdle); prog != nil {
 		ctx.Tell(ctx.Sender(), prog)
 	}
-	if err := w.processImport(req.Src, progReader, appender); err != nil {
+	progress := func(progress float64) {
+		if prog := req.NewProgress(WorkStateProgress); prog != nil {
+			prog.Progress = progress
+			ctx.Tell(ctx.Sender(), prog)
+		}
+	}
+	if err := w.processImport(req.Src, progReader, appender, progress); err != nil {
 		replyError(err)
 		return
 	}
 }
 
-func (w *Worker) processImport(inputFile string, progReader *ProgressReader, appender api.Appender) error {
+func (w *Worker) processImport(inputFile string, progReader *ProgressReader, appender api.Appender, progress func(v float64)) error {
 	// Decide the trip ID from the file name
 	var tripId = strings.TrimSuffix(strings.ToUpper(filepath.Base(inputFile)), ".CSV")
 	var tripStartTime time.Time
@@ -170,6 +176,8 @@ func (w *Worker) processImport(inputFile string, progReader *ProgressReader, app
 		headerIndex[name] = idx
 	}
 
+	now := time.Now()
+
 	// parse body lines
 	for {
 		fields, err := csvReader.Read()
@@ -203,6 +211,13 @@ func (w *Worker) processImport(inputFile string, progReader *ProgressReader, app
 		ts := time.Unix(0, timestamp)
 		if err := appender.Append(tripId, ts, value, escaped); err != nil {
 			return err
+		}
+
+		if ts := time.Now(); ts.Sub(now) > 1*time.Second {
+			now = ts
+			if progress != nil {
+				progress(progReader.Progress())
+			}
 		}
 	}
 	return nil
