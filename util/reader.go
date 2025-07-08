@@ -1,4 +1,4 @@
-package trjd
+package util
 
 import (
 	"io"

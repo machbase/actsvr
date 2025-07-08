@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package loader;
+
+option go_package = "actsvr/loader";
+
+message Request {
+  string src = 1;
+  string DstHost = 2;
+  int32  DstPort = 3;
+  string DstUser = 4;
+  string DstPass = 5;
+  string DstTable = 6;
+  bool   skipHeader = 7;
+}
+
+message Progress {
+  string src = 1;
+  int32  state = 3;       // WorkerState
+  string message = 4;     // error message if state is "error"
+  double progress = 5;    // 0.0 to 1.0
+  int64  success = 6;     // number of successful imports
+  int64  fail = 7;        // number of failed imports
+}

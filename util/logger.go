@@ -1,4 +1,4 @@
-package server
+package util
 
 import (
 	"fmt"
@@ -89,9 +89,23 @@ var levels = []string{
 	"-----",
 }
 
+const LogID = "util.logger"
+
+func (l *Log) ID() string {
+	return LogID
+}
+
 func (l *Log) write(level log.Level, msg string) {
 	ts := time.Now().In(l.tz).Format(l.timeformat)
 	fmt.Fprintln(l.w, ts, levels[level], msg)
+}
+
+func (l *Log) Println(args ...any) {
+	l.write(log.InvalidLevel, fmt.Sprint(args...))
+}
+
+func (l *Log) Printf(f string, args ...any) {
+	l.write(log.InvalidLevel, fmt.Sprintf(f, args...))
 }
 
 // Info starts a new message with info level.

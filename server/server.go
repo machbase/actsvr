@@ -2,6 +2,7 @@ package server
 
 import (
 	"actsvr/feature"
+	"actsvr/util"
 	"context"
 	"flag"
 	"os"
@@ -18,7 +19,7 @@ type Server struct {
 	Host       string
 	Port       int
 
-	logConf         LogConfig
+	logConf         util.LogConfig
 	actorSystem     actor.ActorSystem
 	onceParseFlags  sync.Once
 	interruptSignal chan os.Signal
@@ -26,7 +27,7 @@ type Server struct {
 
 func NewServer() *Server {
 	s := &Server{
-		logConf: DefaultLogConfig(),
+		logConf: util.DefaultLogConfig(),
 	}
 	// actor system configuration
 	flag.StringVar(&s.SystemName, "name", "ACTSVR", "the name of the actor system")
@@ -58,7 +59,7 @@ func (s *Server) Serve(ctx context.Context) error {
 
 	// create an actor system.
 	opts := []actor.Option{
-		actor.WithLogger(NewLog(s.logConf)),
+		actor.WithLogger(util.NewLog(s.logConf)),
 	}
 	if s.Port > 0 {
 		opts = append(opts, actor.WithRemote(remote.NewConfig(s.Host, s.Port)))

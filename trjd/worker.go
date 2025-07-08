@@ -1,6 +1,7 @@
 package trjd
 
 import (
+	"actsvr/util"
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
@@ -57,7 +58,7 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext, req *ImportRequest) {
 
 	fileInfo, _ := data.Stat()
 	fileSize := fileInfo.Size()
-	progReader := NewProgressReader(data, fileSize)
+	progReader := util.NewProgressReader(data, fileSize)
 	defer progReader.Close()
 
 	// machcli database
@@ -115,7 +116,7 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext, req *ImportRequest) {
 	}
 }
 
-func (w *Worker) processImport(inputFile string, progReader *ProgressReader, appender api.Appender, progress func(v float64)) error {
+func (w *Worker) processImport(inputFile string, progReader *util.ProgressReader, appender api.Appender, progress func(v float64)) error {
 	// Decide the trip ID from the file name
 	var tripId = strings.TrimSuffix(strings.ToUpper(filepath.Base(inputFile)), ".CSV")
 	var tripStartTime time.Time

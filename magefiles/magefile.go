@@ -19,6 +19,7 @@ func Protoc() error {
 	}{
 		{srcDir: "./greetings", proto: "greetings.proto", dstDir: "./greetings"},
 		{srcDir: "./trjd", proto: "trjd.proto", dstDir: "./trjd"},
+		{srcDir: "./loader", proto: "loader.proto", dstDir: "./loader"},
 	}
 
 	for _, file := range protoFiles {

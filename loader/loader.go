@@ -1,0 +1,154 @@
+package loader
+
+import (
+	"actsvr/server"
+	"actsvr/util"
+	"context"
+	"flag"
+	"fmt"
+	"os"
+	sync "sync"
+
+	"github.com/tochemey/goakt/v3/actor"
+	"github.com/tochemey/goakt/v3/goaktpb"
+)
+
+// Loader is a tool to import CSV files into Machbase.
+//
+// Usage:
+//
+//	loader [options] <file1> <file2> ...
+//
+// e.g.
+//
+//		loader -db-host 192.168.0.207 \
+//	       -db-port 5656 \
+//	       -db-table TAG \
+//	       -skip-header  \
+//		      ./data1/CN7_2023-04-06_15-57-39.CSV ./data1/CN7_2023-04-07_09-16-36.CSV
+func Main() {
+	runner := NewRunner()
+
+	ctx := context.Background()
+	svr := server.NewServer()
+	if err := svr.Serve(ctx); err != nil {
+		panic(err)
+	}
+
+	if runner.dbTable == "" {
+		flag.Usage()
+		panic("db-table is required")
+	}
+
+	for _, a := range flag.Args() {
+		stat, err := os.Stat(a)
+		if err != nil {
+			panic(err)
+		}
+		if stat.IsDir() {
+			panic("directory is not supported: " + a)
+		}
+		runner.files = append(runner.files, a)
+	}
+
+	_, err := svr.ActorSystem().Spawn(ctx, "runner", runner, actor.WithLongLived())
+	if err != nil {
+		panic(err)
+	}
+	runner.Wait()
+
+	if err := svr.Shutdown(ctx); err != nil {
+		panic(err)
+	}
+	os.Exit(0)
+}
+
+type Runner struct {
+	dbHost     string
+	dbPort     int
+	dbUser     string
+	dbPass     string
+	dbTable    string
+	skipHeader bool
+
+	files    []string
+	workerWg sync.WaitGroup
+	startWg  chan struct{}
+	log      *util.Log
+}
+
+func NewRunner() *Runner {
+	runner := &Runner{
+		dbHost:     "127.0.0.1",
+		dbPort:     5656,
+		dbUser:     "sys",
+		dbPass:     "manager",
+		skipHeader: false,
+
+		files:   make([]string, 0, len(os.Args)-1),
+		startWg: make(chan struct{}),
+	}
+	flag.StringVar(&runner.dbHost, "db-host", runner.dbHost, "Database host")
+	flag.IntVar(&runner.dbPort, "db-port", runner.dbPort, "Database port")
+	flag.StringVar(&runner.dbUser, "db-user", runner.dbUser, "Database user")
+	flag.StringVar(&runner.dbPass, "db-pass", runner.dbPass, "Database password")
+	flag.StringVar(&runner.dbTable, "db-table", runner.dbTable, "Database table name")
+	flag.BoolVar(&runner.skipHeader, "skip-header", runner.skipHeader, "Skip the first line of the CSV file (header)")
+	return runner
+}
+
+func (c *Runner) Wait() {
+	<-c.startWg
+	c.workerWg.Wait()
+	c.log.Println("End")
+}
+
+func (c *Runner) PreStart(ctx *actor.Context) error {
+	c.log = ctx.ActorSystem().Logger().(*util.Log)
+	return nil
+}
+func (c *Runner) PostStop(ctx *actor.Context) error {
+	return nil
+}
+
+func (c *Runner) Receive(ctx *actor.ReceiveContext) {
+	switch msg := ctx.Message().(type) {
+	case *goaktpb.PostStart:
+		for i, file := range c.files {
+			workerId := fmt.Sprintf("worker-%d", i+1)
+			c.log.Println("Importing ", workerId, " ", file)
+			worker := &Worker{}
+			req := &Request{
+				Src:        file,
+				DstHost:    c.dbHost,
+				DstPort:    int32(c.dbPort),
+				DstUser:    c.dbUser,
+				DstPass:    c.dbPass,
+				DstTable:   c.dbTable,
+				SkipHeader: c.skipHeader,
+			}
+			wpid := ctx.Spawn(workerId, worker, actor.WithLongLived())
+			ctx.Watch(wpid)
+			ctx.Tell(wpid, req)
+			c.workerWg.Add(1)
+		}
+		close(c.startWg)
+	case *goaktpb.Terminated:
+		c.log.Println("Worker terminated:", msg.ActorId)
+	case *Progress:
+		switch State(msg.State) {
+		case WorkStateIdle:
+			c.log.Println(msg.Src, " starts")
+		case WorkStateProgress:
+			c.log.Printf("%s progress: %.2f%%", msg.Src, msg.Progress*100)
+		case WorkStateDone:
+			c.log.Println(msg.Src, " done.", " success:", msg.Success, ", fail:", msg.Fail)
+			c.workerWg.Done()
+		case WorkStateError:
+			c.log.Println(msg.Src, " ERROR: ", msg.Message)
+			c.workerWg.Done()
+		}
+	default:
+		ctx.Unhandled()
+	}
+}
