@@ -60,6 +60,7 @@ func TestLoader(t *testing.T) {
 			"-skip-header",
 			"-timeformat", timeformat,
 			"-tz", tz,
+			"-log-filename", "./test_data/tmp/loader.log",
 			"./test_data/sample.csv",
 		}
 

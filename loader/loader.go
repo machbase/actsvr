@@ -21,11 +21,14 @@ import (
 //
 // e.g.
 //
-//		loader -db-host 192.168.0.207 \
-//	       -db-port 5656 \
-//	       -db-table TAG \
-//	       -skip-header  \
-//		      ./data1/CN7_2023-04-06_15-57-39.CSV ./data1/CN7_2023-04-07_09-16-36.CSV
+//	loader \
+//	  -db-host 192.168.0.207 \
+//	  -db-port 5656 \
+//	  -db-table TAG \
+//	  -skip-header  \
+//	  -timeformat "2006-01-02 15:04:05" \
+//	  -tz "Asia/Seoul" \
+//	  ./test_data/sample.csv
 func Main() int {
 	runner := NewRunner()
 
