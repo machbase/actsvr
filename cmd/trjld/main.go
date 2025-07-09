@@ -6,5 +6,5 @@ import (
 )
 
 func main() {
-	os.Exit(trjd.Main())
+	os.Exit(trjd.LoaderMain())
 }

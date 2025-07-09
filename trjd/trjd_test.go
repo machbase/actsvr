@@ -55,5 +55,5 @@ func TestTRJD(t *testing.T) {
 		"./test_data/tmp/data1/CN7_2023-04-06_15-57-39.CSV",
 	}
 
-	Main()
+	LoaderMain()
 }

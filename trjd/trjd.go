@@ -24,7 +24,7 @@ import (
 //
 //	trjld -db-host 192.168.0.207 -db-port 5656 \
 //	      ./data1/CN7_2023-04-06_15-57-39.CSV ./data1/CN7_2023-04-07_09-16-36.CSV
-func Main() int {
+func LoaderMain() int {
 	runner := NewRunner()
 
 	master := NewMaster(Config{})

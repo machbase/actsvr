@@ -37,6 +37,10 @@ func NewMaster(cfg Config) *Master {
 	return &Master{Conf: cfg}
 }
 
+func (c *Master) Featured() {
+	feature.Add(c)
+}
+
 // feature.Feature interface implementation
 func (c *Master) Start(ctx context.Context, actorSystem actor.ActorSystem) error {
 	pid, err := actorSystem.Spawn(ctx, MasterName, c,

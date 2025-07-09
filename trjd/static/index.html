@@ -1,0 +1,42 @@
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/themes/light.css" />
+    <script type="module"
+        src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.20.1/cdn/shoelace-autoloader.js"></script>
+</head>
+
+<body>
+    <sl-card>
+        <h1>Welcome to the HTTP Server</h1>
+        <p>This server is running on <strong>{{.Host}}:{{.Port}}</strong>.</p>
+        <p>Keep-Alive timeout is set to <strong>{{.KeepAlive}} seconds</strong>.</p>
+    </sl-card>
+
+    <script>
+        // Example of how you might use the server information in JavaScript
+        const host = "{{.Host}}";
+        const port = "{{.Port}}";
+        console.log(`Server is running at http://${host}:${port}`);
+    </script>
+
+    <sl-divider></sl-divider>
+
+    <sl-card>
+        <h1>파일 전송</h1>
+        <form action="/uploads" method="POST" accept-charset="utf-8" enctype="multipart/form-data">
+            <p>
+                <input type="file" id="upload_file" name="upload_file" />
+            </p>
+            <p>
+                <sl-button type="submit" variant="primary">Upload</sl-button>
+            </p>
+        </form>
+    </sl-card>
+</body>
+
+</html>
