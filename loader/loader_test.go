@@ -61,6 +61,9 @@ func TestLoader(t *testing.T) {
 			"-timeformat", timeformat,
 			"-tz", tz,
 			"-log-filename", "./test_data/tmp/loader.log",
+			// "-log-apped",
+			"-delay", "1s",
+			//			"-silent",
 			"./test_data/sample.csv",
 		}
 
@@ -73,7 +76,7 @@ func TestLoader(t *testing.T) {
 			t.Fatalf("Failed to connect to database: %v", err)
 		}
 		defer conn.Close()
-		rows, err := conn.Query(ctx, "SELECT * FROM tag")
+		rows, err := conn.Query(ctx, "SELECT * FROM tag LIMIT 10")
 		if err != nil {
 			t.Fatalf("Failed to query data: %v", err)
 		}

@@ -17,7 +17,7 @@ type LogConfig struct {
 	MaxBackups int
 	MaxAge     int
 	Compress   bool
-	LocalTime  bool
+	UTC        bool
 	Timeformat string
 	Append     bool
 	Verbose    int
@@ -30,10 +30,10 @@ func DefaultLogConfig() LogConfig {
 		MaxBackups: 3,
 		MaxAge:     28, // days
 		Compress:   false,
-		LocalTime:  true,
+		UTC:        false, // false: local time, true: UTC
 		Timeformat: "2006-01-02 15:04:05.000000 Z0700 MST",
-		Append:     true,
-		Verbose:    0, // 0: no debug, 1: info 2: debug
+		Append:     false, // false: overwrite, true: append
+		Verbose:    0,     // 0: no debug, 1: info 2: debug
 	}
 }
 
@@ -66,7 +66,7 @@ func NewLog(cfg LogConfig) *Log {
 		w = lj
 	}
 	tz := time.Local
-	if !cfg.LocalTime {
+	if cfg.UTC {
 		tz = time.UTC
 	}
 	return &Log{

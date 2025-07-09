@@ -39,7 +39,7 @@ func NewServer() *Server {
 	flag.IntVar(&s.logConf.MaxBackups, "log-max-backups", s.logConf.MaxBackups, "the maximum number of log file backups")
 	flag.IntVar(&s.logConf.MaxAge, "log-max-age", s.logConf.MaxAge, "the maximum age of the log file in days")
 	flag.BoolVar(&s.logConf.Compress, "log-compress", s.logConf.Compress, "whether to compress the log file")
-	flag.BoolVar(&s.logConf.LocalTime, "log-localtime", s.logConf.LocalTime, "whether to use local time in the log file")
+	flag.BoolVar(&s.logConf.UTC, "log-utc", s.logConf.UTC, "whether to use local time in the log file")
 	flag.BoolVar(&s.logConf.Append, "log-append", s.logConf.Append, "whether to append to the log file or overwrite it")
 	flag.StringVar(&s.logConf.Timeformat, "log-timeformat", s.logConf.Timeformat, "the time format to use in the log file")
 	flag.IntVar(&s.logConf.Verbose, "log-verbose", s.logConf.Verbose, "0: no debug, 1: info, 2: debug")

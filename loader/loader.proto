@@ -14,6 +14,7 @@ message Request {
   bool   skipHeader = 7;
   string timeformat = 8;
   string timezone = 9;
+  int64 delayForTest = 10; // for testing purposes, in nanoseconds
 }
 
 message Progress {

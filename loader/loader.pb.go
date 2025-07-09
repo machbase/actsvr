@@ -32,6 +32,7 @@ type Request struct {
 	SkipHeader    bool                   `protobuf:"varint,7,opt,name=skipHeader,proto3" json:"skipHeader,omitempty"`
 	Timeformat    string                 `protobuf:"bytes,8,opt,name=timeformat,proto3" json:"timeformat,omitempty"`
 	Timezone      string                 `protobuf:"bytes,9,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	DelayForTest  int64                  `protobuf:"varint,10,opt,name=delayForTest,proto3" json:"delayForTest,omitempty"` // for testing purposes, in nanoseconds
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -129,6 +130,13 @@ func (x *Request) GetTimezone() string {
 	return ""
 }
 
+func (x *Request) GetDelayForTest() int64 {
+	if x != nil {
+		return x.DelayForTest
+	}
+	return 0
+}
+
 type Progress struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Src           string                 `protobuf:"bytes,1,opt,name=src,proto3" json:"src,omitempty"`
@@ -217,7 +225,7 @@ var File_loader_proto protoreflect.FileDescriptor
 
 const file_loader_proto_rawDesc = "" +
 	"\n" +
-	"\floader.proto\x12\x06loader\"\xfb\x01\n" +
+	"\floader.proto\x12\x06loader\"\x9f\x02\n" +
 	"\aRequest\x12\x10\n" +
 	"\x03src\x18\x01 \x01(\tR\x03src\x12\x18\n" +
 	"\aDstHost\x18\x02 \x01(\tR\aDstHost\x12\x18\n" +
@@ -231,7 +239,9 @@ const file_loader_proto_rawDesc = "" +
 	"\n" +
 	"timeformat\x18\b \x01(\tR\n" +
 	"timeformat\x12\x1a\n" +
-	"\btimezone\x18\t \x01(\tR\btimezone\"\x96\x01\n" +
+	"\btimezone\x18\t \x01(\tR\btimezone\x12\"\n" +
+	"\fdelayForTest\x18\n" +
+	" \x01(\x03R\fdelayForTest\"\x96\x01\n" +
 	"\bProgress\x12\x10\n" +
 	"\x03src\x18\x01 \x01(\tR\x03src\x12\x14\n" +
 	"\x05state\x18\x03 \x01(\x05R\x05state\x12\x18\n" +

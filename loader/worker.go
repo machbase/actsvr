@@ -23,10 +23,11 @@ const (
 )
 
 type Worker struct {
-	timeformat string
-	tz         string
-	skipHeader bool
-	log        *util.Log
+	timeformat   string
+	tz           string
+	skipHeader   bool
+	delayForTest time.Duration
+	log          *util.Log
 }
 
 func (w *Worker) PreStart(ctx *actor.Context) error {
@@ -56,6 +57,7 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext) {
 	w.timeformat = req.Timeformat
 	w.skipHeader = req.SkipHeader
 	w.tz = req.Timezone
+	w.delayForTest = time.Duration(req.DelayForTest)
 
 	data, err := os.Open(req.Src)
 	if err != nil {
@@ -137,6 +139,10 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext) {
 			appender.Close()
 			replyError(err)
 			return
+		}
+		// simulate some processing delay
+		if w.delayForTest > 0 {
+			time.Sleep(w.delayForTest)
 		}
 
 		if ts := time.Now(); ts.Sub(now) > 1*time.Second {
