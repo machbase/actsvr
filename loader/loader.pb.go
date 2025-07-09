@@ -30,6 +30,8 @@ type Request struct {
 	DstPass       string                 `protobuf:"bytes,5,opt,name=DstPass,proto3" json:"DstPass,omitempty"`
 	DstTable      string                 `protobuf:"bytes,6,opt,name=DstTable,proto3" json:"DstTable,omitempty"`
 	SkipHeader    bool                   `protobuf:"varint,7,opt,name=skipHeader,proto3" json:"skipHeader,omitempty"`
+	Timeformat    string                 `protobuf:"bytes,8,opt,name=timeformat,proto3" json:"timeformat,omitempty"`
+	Timezone      string                 `protobuf:"bytes,9,opt,name=timezone,proto3" json:"timezone,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -111,6 +113,20 @@ func (x *Request) GetSkipHeader() bool {
 		return x.SkipHeader
 	}
 	return false
+}
+
+func (x *Request) GetTimeformat() string {
+	if x != nil {
+		return x.Timeformat
+	}
+	return ""
+}
+
+func (x *Request) GetTimezone() string {
+	if x != nil {
+		return x.Timezone
+	}
+	return ""
 }
 
 type Progress struct {
@@ -201,7 +217,7 @@ var File_loader_proto protoreflect.FileDescriptor
 
 const file_loader_proto_rawDesc = "" +
 	"\n" +
-	"\floader.proto\x12\x06loader\"\xbf\x01\n" +
+	"\floader.proto\x12\x06loader\"\xfb\x01\n" +
 	"\aRequest\x12\x10\n" +
 	"\x03src\x18\x01 \x01(\tR\x03src\x12\x18\n" +
 	"\aDstHost\x18\x02 \x01(\tR\aDstHost\x12\x18\n" +
@@ -211,7 +227,11 @@ const file_loader_proto_rawDesc = "" +
 	"\bDstTable\x18\x06 \x01(\tR\bDstTable\x12\x1e\n" +
 	"\n" +
 	"skipHeader\x18\a \x01(\bR\n" +
-	"skipHeader\"\x96\x01\n" +
+	"skipHeader\x12\x1e\n" +
+	"\n" +
+	"timeformat\x18\b \x01(\tR\n" +
+	"timeformat\x12\x1a\n" +
+	"\btimezone\x18\t \x01(\tR\btimezone\"\x96\x01\n" +
 	"\bProgress\x12\x10\n" +
 	"\x03src\x18\x01 \x01(\tR\x03src\x12\x14\n" +
 	"\x05state\x18\x03 \x01(\x05R\x05state\x12\x18\n" +

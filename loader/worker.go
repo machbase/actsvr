@@ -22,9 +22,18 @@ const (
 	WorkStateError
 )
 
-type Worker struct{}
+type Worker struct {
+	timeformat string
+	tz         string
+	skipHeader bool
+	log        *util.Log
+}
 
-func (w *Worker) PreStart(ctx *actor.Context) error { return nil }
+func (w *Worker) PreStart(ctx *actor.Context) error {
+	w.log = ctx.ActorSystem().Logger().(*util.Log)
+	return nil
+}
+
 func (w *Worker) PostStop(ctx *actor.Context) error { return nil }
 
 func (w *Worker) Receive(ctx *actor.ReceiveContext) {
@@ -39,10 +48,14 @@ func (w *Worker) Receive(ctx *actor.ReceiveContext) {
 func (w *Worker) doImport(ctx *actor.ReceiveContext) {
 	req := ctx.Message().(*Request)
 	replyError := func(err error) {
+		w.log.Errorf("Worker %s error: %v", ctx.Self().Name(), err)
 		prog := &Progress{Src: req.Src, State: int32(WorkStateError), Message: err.Error()}
 		ctx.Tell(ctx.Sender(), prog)
 		ctx.Err(err)
 	}
+	w.timeformat = req.Timeformat
+	w.skipHeader = req.SkipHeader
+	w.tz = req.Timezone
 
 	data, err := os.Open(req.Src)
 	if err != nil {
@@ -88,30 +101,7 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext) {
 		replyError(err)
 		return
 	}
-
-	converters := make([]func(string) any, len(cols))
-	for i, col := range cols {
-		switch col.Type {
-		case api.ColumnTypeShort, api.ColumnTypeUShort, api.ColumnTypeInteger, api.ColumnTypeUInteger:
-			converters[i] = func(s string) any { v, _ := strconv.Atoi(s); return v }
-		case api.ColumnTypeLong, api.ColumnTypeULong:
-			converters[i] = func(s string) any { v, _ := strconv.ParseInt(s, 10, 64); return v }
-		case api.ColumnTypeFloat, api.ColumnTypeDouble:
-			converters[i] = func(s string) any { v, _ := strconv.ParseFloat(s, 64); return v }
-		case api.ColumnTypeVarchar, api.ColumnTypeText:
-			converters[i] = func(s string) any { return s }
-		case api.ColumnTypeDatetime:
-			converters[i] = func(s string) any { v, _ := strconv.ParseInt(s, 10, 64); return v }
-		case api.ColumnTypeIPv4:
-			converters[i] = func(s string) any { return s }
-		case api.ColumnTypeIPv6:
-			converters[i] = func(s string) any { return s }
-		case api.ColumnTypeJSON:
-			converters[i] = func(s string) any { return s }
-		case api.ColumnTypeUnknown:
-			converters[i] = func(s string) any { return s }
-		}
-	}
+	converters := w.buildConverters(cols)
 
 	prog := &Progress{Src: req.Src, State: int32(WorkStateIdle)}
 	ctx.Tell(ctx.Sender(), prog)
@@ -135,7 +125,12 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext) {
 		}
 		values := make([]any, len(fields))
 		for i, field := range fields {
-			values[i] = converters[i](field)
+			values[i], err = converters[i](field)
+			if err != nil {
+				appender.Close()
+				replyError(err)
+				return
+			}
 		}
 
 		if err := appender.Append(values...); err != nil {
@@ -162,4 +157,57 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext) {
 	}
 	prog = &Progress{Src: req.Src, State: int32(WorkStateDone), Success: succ, Fail: fail}
 	ctx.Tell(ctx.Sender(), prog)
+}
+
+func (w *Worker) buildConverters(cols api.Columns) []func(string) (any, error) {
+	converters := make([]func(string) (any, error), len(cols))
+	for i, col := range cols {
+		switch col.Type {
+		case api.ColumnTypeShort, api.ColumnTypeUShort, api.ColumnTypeInteger, api.ColumnTypeUInteger:
+			converters[i] = func(s string) (any, error) { v, _ := strconv.Atoi(s); return v, nil }
+		case api.ColumnTypeLong, api.ColumnTypeULong:
+			converters[i] = func(s string) (any, error) { v, _ := strconv.ParseInt(s, 10, 64); return v, nil }
+		case api.ColumnTypeFloat, api.ColumnTypeDouble:
+			converters[i] = func(s string) (any, error) { v, _ := strconv.ParseFloat(s, 64); return v, nil }
+		case api.ColumnTypeVarchar, api.ColumnTypeText:
+			converters[i] = func(s string) (any, error) { return s, nil }
+		case api.ColumnTypeDatetime:
+			converters[i] = func(s string) (any, error) {
+				switch w.timeformat {
+				case "s":
+					v, _ := strconv.ParseInt(s, 10, 64)
+					return v * int64(time.Second), nil
+				case "ms":
+					v, _ := strconv.ParseInt(s, 10, 64)
+					return v * int64(time.Millisecond), nil
+				case "us":
+					v, _ := strconv.ParseInt(s, 10, 64)
+					return v * int64(time.Microsecond), nil
+				case "ns":
+					v, _ := strconv.ParseInt(s, 10, 64)
+					return v, nil
+				default:
+					if w.timeformat != "" {
+						t, err := time.ParseInLocation(w.timeformat, s, time.Local)
+						if err != nil {
+							return nil, err
+						}
+						return t.UnixNano(), nil
+					} else {
+						v, _ := strconv.ParseInt(s, 10, 64)
+						return v, nil
+					}
+				}
+			}
+		case api.ColumnTypeIPv4:
+			converters[i] = func(s string) (any, error) { return s, nil }
+		case api.ColumnTypeIPv6:
+			converters[i] = func(s string) (any, error) { return s, nil }
+		case api.ColumnTypeJSON:
+			converters[i] = func(s string) (any, error) { return s, nil }
+		case api.ColumnTypeUnknown:
+			converters[i] = func(s string) (any, error) { return s, nil }
+		}
+	}
+	return converters
 }

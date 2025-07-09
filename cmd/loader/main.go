@@ -1,7 +1,10 @@
 package main
 
-import "actsvr/loader"
+import (
+	"actsvr/loader"
+	"os"
+)
 
 func main() {
-	loader.Main()
+	os.Exit(loader.Main())
 }

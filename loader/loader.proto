@@ -12,6 +12,8 @@ message Request {
   string DstPass = 5;
   string DstTable = 6;
   bool   skipHeader = 7;
+  string timeformat = 8;
+  string timezone = 9;
 }
 
 message Progress {

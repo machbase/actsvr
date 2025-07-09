@@ -26,7 +26,7 @@ import (
 //	       -db-table TAG \
 //	       -skip-header  \
 //		      ./data1/CN7_2023-04-06_15-57-39.CSV ./data1/CN7_2023-04-07_09-16-36.CSV
-func Main() {
+func Main() int {
 	runner := NewRunner()
 
 	ctx := context.Background()
@@ -60,7 +60,7 @@ func Main() {
 	if err := svr.Shutdown(ctx); err != nil {
 		panic(err)
 	}
-	os.Exit(0)
+	return 0
 }
 
 type Runner struct {
@@ -70,6 +70,8 @@ type Runner struct {
 	dbPass     string
 	dbTable    string
 	skipHeader bool
+	timeformat string
+	tz         string
 
 	files    []string
 	workerWg sync.WaitGroup
@@ -94,6 +96,8 @@ func NewRunner() *Runner {
 	flag.StringVar(&runner.dbPass, "db-pass", runner.dbPass, "Database password")
 	flag.StringVar(&runner.dbTable, "db-table", runner.dbTable, "Database table name")
 	flag.BoolVar(&runner.skipHeader, "skip-header", runner.skipHeader, "Skip the first line of the CSV file (header)")
+	flag.StringVar(&runner.timeformat, "timeformat", "ns", "Time format for the CSV file, e.g., 'ns', 'us', 'ms', 's', '2006-01-02 15:04:05'")
+	flag.StringVar(&runner.tz, "tz", "Local", "Time zone for the CSV file, e.g., 'UTC', 'Local', 'Asia/Seoul'")
 	return runner
 }
 
@@ -126,6 +130,8 @@ func (c *Runner) Receive(ctx *actor.ReceiveContext) {
 				DstPass:    c.dbPass,
 				DstTable:   c.dbTable,
 				SkipHeader: c.skipHeader,
+				Timeformat: c.timeformat,
+				Timezone:   c.tz,
 			}
 			wpid := ctx.Spawn(workerId, worker, actor.WithLongLived())
 			ctx.Watch(wpid)

@@ -28,10 +28,17 @@ const (
 )
 
 type Worker struct {
+	log *util.Log // Logger
 }
 
-func (w *Worker) PreStart(ctx *actor.Context) error { return nil }
-func (w *Worker) PostStop(ctx *actor.Context) error { return nil }
+func (w *Worker) PreStart(ctx *actor.Context) error {
+	w.log = ctx.ActorSystem().Logger().(*util.Log)
+	return nil
+}
+
+func (w *Worker) PostStop(ctx *actor.Context) error {
+	return nil
+}
 
 func (w *Worker) Receive(ctx *actor.ReceiveContext) {
 	switch msg := ctx.Message().(type) {
@@ -154,7 +161,7 @@ func (w *Worker) processImport(inputFile string, progReader *util.ProgressReader
 		}
 		buff.Reset()
 	} else {
-		fmt.Printf("ID: %s\n", tripId)
+		w.log.Printf("ID: %s", tripId)
 	}
 
 	csvReader := csv.NewReader(progReader)

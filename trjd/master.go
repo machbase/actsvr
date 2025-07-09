@@ -2,6 +2,7 @@ package trjd
 
 import (
 	"actsvr/feature"
+	"actsvr/util"
 	"context"
 	"fmt"
 	"sync"
@@ -24,6 +25,7 @@ type Master struct {
 	workers     []string
 	workersLock sync.RWMutex
 	wrokerSeq   int64
+	log         *util.Log // Logger
 }
 
 var _ feature.Feature = (*Master)(nil)
@@ -47,6 +49,7 @@ func (c *Master) Start(ctx context.Context, actorSystem actor.ActorSystem) error
 		),
 	)
 	c.pid = pid
+	c.log = actorSystem.Logger().(*util.Log)
 	return err
 }
 
@@ -79,7 +82,7 @@ func (c *Master) Receive(ctx *actor.ReceiveContext) {
 func (c *Master) terminatedWorker(msg *goaktpb.Terminated) {
 	c.workersLock.Lock()
 	defer c.workersLock.Unlock()
-	fmt.Println("------> Worker terminated:", msg.ActorId)
+	c.log.Println("Worker terminated:", msg.ActorId)
 	// If a worker terminates, we can remove it from the list
 	for i, w := range c.workers {
 		if w == msg.ActorId {
