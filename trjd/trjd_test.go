@@ -3,6 +3,7 @@ package trjd
 import (
 	"context"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -41,4 +42,18 @@ func createTables() {
 	if err := result.Err(); err != nil {
 		panic(err)
 	}
+}
+
+func TestTRJD(t *testing.T) {
+	os.Args = []string{
+		"trjd",
+		"-db-host", "127.0.0.1",
+		"-db-port", strconv.Itoa(testServer.MachPort()),
+		"-db-user", "sys",
+		"-db-pass", "manager",
+		"-db-table", "trip",
+		"./test_data/tmp/data1/CN7_2023-04-06_15-57-39.CSV",
+	}
+
+	Main()
 }
