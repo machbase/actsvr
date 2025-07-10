@@ -6,15 +6,10 @@ option go_package = "actsvr/loader";
 
 message Request {
   string src = 1;
-  string DstHost = 2;
-  int32  DstPort = 3;
-  string DstUser = 4;
-  string DstPass = 5;
-  string DstTable = 6;
-  bool   skipHeader = 7;
-  string timeformat = 8;
-  string timezone = 9;
-  int64 delayForTest = 10; // for testing purposes, in nanoseconds
+  bool   skipHeader = 2;
+  string timeformat = 3;
+  string timezone = 4;
+  int64 delayForTest = 5; // for testing purposes, in nanoseconds
 }
 
 message Progress {

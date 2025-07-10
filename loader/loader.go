@@ -141,6 +141,15 @@ func (c *Runner) Receive(ctx *actor.ReceiveContext) {
 			c.multiBar = &progressbar.MultiBar{Config: cfg}
 		}
 
+		conf := &Config{
+			DstHost:          c.dbHost,
+			DstPort:          c.dbPort,
+			DstUser:          c.dbUser,
+			DstPass:          c.dbPass,
+			DstTable:         c.dbTable,
+			ProgressInterval: 1 * time.Second,
+		}
+
 		for i, file := range c.files {
 			workerId := fmt.Sprintf("worker-%d", i+1)
 			c.log.Println("Importing ", workerId, " ", file)
@@ -152,14 +161,9 @@ func (c *Runner) Receive(ctx *actor.ReceiveContext) {
 				c.bars[file] = bar
 			}
 
-			worker := &Worker{}
+			worker := conf.NewWorker()
 			req := &Request{
 				Src:          file,
-				DstHost:      c.dbHost,
-				DstPort:      int32(c.dbPort),
-				DstUser:      c.dbUser,
-				DstPass:      c.dbPass,
-				DstTable:     c.dbTable,
 				SkipHeader:   c.skipHeader,
 				Timeformat:   c.timeformat,
 				Timezone:     c.tz,

@@ -22,12 +22,28 @@ const (
 	WorkStateError
 )
 
+type Config struct {
+	DstHost          string        `json:"DstHost,omitempty"`
+	DstPort          int           `json:"DstPort,omitempty"`
+	DstUser          string        `json:"DstUser,omitempty"`
+	DstPass          string        `json:"DstPass,omitempty"`
+	DstTable         string        `json:"DstTable,omitempty"`
+	ProgressInterval time.Duration `json:"ProgressInterval,omitempty"`
+}
+
+func (c *Config) NewWorker() *Worker {
+	return &Worker{
+		conf: c,
+	}
+}
+
 type Worker struct {
 	timeformat   string
 	tz           string
 	skipHeader   bool
 	delayForTest time.Duration
 	log          *util.Log
+	conf         *Config
 }
 
 func (w *Worker) PreStart(ctx *actor.Context) error {
@@ -73,9 +89,9 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext) {
 
 	// machcli database
 	db, err := machcli.NewDatabase(&machcli.Config{
-		Host:         req.DstHost,
-		Port:         int(req.DstPort),
-		TrustUsers:   map[string]string{req.DstUser: req.DstPass},
+		Host:         w.conf.DstHost,
+		Port:         int(w.conf.DstPort),
+		TrustUsers:   map[string]string{w.conf.DstUser: w.conf.DstPass},
 		MaxOpenConn:  -1,
 		MaxOpenQuery: -1,
 	})
@@ -85,14 +101,14 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext) {
 	}
 	defer db.Close()
 
-	conn, err := db.Connect(ctx.Context(), api.WithPassword(req.DstUser, req.DstPass))
+	conn, err := db.Connect(ctx.Context(), api.WithPassword(w.conf.DstUser, w.conf.DstPass))
 	if err != nil {
 		replyError(err)
 		return
 	}
 	defer conn.Close()
 
-	appender, err := conn.Appender(ctx.Context(), req.DstTable)
+	appender, err := conn.Appender(ctx.Context(), w.conf.DstTable)
 	if err != nil {
 		replyError(err)
 		return
@@ -111,6 +127,10 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext) {
 	now := time.Now()
 	csvReader := csv.NewReader(progReader)
 	shouleSkipHeader := req.SkipHeader
+	progressInterval := w.conf.ProgressInterval
+	if progressInterval <= 0 {
+		progressInterval = 1 * time.Second // default progress interval
+	}
 	for {
 		fields, err := csvReader.Read()
 		if err != nil {
@@ -145,7 +165,7 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext) {
 			time.Sleep(w.delayForTest)
 		}
 
-		if ts := time.Now(); ts.Sub(now) > 1*time.Second {
+		if ts := time.Now(); ts.Sub(now) > progressInterval {
 			now = ts
 			prog = &Progress{
 				Src:      req.Src,

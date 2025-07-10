@@ -24,15 +24,10 @@ const (
 type Request struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Src           string                 `protobuf:"bytes,1,opt,name=src,proto3" json:"src,omitempty"`
-	DstHost       string                 `protobuf:"bytes,2,opt,name=DstHost,proto3" json:"DstHost,omitempty"`
-	DstPort       int32                  `protobuf:"varint,3,opt,name=DstPort,proto3" json:"DstPort,omitempty"`
-	DstUser       string                 `protobuf:"bytes,4,opt,name=DstUser,proto3" json:"DstUser,omitempty"`
-	DstPass       string                 `protobuf:"bytes,5,opt,name=DstPass,proto3" json:"DstPass,omitempty"`
-	DstTable      string                 `protobuf:"bytes,6,opt,name=DstTable,proto3" json:"DstTable,omitempty"`
-	SkipHeader    bool                   `protobuf:"varint,7,opt,name=skipHeader,proto3" json:"skipHeader,omitempty"`
-	Timeformat    string                 `protobuf:"bytes,8,opt,name=timeformat,proto3" json:"timeformat,omitempty"`
-	Timezone      string                 `protobuf:"bytes,9,opt,name=timezone,proto3" json:"timezone,omitempty"`
-	DelayForTest  int64                  `protobuf:"varint,10,opt,name=delayForTest,proto3" json:"delayForTest,omitempty"` // for testing purposes, in nanoseconds
+	SkipHeader    bool                   `protobuf:"varint,2,opt,name=skipHeader,proto3" json:"skipHeader,omitempty"`
+	Timeformat    string                 `protobuf:"bytes,3,opt,name=timeformat,proto3" json:"timeformat,omitempty"`
+	Timezone      string                 `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	DelayForTest  int64                  `protobuf:"varint,5,opt,name=delayForTest,proto3" json:"delayForTest,omitempty"` // for testing purposes, in nanoseconds
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -70,41 +65,6 @@ func (*Request) Descriptor() ([]byte, []int) {
 func (x *Request) GetSrc() string {
 	if x != nil {
 		return x.Src
-	}
-	return ""
-}
-
-func (x *Request) GetDstHost() string {
-	if x != nil {
-		return x.DstHost
-	}
-	return ""
-}
-
-func (x *Request) GetDstPort() int32 {
-	if x != nil {
-		return x.DstPort
-	}
-	return 0
-}
-
-func (x *Request) GetDstUser() string {
-	if x != nil {
-		return x.DstUser
-	}
-	return ""
-}
-
-func (x *Request) GetDstPass() string {
-	if x != nil {
-		return x.DstPass
-	}
-	return ""
-}
-
-func (x *Request) GetDstTable() string {
-	if x != nil {
-		return x.DstTable
 	}
 	return ""
 }
@@ -225,23 +185,17 @@ var File_loader_proto protoreflect.FileDescriptor
 
 const file_loader_proto_rawDesc = "" +
 	"\n" +
-	"\floader.proto\x12\x06loader\"\x9f\x02\n" +
+	"\floader.proto\x12\x06loader\"\x9b\x01\n" +
 	"\aRequest\x12\x10\n" +
-	"\x03src\x18\x01 \x01(\tR\x03src\x12\x18\n" +
-	"\aDstHost\x18\x02 \x01(\tR\aDstHost\x12\x18\n" +
-	"\aDstPort\x18\x03 \x01(\x05R\aDstPort\x12\x18\n" +
-	"\aDstUser\x18\x04 \x01(\tR\aDstUser\x12\x18\n" +
-	"\aDstPass\x18\x05 \x01(\tR\aDstPass\x12\x1a\n" +
-	"\bDstTable\x18\x06 \x01(\tR\bDstTable\x12\x1e\n" +
+	"\x03src\x18\x01 \x01(\tR\x03src\x12\x1e\n" +
 	"\n" +
-	"skipHeader\x18\a \x01(\bR\n" +
+	"skipHeader\x18\x02 \x01(\bR\n" +
 	"skipHeader\x12\x1e\n" +
 	"\n" +
-	"timeformat\x18\b \x01(\tR\n" +
+	"timeformat\x18\x03 \x01(\tR\n" +
 	"timeformat\x12\x1a\n" +
-	"\btimezone\x18\t \x01(\tR\btimezone\x12\"\n" +
-	"\fdelayForTest\x18\n" +
-	" \x01(\x03R\fdelayForTest\"\x96\x01\n" +
+	"\btimezone\x18\x04 \x01(\tR\btimezone\x12\"\n" +
+	"\fdelayForTest\x18\x05 \x01(\x03R\fdelayForTest\"\x96\x01\n" +
 	"\bProgress\x12\x10\n" +
 	"\x03src\x18\x01 \x01(\tR\x03src\x12\x14\n" +
 	"\x05state\x18\x03 \x01(\x05R\x05state\x12\x18\n" +
