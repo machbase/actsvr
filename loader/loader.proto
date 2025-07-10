@@ -5,11 +5,7 @@ package loader;
 option go_package = "actsvr/loader";
 
 message Request {
-  string src = 1;
-  bool   skipHeader = 2;
-  string timeformat = 3;
-  string timezone = 4;
-  int64 delayForTest = 5; // for testing purposes, in nanoseconds
+  string cmd = 1;
 }
 
 message Progress {

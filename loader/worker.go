@@ -23,27 +23,49 @@ const (
 )
 
 type Config struct {
-	DstHost          string        `json:"DstHost,omitempty"`
-	DstPort          int           `json:"DstPort,omitempty"`
-	DstUser          string        `json:"DstUser,omitempty"`
-	DstPass          string        `json:"DstPass,omitempty"`
-	DstTable         string        `json:"DstTable,omitempty"`
-	ProgressInterval time.Duration `json:"ProgressInterval,omitempty"`
+	DstHost          string
+	DstPort          int
+	DstUser          string
+	DstPass          string
+	DstTable         string
+	ProgressInterval time.Duration
+	Timeformat       string         // e.g., "ns", "us", "ms", "s", "2006-01-02 15:04:05"
+	Timezone         string         // e.g., "UTC",
+	SkipHeader       bool           // whether to skip the first line (header) in CSV files
+	DelayForTest     time.Duration  // for testing purposes, in nanoseconds
+	tz               *time.Location // Timezone for parsing datetime fields
 }
 
-func (c *Config) NewWorker() *Worker {
+func NewConfig() *Config {
+	return &Config{
+		DstHost:          "127.0.0.1",
+		DstPort:          5656,
+		DstUser:          "sys",
+		DstPass:          "manager",
+		DstTable:         "",
+		ProgressInterval: 1 * time.Second,
+	}
+}
+
+func (c *Config) NewWorker(input string) *Worker {
+	var err error
+	c.tz = time.Local
+	if c.Timezone != "" {
+		c.tz, err = time.LoadLocation(c.Timezone)
+		if err != nil {
+			panic("Invalid timezone: " + c.Timezone)
+		}
+	}
 	return &Worker{
-		conf: c,
+		conf:  c,
+		input: input,
 	}
 }
 
 type Worker struct {
-	timeformat   string
-	tz           string
-	skipHeader   bool
-	delayForTest time.Duration
-	log          *util.Log
-	conf         *Config
+	log   *util.Log
+	conf  *Config
+	input string
 }
 
 func (w *Worker) PreStart(ctx *actor.Context) error {
@@ -63,19 +85,14 @@ func (w *Worker) Receive(ctx *actor.ReceiveContext) {
 }
 
 func (w *Worker) doImport(ctx *actor.ReceiveContext) {
-	req := ctx.Message().(*Request)
 	replyError := func(err error) {
 		w.log.Errorf("Worker %s error: %v", ctx.Self().Name(), err)
-		prog := &Progress{Src: req.Src, State: int32(WorkStateError), Message: err.Error()}
+		prog := &Progress{Src: w.input, State: int32(WorkStateError), Message: err.Error()}
 		ctx.Tell(ctx.Sender(), prog)
 		ctx.Err(err)
 	}
-	w.timeformat = req.Timeformat
-	w.skipHeader = req.SkipHeader
-	w.tz = req.Timezone
-	w.delayForTest = time.Duration(req.DelayForTest)
 
-	data, err := os.Open(req.Src)
+	data, err := os.Open(w.input)
 	if err != nil {
 		replyError(err)
 		return
@@ -121,12 +138,12 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext) {
 	}
 	converters := w.buildConverters(cols)
 
-	prog := &Progress{Src: req.Src, State: int32(WorkStateIdle)}
+	prog := &Progress{Src: w.input, State: int32(WorkStateIdle)}
 	ctx.Tell(ctx.Sender(), prog)
 
 	now := time.Now()
 	csvReader := csv.NewReader(progReader)
-	shouleSkipHeader := req.SkipHeader
+	shouleSkipHeader := w.conf.SkipHeader
 	progressInterval := w.conf.ProgressInterval
 	if progressInterval <= 0 {
 		progressInterval = 1 * time.Second // default progress interval
@@ -161,14 +178,14 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext) {
 			return
 		}
 		// simulate some processing delay
-		if w.delayForTest > 0 {
-			time.Sleep(w.delayForTest)
+		if w.conf.DelayForTest > 0 {
+			time.Sleep(w.conf.DelayForTest)
 		}
 
 		if ts := time.Now(); ts.Sub(now) > progressInterval {
 			now = ts
 			prog = &Progress{
-				Src:      req.Src,
+				Src:      w.input,
 				State:    int32(WorkStateProgress),
 				Progress: progReader.Progress(),
 			}
@@ -181,7 +198,7 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext) {
 		replyError(err)
 		return
 	}
-	prog = &Progress{Src: req.Src, State: int32(WorkStateDone), Success: succ, Fail: fail}
+	prog = &Progress{Src: w.input, State: int32(WorkStateDone), Success: succ, Fail: fail}
 	ctx.Tell(ctx.Sender(), prog)
 }
 
@@ -199,7 +216,7 @@ func (w *Worker) buildConverters(cols api.Columns) []func(string) (any, error) {
 			converters[i] = func(s string) (any, error) { return s, nil }
 		case api.ColumnTypeDatetime:
 			converters[i] = func(s string) (any, error) {
-				switch w.timeformat {
+				switch w.conf.Timeformat {
 				case "s":
 					v, _ := strconv.ParseInt(s, 10, 64)
 					return v * int64(time.Second), nil
@@ -213,8 +230,8 @@ func (w *Worker) buildConverters(cols api.Columns) []func(string) (any, error) {
 					v, _ := strconv.ParseInt(s, 10, 64)
 					return v, nil
 				default:
-					if w.timeformat != "" {
-						t, err := time.ParseInLocation(w.timeformat, s, time.Local)
+					if w.conf.Timeformat != "" {
+						t, err := time.ParseInLocation(w.conf.Timeformat, s, w.conf.tz)
 						if err != nil {
 							return nil, err
 						}

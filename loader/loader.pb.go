@@ -23,11 +23,7 @@ const (
 
 type Request struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Src           string                 `protobuf:"bytes,1,opt,name=src,proto3" json:"src,omitempty"`
-	SkipHeader    bool                   `protobuf:"varint,2,opt,name=skipHeader,proto3" json:"skipHeader,omitempty"`
-	Timeformat    string                 `protobuf:"bytes,3,opt,name=timeformat,proto3" json:"timeformat,omitempty"`
-	Timezone      string                 `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
-	DelayForTest  int64                  `protobuf:"varint,5,opt,name=delayForTest,proto3" json:"delayForTest,omitempty"` // for testing purposes, in nanoseconds
+	Cmd           string                 `protobuf:"bytes,1,opt,name=cmd,proto3" json:"cmd,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -62,39 +58,11 @@ func (*Request) Descriptor() ([]byte, []int) {
 	return file_loader_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *Request) GetSrc() string {
+func (x *Request) GetCmd() string {
 	if x != nil {
-		return x.Src
+		return x.Cmd
 	}
 	return ""
-}
-
-func (x *Request) GetSkipHeader() bool {
-	if x != nil {
-		return x.SkipHeader
-	}
-	return false
-}
-
-func (x *Request) GetTimeformat() string {
-	if x != nil {
-		return x.Timeformat
-	}
-	return ""
-}
-
-func (x *Request) GetTimezone() string {
-	if x != nil {
-		return x.Timezone
-	}
-	return ""
-}
-
-func (x *Request) GetDelayForTest() int64 {
-	if x != nil {
-		return x.DelayForTest
-	}
-	return 0
 }
 
 type Progress struct {
@@ -185,17 +153,9 @@ var File_loader_proto protoreflect.FileDescriptor
 
 const file_loader_proto_rawDesc = "" +
 	"\n" +
-	"\floader.proto\x12\x06loader\"\x9b\x01\n" +
+	"\floader.proto\x12\x06loader\"\x1b\n" +
 	"\aRequest\x12\x10\n" +
-	"\x03src\x18\x01 \x01(\tR\x03src\x12\x1e\n" +
-	"\n" +
-	"skipHeader\x18\x02 \x01(\bR\n" +
-	"skipHeader\x12\x1e\n" +
-	"\n" +
-	"timeformat\x18\x03 \x01(\tR\n" +
-	"timeformat\x12\x1a\n" +
-	"\btimezone\x18\x04 \x01(\tR\btimezone\x12\"\n" +
-	"\fdelayForTest\x18\x05 \x01(\x03R\fdelayForTest\"\x96\x01\n" +
+	"\x03cmd\x18\x01 \x01(\tR\x03cmd\"\x96\x01\n" +
 	"\bProgress\x12\x10\n" +
 	"\x03src\x18\x01 \x01(\tR\x03src\x12\x14\n" +
 	"\x05state\x18\x03 \x01(\x05R\x05state\x12\x18\n" +

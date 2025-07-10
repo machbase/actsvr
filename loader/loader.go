@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	sync "sync"
-	"time"
 
 	"fortio.org/progressbar"
 	"github.com/tochemey/goakt/v3/actor"
@@ -41,7 +40,53 @@ func Main() int {
 		panic(err)
 	}
 
-	if runner.dbTable == "" {
+	runner.Start(ctx, svr.ActorSystem())
+	runner.Wait()
+
+	if err := svr.Shutdown(ctx); err != nil {
+		panic(err)
+	}
+	return 0
+}
+
+type Runner struct {
+	Conf   *Config
+	silent bool // if true, suppresses progress output
+
+	files    []string
+	workerWg sync.WaitGroup
+	startWg  chan struct{}
+	log      *util.Log
+	bars     map[string]*progressbar.Bar
+	multiBar *progressbar.MultiBar
+}
+
+func NewRunner() *Runner {
+	r := &Runner{
+		Conf:    NewConfig(),
+		silent:  false,
+		files:   make([]string, 0, len(os.Args)-1),
+		startWg: make(chan struct{}),
+		bars:    make(map[string]*progressbar.Bar),
+	}
+
+	conf := r.Conf
+	flag.StringVar(&conf.DstHost, "db-host", conf.DstHost, "Database host")
+	flag.IntVar(&conf.DstPort, "db-port", conf.DstPort, "Database port")
+	flag.StringVar(&conf.DstUser, "db-user", conf.DstUser, "Database user")
+	flag.StringVar(&conf.DstPass, "db-pass", conf.DstPass, "Database password")
+	flag.StringVar(&conf.DstTable, "db-table", conf.DstTable, "Database table name")
+	flag.BoolVar(&conf.SkipHeader, "skip-header", conf.SkipHeader, "Skip the first line of the CSV file (header)")
+	flag.StringVar(&conf.Timeformat, "timeformat", "ns", "Time format for the CSV file, e.g., 'ns', 'us', 'ms', 's', '2006-01-02 15:04:05'")
+	flag.StringVar(&conf.Timezone, "tz", "Local", "Time zone for the CSV file, e.g., 'UTC', 'Local', 'Asia/Seoul'")
+	flag.DurationVar(&conf.DelayForTest, "delay", 0, "Delay for testing purposes")
+	flag.BoolVar(&r.silent, "silent", false, "If true, suppresses progress output")
+
+	return r
+}
+
+func (r *Runner) Start(ctx context.Context, actorSystem actor.ActorSystem) {
+	if r.Conf.DstTable == "" {
 		flag.Usage()
 		panic("db-table is required")
 	}
@@ -54,152 +99,89 @@ func Main() int {
 		if stat.IsDir() {
 			panic("directory is not supported: " + a)
 		}
-		runner.files = append(runner.files, a)
+		r.files = append(r.files, a)
 	}
 
-	_, err := svr.ActorSystem().Spawn(ctx, "runner", runner, actor.WithLongLived())
+	_, err := actorSystem.Spawn(ctx, "runner", r, actor.WithLongLived())
 	if err != nil {
 		panic(err)
 	}
-	runner.Wait()
-
-	if err := svr.Shutdown(ctx); err != nil {
-		panic(err)
-	}
-	return 0
 }
 
-type Runner struct {
-	dbHost       string
-	dbPort       int
-	dbUser       string
-	dbPass       string
-	dbTable      string
-	skipHeader   bool
-	timeformat   string
-	tz           string
-	delayForTest time.Duration // for testing purposes, in nanoseconds
-	silent       bool          // if true, suppresses progress output
-
-	files    []string
-	workerWg sync.WaitGroup
-	startWg  chan struct{}
-	log      *util.Log
-	bars     map[string]*progressbar.Bar
-	multiBar *progressbar.MultiBar
+func (r *Runner) Wait() {
+	<-r.startWg
+	r.workerWg.Wait()
+	r.log.Println("End")
 }
 
-func NewRunner() *Runner {
-	runner := &Runner{
-		dbHost:     "127.0.0.1",
-		dbPort:     5656,
-		dbUser:     "sys",
-		dbPass:     "manager",
-		skipHeader: false,
-
-		files:   make([]string, 0, len(os.Args)-1),
-		startWg: make(chan struct{}),
-		bars:    make(map[string]*progressbar.Bar),
-	}
-	flag.StringVar(&runner.dbHost, "db-host", runner.dbHost, "Database host")
-	flag.IntVar(&runner.dbPort, "db-port", runner.dbPort, "Database port")
-	flag.StringVar(&runner.dbUser, "db-user", runner.dbUser, "Database user")
-	flag.StringVar(&runner.dbPass, "db-pass", runner.dbPass, "Database password")
-	flag.StringVar(&runner.dbTable, "db-table", runner.dbTable, "Database table name")
-	flag.BoolVar(&runner.skipHeader, "skip-header", runner.skipHeader, "Skip the first line of the CSV file (header)")
-	flag.StringVar(&runner.timeformat, "timeformat", "ns", "Time format for the CSV file, e.g., 'ns', 'us', 'ms', 's', '2006-01-02 15:04:05'")
-	flag.StringVar(&runner.tz, "tz", "Local", "Time zone for the CSV file, e.g., 'UTC', 'Local', 'Asia/Seoul'")
-	flag.BoolVar(&runner.silent, "silent", false, "If true, suppresses progress output")
-	flag.DurationVar(&runner.delayForTest, "delay", 0, "Delay for testing purposes")
-	return runner
-}
-
-func (c *Runner) Wait() {
-	<-c.startWg
-	c.workerWg.Wait()
-	c.log.Println("End")
-}
-
-func (c *Runner) PreStart(ctx *actor.Context) error {
-	c.log = ctx.ActorSystem().Logger().(*util.Log)
+func (r *Runner) PreStart(ctx *actor.Context) error {
+	r.log = ctx.ActorSystem().Logger().(*util.Log)
 	return nil
 }
-func (c *Runner) PostStop(ctx *actor.Context) error {
-	if c.multiBar != nil {
-		c.multiBar.End()
+func (r *Runner) PostStop(ctx *actor.Context) error {
+	if r.multiBar != nil {
+		r.multiBar.End()
 	}
 	return nil
 }
 
-func (c *Runner) Receive(ctx *actor.ReceiveContext) {
+func (r *Runner) Receive(ctx *actor.ReceiveContext) {
 	switch msg := ctx.Message().(type) {
 	case *goaktpb.PostStart:
 		cfg := progressbar.DefaultConfig()
 		cfg.ExtraLines = 0
 		cfg.ScreenWriter = os.Stdout
-		if !c.silent {
-			c.multiBar = &progressbar.MultiBar{Config: cfg}
+		if !r.silent {
+			r.multiBar = &progressbar.MultiBar{Config: cfg}
 		}
 
-		conf := &Config{
-			DstHost:          c.dbHost,
-			DstPort:          c.dbPort,
-			DstUser:          c.dbUser,
-			DstPass:          c.dbPass,
-			DstTable:         c.dbTable,
-			ProgressInterval: 1 * time.Second,
-		}
-
-		for i, file := range c.files {
+		for i, file := range r.files {
 			workerId := fmt.Sprintf("worker-%d", i+1)
-			c.log.Println("Importing ", workerId, " ", file)
+			r.log.Println("Importing ", workerId, " ", file)
 
-			if !c.silent {
+			if !r.silent {
 				cfg.Prefix = filepath.Base(file)
 				bar := cfg.NewBar()
-				c.multiBar.Add(bar)
-				c.bars[file] = bar
+				r.multiBar.Add(bar)
+				r.bars[file] = bar
 			}
 
-			worker := conf.NewWorker()
-			req := &Request{
-				Src:          file,
-				SkipHeader:   c.skipHeader,
-				Timeformat:   c.timeformat,
-				Timezone:     c.tz,
-				DelayForTest: int64(c.delayForTest),
-			}
+			worker := r.Conf.NewWorker(file)
 			wpid := ctx.Spawn(workerId, worker, actor.WithLongLived())
 			ctx.Watch(wpid)
-			ctx.Tell(wpid, req)
-			c.workerWg.Add(1)
+			ctx.Tell(wpid, &Request{})
+			r.workerWg.Add(1)
 		}
-		if !c.silent {
-			c.multiBar.PrefixesAlign()
+		if !r.silent {
+			r.multiBar.PrefixesAlign()
 		}
-		close(c.startWg)
+		close(r.startWg)
 	case *goaktpb.Terminated:
-		c.log.Println("Worker terminated:", msg.ActorId)
+		r.log.Println("Worker terminated:", msg.ActorId)
 	case *Progress:
 		switch State(msg.State) {
 		case WorkStateIdle:
-			c.log.Println(msg.Src, " starts")
+			r.log.Println(msg.Src, " starts")
 		case WorkStateProgress:
-			if c.silent {
-				c.log.Printf("%s progress: %.2f%%", msg.Src, msg.Progress*100)
+			pct := msg.Progress * 100
+			if pct >= 100 {
+				pct = 99
+			}
+			if r.silent {
+				r.log.Printf("%s progress: %.2f%%", msg.Src, pct)
 			} else {
-				c.bars[msg.Src].Progress(msg.Progress * 100)
+				r.bars[msg.Src].Progress(pct)
 			}
 		case WorkStateDone:
-			if c.silent {
-				c.log.Println(msg.Src, " done.", " success:", msg.Success, ", fail:", msg.Fail)
+			if r.silent {
+				r.log.Println(msg.Src, " done.", " success:", msg.Success, ", fail:", msg.Fail)
 			} else {
-				c.bars[msg.Src].Progress(100)
+				r.bars[msg.Src].Progress(100)
 			}
-			c.workerWg.Done()
+			r.workerWg.Done()
 		case WorkStateError:
-			c.log.Println(msg.Src, " ERROR: ", msg.Message)
-			c.workerWg.Done()
+			r.log.Println(msg.Src, " ERROR: ", msg.Message)
+			r.workerWg.Done()
 		}
 	default:
 		ctx.Unhandled()
