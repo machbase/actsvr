@@ -2,8 +2,17 @@ package csvrev
 
 import (
 	"fmt"
+	"os"
 	"strings"
+	"testing"
 )
+
+func TestMain(t *testing.T) {
+	os.Args = []string{"csvrev", "-header", "./test_data/test.csv"}
+	if code := Main(); code != 0 {
+		t.Fatalf("Main returned with code %d\n", code)
+	}
+}
 
 func ExampleScanner() {
 	input := strings.NewReader("Header\nLine1\nLine2\nLine3")

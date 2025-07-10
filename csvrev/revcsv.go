@@ -10,8 +10,10 @@ import (
 )
 
 func Main() int {
+	var out string
 	opt := Options{}
 	flag.BoolVar(&opt.Header, "header", false, "If true, the first line is treated as a header and returned first")
+	flag.StringVar(&out, "out", "", "Output file (default: stdout)")
 	flag.Parse()
 
 	input, err := os.Open(flag.Arg(0))
@@ -25,6 +27,18 @@ func Main() int {
 		panic(err)
 	}
 
+	var w io.Writer
+	if out == "" || out == "-" {
+		w = os.Stdout
+	} else {
+		f, err := os.OpenFile(out, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error opening output file %s: %v\n", out, err)
+			return 1
+		}
+		defer f.Close()
+		w = f
+	}
 	scanner := NewOptions(input, int(info.Size()), &opt)
 	for {
 		line, pos, err := scanner.Line()
@@ -35,7 +49,7 @@ func Main() int {
 		if line == "" {
 			continue
 		}
-		fmt.Println(line)
+		fmt.Fprintln(w, line)
 	}
 	return 0
 }

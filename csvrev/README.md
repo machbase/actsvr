@@ -5,7 +5,7 @@
 ### Usage
 
 ```sh
-csvrev [flags] <file>
+csvrev [flags] <input_file>
 ```
 
 **ex)**
@@ -13,3 +13,11 @@ csvrev [flags] <file>
 ```sh
 csvrev -header ./data/file1.csv > output.csv
 ```
+
+### Flags
+
+- `-header`
+    Keep header at the first line
+
+- `-out string`
+    Output file (default stdout)
