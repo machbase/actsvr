@@ -13,7 +13,8 @@ loader [flags...] <file1> <file2> ...
 ```sh
 loader -db-host 127.0.0.1 -db-port 5656 \
        -db-user sys -db-pass manager \
-       -db-table target_table
+       -db-table target_table \
+       ./data/file1.csv ./data/file2.csv
 ```
 
 ### Flags
