@@ -108,20 +108,20 @@ func (s *HttpServer) writeRecptnPacketData(c *gin.Context) {
 //     If REGIST_DT is not provided, it can be empty
 //     and server will set it to current time
 type RecptnPacketData struct {
-	PacketSeq          int64  `form:"PACKET_SEQ"`
-	TransmitServerNo   int    `form:"TRNSMIT_SERVER_NO"`
-	DataNo             int    `form:"DATA_NO"`
-	PkSeq              int64  `form:"PK_SEQ"`
-	AreaCode           string `form:"AREA_CODE"`
-	ModlSerial         string `form:"MODL_SERIAL"`
-	Packet             string `form:"PACKET"`
-	PacketSttusCode    string `form:"PACKET_STTUS_CODE"`
-	RecptnResultCode   string `form:"RECPTN_RESULT_CODE"`
-	RecptnResultMssage string `form:"RECPTN_RESULT_MSSAGE"`
-	ParsSeCode         string `form:"PARS_SE_CODE"`
-	RegistDe           string `form:"REGIST_DE"`
-	RegistTime         string `form:"REGIST_TIME"`
-	RegistDt           string `form:"REGIST_DT"`
+	PacketSeq          int64  `form:"PACKET_SEQ" json:"PACKET_SEQ"`
+	TransmitServerNo   int    `form:"TRNSMIT_SERVER_NO" json:"TRNSMIT_SERVER_NO"`
+	DataNo             int    `form:"DATA_NO" json:"DATA_NO"`
+	PkSeq              int64  `form:"PK_SEQ" json:"PK_SEQ"`
+	AreaCode           string `form:"AREA_CODE" json:"AREA_CODE"`
+	ModlSerial         string `form:"MODL_SERIAL" json:"MODL_SERIAL"`
+	Packet             string `form:"PACKET" json:"PACKET"`
+	PacketSttusCode    string `form:"PACKET_STTUS_CODE" json:"PACKET_STTUS_CODE"`
+	RecptnResultCode   string `form:"RECPTN_RESULT_CODE" json:"RECPTN_RESULT_CODE"`
+	RecptnResultMssage string `form:"RECPTN_RESULT_MSSAGE" json:"RECPTN_RESULT_MSSAGE"`
+	ParsSeCode         string `form:"PARS_SE_CODE" json:"PARS_SE_CODE"`
+	RegistDe           string `form:"REGIST_DE" json:"REGIST_DE"`
+	RegistTime         string `form:"REGIST_TIME" json:"REGIST_TIME"`
+	RegistDt           string `form:"REGIST_DT" json:"REGIST_DT"`
 }
 
 func (data *RecptnPacketData) Validate() error {
