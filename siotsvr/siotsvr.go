@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -43,6 +44,7 @@ type HttpServer struct {
 	dbPort int
 	dbUser string
 	dbPass string
+	pid    string
 
 	actorSystem actor.ActorSystem
 	machCli     *machcli.Database
@@ -57,6 +59,7 @@ func NewHttpServer() *HttpServer {
 		Port:    8888,
 		TempDir: "/tmp",
 
+		pid:    "./siotsvr.pid",
 		dbHost: "127.0.0.1",
 		dbPort: 5656,
 		dbUser: "sys",
@@ -66,6 +69,7 @@ func NewHttpServer() *HttpServer {
 	flag.IntVar(&s.Port, "http-port", s.Port, "the port to bind the HTTP server to")
 	flag.IntVar(&s.KeepAlive, "http-keepalive", 60, "the keep-alive period in seconds for HTTP connections")
 	flag.StringVar(&s.TempDir, "http-tempdir", s.TempDir, "the temporary directory for file uploads")
+	flag.StringVar(&s.pid, "pid", s.pid, "the file to store the process ID")
 
 	flag.StringVar(&s.dbHost, "db-host", s.dbHost, "Database host")
 	flag.IntVar(&s.dbPort, "db-port", s.dbPort, "Database port")
@@ -80,6 +84,10 @@ func (s *HttpServer) Featured() {
 }
 
 func (s *HttpServer) Start(ctx context.Context, actorSystem actor.ActorSystem) error {
+	if err := os.WriteFile(s.pid, []byte(fmt.Sprintf("%d", os.Getpid())), 0644); err != nil {
+		return fmt.Errorf("failed to write PID file: %w", err)
+	}
+
 	s.actorSystem = actorSystem
 	s.log = actorSystem.Logger().(*util.Log)
 	if err := s.openDatabase(); err != nil {
@@ -90,6 +98,11 @@ func (s *HttpServer) Start(ctx context.Context, actorSystem actor.ActorSystem) e
 }
 
 func (s *HttpServer) Stop(ctx context.Context) error {
+	defer func() {
+		if err := os.Remove(s.pid); err != nil {
+			s.log.Printf("Failed to remove PID file %s: %v", s.pid, err)
+		}
+	}()
 	s.closeDatabase()
 	s.log.Printf("Stopping HTTP server on %s:%d", s.Host, s.Port)
 	return s.httpServer.Shutdown(ctx)
