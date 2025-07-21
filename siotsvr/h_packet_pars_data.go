@@ -10,6 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const maxColumns = 64 // Maximum number of columns
+
 func (s *HttpServer) writePacketParsData(c *gin.Context) {
 	var data PacketParsData
 	var registDT string
@@ -21,7 +23,7 @@ func (s *HttpServer) writePacketParsData(c *gin.Context) {
 			return
 		}
 		registDT, _ = c.GetQuery("REGIST_DT")
-		for i := 0; i < 60; i++ {
+		for i := 0; i < maxColumns; i++ {
 			columnName := fmt.Sprintf("COLUMN%d", i)
 			if value, exists := c.GetQuery(columnName); exists {
 				existingColumns[columnName] = value
@@ -34,7 +36,7 @@ func (s *HttpServer) writePacketParsData(c *gin.Context) {
 			return
 		}
 		registDT = c.PostForm("REGIST_DT")
-		for i := 0; i < 60; i++ {
+		for i := 0; i < maxColumns; i++ {
 			columnName := fmt.Sprintf("COLUMN%d", i)
 			if value, exists := c.GetPostForm(columnName); exists {
 				existingColumns[columnName] = value
@@ -182,6 +184,10 @@ type PacketParsData struct {
 	Column57         string    `form:"COLUMN57"`
 	Column58         string    `form:"COLUMN58"`
 	Column59         string    `form:"COLUMN59"`
+	Column60         string    `form:"COLUMN60"`
+	Column61         string    `form:"COLUMN61"`
+	Column62         string    `form:"COLUMN62"`
+	Column63         string    `form:"COLUMN63"`
 }
 
 func (data *PacketParsData) Validate() error {

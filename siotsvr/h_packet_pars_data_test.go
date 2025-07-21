@@ -32,7 +32,7 @@ func TestWritePacketParsData(t *testing.T) {
 				"COLUMN0":           "Value0",
 				"COLUMN10":          "Value10",
 				"COLUMN2":           "Value2",
-				"COLUMN59":          "Value59",
+				"COLUMN63":          "Value63",
 			},
 			expectedStatus: http.StatusOK,
 			expectedBody:   "PacketParsData written successfully!",
