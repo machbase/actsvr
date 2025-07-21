@@ -29,5 +29,10 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 	r.GET("/static/", gin.WrapF(http.FileServerFS(htmlFS).ServeHTTP))
 	r.GET("/db/write/RecptnPacketData", s.writeRecptnPacketData)
 	r.POST("/db/write/RecptnPacketData", s.writeRecptnPacketData)
+	r.GET("/db/write/PacketParsData", s.writePacketParsData)
+	r.POST("/db/write/PacketParsData", s.writePacketParsData)
+	r.NoRoute(func(c *gin.Context) {
+		c.String(http.StatusNotFound, "404 Not Found")
+	})
 	return r
 }

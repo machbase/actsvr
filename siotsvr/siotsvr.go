@@ -34,6 +34,8 @@ func Main() int {
 	return 0
 }
 
+var DefaultLocation = time.Local
+
 type HttpServer struct {
 	Host      string
 	Port      int

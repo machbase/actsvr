@@ -13,13 +13,13 @@ func (s *HttpServer) writeRecptnPacketData(c *gin.Context) {
 	if c.Request.Method == http.MethodGet {
 		if err := c.ShouldBindQuery(&data); err != nil {
 			s.log.Println("Error binding query parameters:", err)
-			c.String(http.StatusBadRequest, "Invalid query parameters")
+			c.String(http.StatusBadRequest, "Invalid query parameters %s", err.Error())
 			return
 		}
 	} else {
 		if err := c.ShouldBindJSON(&data); err != nil {
 			s.log.Println("Error binding JSON body:", err)
-			c.String(http.StatusBadRequest, "Invalid JSON body")
+			c.String(http.StatusBadRequest, "Invalid JSON body, %s", err.Error())
 			return
 		}
 	}
@@ -87,19 +87,19 @@ func (s *HttpServer) writeRecptnPacketData(c *gin.Context) {
 // Validation Rules Implemented:
 //
 // Numeric Field Validation:
-// - PACKET_SEQ: Must be greater than 0 (positive integer)
-// - DATA_NO: Must be non-negative (≥ 0)
-// - PK_SEQ: Must be non-negative when provided
-// - TRNSMIT_SERVER_NO: Must be non-negative (≥ 0)
+//   - PACKET_SEQ: Must be greater than 0 (positive integer)
+//   - DATA_NO: Must be non-negative (≥ 0)
+//   - PK_SEQ: Must be non-negative when provided
+//   - TRNSMIT_SERVER_NO: Must be non-negative (≥ 0)
 //
 // String Length Validation:
-// - AREA_CODE: Maximum 10 characters
-// - MODL_SERIAL: Maximum 20 characters
-// - PACKET: Maximum 1000 characters
-// - RECPTN_RESULT_MSSAGE: Maximum 500 characters
-// - PACKET_STTUS_CODE: Maximum 4 characters
-// - PARS_SE_CODE: Maximum 4 characters
-// - RECPTN_RESULT_CODE: Maximum 10 characters
+//   - AREA_CODE: Maximum 10 characters
+//   - MODL_SERIAL: Maximum 20 characters
+//   - PACKET: Maximum 1000 characters
+//   - RECPTN_RESULT_MSSAGE: Maximum 500 characters
+//   - PACKET_STTUS_CODE: Maximum 4 characters
+//   - PARS_SE_CODE: Maximum 4 characters
+//   - RECPTN_RESULT_CODE: Maximum 10 characters
 //
 // Date/Time Format Validation:
 //   - REGIST_DE: Must follow YYYYMMDD format (8 characters)
@@ -108,19 +108,19 @@ func (s *HttpServer) writeRecptnPacketData(c *gin.Context) {
 //     If REGIST_DT is not provided, it can be empty
 //     and server will set it to current time
 type RecptnPacketData struct {
-	PacketSeq          int64  `form:"PACKET_SEQ" json:"PACKET_SEQ"`
-	TransmitServerNo   int    `form:"TRNSMIT_SERVER_NO" json:"TRNSMIT_SERVER_NO"`
-	DataNo             int    `form:"DATA_NO" json:"DATA_NO"`
-	PkSeq              int64  `form:"PK_SEQ" json:"PK_SEQ"`
-	AreaCode           string `form:"AREA_CODE" json:"AREA_CODE"`
-	ModlSerial         string `form:"MODL_SERIAL" json:"MODL_SERIAL"`
-	Packet             string `form:"PACKET" json:"PACKET"`
-	PacketSttusCode    string `form:"PACKET_STTUS_CODE" json:"PACKET_STTUS_CODE"`
-	RecptnResultCode   string `form:"RECPTN_RESULT_CODE" json:"RECPTN_RESULT_CODE"`
-	RecptnResultMssage string `form:"RECPTN_RESULT_MSSAGE" json:"RECPTN_RESULT_MSSAGE"`
-	ParsSeCode         string `form:"PARS_SE_CODE" json:"PARS_SE_CODE"`
-	RegistDe           string `form:"REGIST_DE" json:"REGIST_DE"`
-	RegistTime         string `form:"REGIST_TIME" json:"REGIST_TIME"`
+	PacketSeq          int64  `form:"PACKET_SEQ" json:"PACKET_SEQ" binding:"required"`
+	TransmitServerNo   int    `form:"TRNSMIT_SERVER_NO" json:"TRNSMIT_SERVER_NO" binding:"required"`
+	DataNo             int    `form:"DATA_NO" json:"DATA_NO" binding:"required"`
+	PkSeq              int64  `form:"PK_SEQ" json:"PK_SEQ" binding:"required"`
+	AreaCode           string `form:"AREA_CODE" json:"AREA_CODE" binding:"required"`
+	ModlSerial         string `form:"MODL_SERIAL" json:"MODL_SERIAL" binding:"required"`
+	Packet             string `form:"PACKET" json:"PACKET" binding:"required"`
+	PacketSttusCode    string `form:"PACKET_STTUS_CODE" json:"PACKET_STTUS_CODE" binding:"required"`
+	RecptnResultCode   string `form:"RECPTN_RESULT_CODE" json:"RECPTN_RESULT_CODE" binding:"required"`
+	RecptnResultMssage string `form:"RECPTN_RESULT_MSSAGE" json:"RECPTN_RESULT_MSSAGE" binding:"required"`
+	ParsSeCode         string `form:"PARS_SE_CODE" json:"PARS_SE_CODE" binding:"required"`
+	RegistDe           string `form:"REGIST_DE" json:"REGIST_DE" binding:"required"`
+	RegistTime         string `form:"REGIST_TIME" json:"REGIST_TIME" binding:"required"`
 	RegistDt           string `form:"REGIST_DT" json:"REGIST_DT"`
 }
 
@@ -205,7 +205,7 @@ func (data *RecptnPacketData) Validate() error {
 			return fmt.Errorf("invalid REGIST_DT format: %s, expected YYYY-MM-DD HH:MM:SS", data.RegistDt)
 		}
 	} else {
-		data.RegistDt = time.Now().In(time.Local).Format("2006-01-02 15:04:05")
+		data.RegistDt = time.Now().In(DefaultLocation).Format("2006-01-02 15:04:05")
 	}
 
 	return nil
