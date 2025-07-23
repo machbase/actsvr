@@ -44,6 +44,18 @@ func createTables() {
 	if err := result.Err(); err != nil {
 		panic(err)
 	}
+	result = conn.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS LOG (
+			NAME VARCHAR(200),
+			TIME DATETIME,
+			VALUE DOUBLE,
+			SVAL VARCHAR(200),
+			IVAL INT64,
+			DVAL DOUBLE
+		)`)
+	if err := result.Err(); err != nil {
+		panic(err)
+	}
 }
 
 func TestLoader(t *testing.T) {
@@ -56,8 +68,8 @@ func TestLoader(t *testing.T) {
 			"-db-port", strconv.Itoa(testServer.MachPort()),
 			"-db-user", "sys",
 			"-db-pass", "manager",
-			"-db-table", "tag",
-			"-column-names-file", "./loader/test_data/sample-cols.txt",
+			"-db-table", "LOG",
+			"-column-names-file", "./test_data/sample-cols.txt",
 			"-skip-header",
 			"-timeformat", timeformat,
 			"-tz", tz,
@@ -77,7 +89,7 @@ func TestLoader(t *testing.T) {
 			t.Fatalf("Failed to connect to database: %v", err)
 		}
 		defer conn.Close()
-		rows, err := conn.Query(ctx, "SELECT * FROM tag LIMIT 10")
+		rows, err := conn.Query(ctx, "SELECT * FROM LOG LIMIT 10")
 		if err != nil {
 			t.Fatalf("Failed to query data: %v", err)
 		}
