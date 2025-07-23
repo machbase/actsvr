@@ -277,7 +277,12 @@ func (w *Worker) buildConverters(cols api.Columns) []func(string) (any, error) {
 		case api.ColumnTypeFloat, api.ColumnTypeDouble:
 			converters[i] = func(s string) (any, error) { v, _ := strconv.ParseFloat(s, 64); return v, nil }
 		case api.ColumnTypeVarchar, api.ColumnTypeText:
-			converters[i] = func(s string) (any, error) { return s, nil }
+			converters[i] = func(s string) (any, error) {
+				if s == "" {
+					return nil, nil // handle empty string as nil
+				}
+				return s, nil
+			}
 		case api.ColumnTypeDatetime:
 			converters[i] = func(s string) (any, error) {
 				switch w.conf.Timeformat {
