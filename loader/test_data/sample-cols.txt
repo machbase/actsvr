@@ -1,0 +1,6 @@
+TIME                    NOT NULL datetime        31
+NAME                    NOT NULL varchar         50
+VALUE                   NOT NULL double          17
+SVAL                             varchar         150
+IVAL                             long            20
+DVAL                             double          17

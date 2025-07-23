@@ -57,6 +57,7 @@ func TestLoader(t *testing.T) {
 			"-db-user", "sys",
 			"-db-pass", "manager",
 			"-db-table", "tag",
+			"-column-names-file", "./loader/test_data/sample-cols.txt",
 			"-skip-header",
 			"-timeformat", timeformat,
 			"-tz", tz,

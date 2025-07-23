@@ -2,10 +2,12 @@ package loader
 
 import (
 	"actsvr/util"
+	"bufio"
 	"encoding/csv"
 	"io"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/machbase/neo-server/v8/api"
@@ -28,7 +30,8 @@ type Config struct {
 	DstUser          string
 	DstPass          string
 	DstTable         string
-	ProgressInterval time.Duration
+	ColumnNamesFile  string         // file containing column names for the CSV file
+	ProgressInterval time.Duration  //
 	Timeformat       string         // e.g., "ns", "us", "ms", "s", "2006-01-02 15:04:05"
 	Timezone         string         // e.g., "UTC",
 	SkipHeader       bool           // whether to skip the first line (header) in CSV files
@@ -104,6 +107,33 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext) {
 	progReader := util.NewProgressReader(data, fileSize)
 	defer progReader.Close()
 
+	// column names file, it contains the column names for the CSV file, one name per line
+	columnOrder := make([]string, 0)
+	if w.conf.ColumnNamesFile != "" {
+		columnNamesFile, err := os.Open(w.conf.ColumnNamesFile)
+		if err != nil {
+			replyError(err)
+			return
+		}
+		scanner := bufio.NewScanner(columnNamesFile)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if line == "" {
+				continue // skip empty lines
+			}
+			fields := strings.Fields(line)
+			if len(fields) == 0 {
+				continue // skip empty lines
+			}
+			columnOrder = append(columnOrder, strings.ToUpper(fields[0]))
+		}
+		if err := scanner.Err(); err != nil {
+			replyError(err)
+			return
+		}
+		columnNamesFile.Close()
+	}
+
 	// machcli database
 	db, err := machcli.NewDatabase(&machcli.Config{
 		Host:         w.conf.DstHost,
@@ -138,6 +168,21 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext) {
 	}
 	converters := w.buildConverters(cols)
 
+	var columnOrderIndexes []int
+	if len(columnOrder) > 0 {
+		columnOrderIndexes = make([]int, len(cols))
+		for i, col := range cols {
+			idx := -1
+			for j, name := range columnOrder {
+				if name == col.Name {
+					idx = j
+					break
+				}
+			}
+			columnOrderIndexes[i] = idx
+		}
+	}
+
 	prog := &Progress{Src: w.input, State: int32(WorkStateIdle)}
 	ctx.Tell(ctx.Sender(), prog)
 
@@ -162,13 +207,29 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext) {
 			shouleSkipHeader = false
 			continue // skip header line
 		}
-		values := make([]any, len(fields))
-		for i, field := range fields {
-			values[i], err = converters[i](field)
-			if err != nil {
-				appender.Close()
-				replyError(err)
-				return
+		var values []any
+		if len(columnOrderIndexes) > 0 {
+			values = make([]any, len(columnOrderIndexes))
+			for i, idx := range columnOrderIndexes {
+				if idx < 0 || idx >= len(fields) {
+					continue
+				}
+				values[i], err = converters[i](fields[idx])
+				if err != nil {
+					appender.Close()
+					replyError(err)
+					return
+				}
+			}
+		} else {
+			values = make([]any, len(fields))
+			for i, field := range fields {
+				values[i], err = converters[i](field)
+				if err != nil {
+					appender.Close()
+					replyError(err)
+					return
+				}
 			}
 		}
 

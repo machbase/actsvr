@@ -81,6 +81,7 @@ func NewRunner() *Runner {
 	flag.StringVar(&conf.Timezone, "tz", "Local", "Time zone for the CSV file, e.g., 'UTC', 'Local', 'Asia/Seoul'")
 	flag.DurationVar(&conf.DelayForTest, "delay", 0, "Delay for testing purposes")
 	flag.BoolVar(&r.silent, "silent", false, "If true, suppresses progress output")
+	flag.StringVar(&conf.ColumnNamesFile, "column-names-file", "", "File containing column names for the CSV file (optional)")
 
 	return r
 }
