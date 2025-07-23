@@ -166,7 +166,8 @@ func (w *Worker) doImport(ctx *actor.ReceiveContext) {
 		replyError(err)
 		return
 	}
-	if len(cols) > 0 && cols[0].Name == "_ARRIVAL_TIME" {
+	if len(cols) > 0 && cols[0].Name == "_ARRIVAL_TIME" &&
+		len(columnOrder) > 0 && columnOrder[0] != "_ARRIVAL_TIME" {
 		cols = cols[1:] // skip _ARRIVAL_TIME column
 	}
 	converters := w.buildConverters(cols)
