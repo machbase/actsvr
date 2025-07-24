@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS TB_PACKET_PARS_DATA (
     PACKET_PARS_SEQ   long,
     PACKET_SEQ        long,
     TRNSMIT_SERVER_NO int,
+    DATA_NO           int,
     REGIST_DT         datetime,
     REGIST_DE         varchar(8),
     SERVICE_SEQ       int,
@@ -126,3 +127,6 @@ on TB_PACKET_PARS_DATA(AREA_CODE);
 
 create index IDX_PACKET_PARS_DATA_01 
 on TB_PACKET_PARS_DATA(TRNSMIT_SERVER_NO);
+
+create index IDX_PACKET_PARS_DATA_02
+on TB_PACKET_PARS_DATA(DATA_NO);
