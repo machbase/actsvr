@@ -91,6 +91,7 @@ func createPacketParsDataTable() {
 			PACKET_PARS_SEQ   long,
 			PACKET_SEQ        long,
 			TRNSMIT_SERVER_NO int,
+			DATA_NO           int,
 			REGIST_DT         datetime,
 			REGIST_DE         varchar(8),
 			SERVICE_SEQ       int,

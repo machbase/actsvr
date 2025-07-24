@@ -24,6 +24,7 @@ func TestWritePacketParsData(t *testing.T) {
 				"PACKET_PARS_SEQ":   "123456789",
 				"PACKET_SEQ":        "987654321",
 				"TRNSMIT_SERVER_NO": "123",
+				"DATA_NO":           "1",
 				"REGIST_DT":         "2024-07-15 10:30:45",
 				"REGIST_DE":         "20240715",
 				"SERVICE_SEQ":       "1",

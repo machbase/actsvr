@@ -80,6 +80,7 @@ func (s *HttpServer) writePacketParsData(c *gin.Context) {
 	sqlBuilder.WriteString(`PACKET_PARS_SEQ,`)
 	sqlBuilder.WriteString(`PACKET_SEQ,`)
 	sqlBuilder.WriteString(`TRNSMIT_SERVER_NO,`)
+	sqlBuilder.WriteString(`DATA_NO,`)
 	sqlBuilder.WriteString(`REGIST_DT,`)
 	sqlBuilder.WriteString(`REGIST_DE,`)
 	sqlBuilder.WriteString(`SERVICE_SEQ,`)
@@ -88,7 +89,7 @@ func (s *HttpServer) writePacketParsData(c *gin.Context) {
 	for _, col := range columnKeys {
 		sqlBuilder.WriteString(fmt.Sprintf(",%s", col))
 	}
-	sqlBuilder.WriteString(`) VALUES(?,?,?,?,?,?,?,?`)
+	sqlBuilder.WriteString(`) VALUES(?,?,?,?,?,?,?,?,?`)
 	for range columnKeys {
 		sqlBuilder.WriteString(",?")
 	}
@@ -98,6 +99,7 @@ func (s *HttpServer) writePacketParsData(c *gin.Context) {
 		data.PacketParsSeq,
 		data.PacketSeq,
 		data.TransmitServerNo,
+		data.DataNo,
 		data.RegistDt,
 		data.RegistDe,
 		data.ServiceSeq,
@@ -118,7 +120,8 @@ func (s *HttpServer) writePacketParsData(c *gin.Context) {
 type PacketParsData struct {
 	PacketParsSeq    int64     `form:"PACKET_PARS_SEQ" binding:"required"`
 	PacketSeq        int64     `form:"PACKET_SEQ" binding:"required"`
-	TransmitServerNo int       `form:"TRNSMIT_SERVER_NO" json:"TRNSMIT_SERVER_NO"` // TODO: Add binding:"required"
+	TransmitServerNo int       `form:"TRNSMIT_SERVER_NO"` // TODO: Add binding:"required"
+	DataNo           int       `form:"DATA_NO"`           // TODO: Add binding:"required"
 	RegistDt         time.Time `form:"REGIST_DT" binding:"required" time_format:"2006-01-02 15:04:05"`
 	RegistDe         string    `form:"REGIST_DE" binding:"required"`
 	ServiceSeq       int       `form:"SERVICE_SEQ" binding:"required"`
