@@ -2,13 +2,34 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 
 	"github.com/magefile/mage/sh"
 )
 
+func BuildAll() error {
+	fmt.Println("Building all binaries...")
+	binaries := []string{"loader", "siotsvr"}
+	for _, bin := range binaries {
+		if err := Build(bin); err != nil {
+			return fmt.Errorf("failed to build %s: %w", bin, err)
+		}
+	}
+	return nil
+}
+
 func Build(bin string) error {
 	fmt.Println("Building:", bin)
-	return sh.RunV("go", "build", "-o", "./tmp/"+bin, "./cmd/"+bin)
+	env := map[string]string{
+		"GO111MODULE": "on",
+		"CGO_ENABLED": "1",
+	}
+
+	if runtime.GOOS == "linux" {
+		env["CGO_LDFLAGS"] = "-pthread"
+	}
+
+	return sh.RunWithV(env, "go", "build", "-o", "./tmp/"+bin, "./cmd/"+bin)
 }
 
 func Protoc() error {

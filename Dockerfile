@@ -1,6 +1,6 @@
 #################################################
 ## Build the image with:
-# docker build -t ubuntu18-build-env .
+# docker build --platform linux/amd64 -t ubuntu18-build-env .
 #
 ## Run the container with:
 # docker run --rm -v ./tmp:/app/tmp ubuntu18-build-env
@@ -24,5 +24,5 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 WORKDIR /app
 COPY . /app
 
-CMD ["/usr/local/go/bin/go", "run", "mage.go", "build", "loader"]
+CMD ["/usr/local/go/bin/go", "run", "mage.go", "buildAll"]
 
