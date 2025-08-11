@@ -19,7 +19,7 @@ func (s *HttpServer) Router() *gin.Engine {
 }
 
 func (s *HttpServer) buildRouter() *gin.Engine {
-	if s.log.LogLevel() == log.DebugLevel {
+	if s.log != nil && s.log.LogLevel() == log.DebugLevel {
 		gin.SetMode(gin.DebugMode)
 	} else {
 		gin.SetMode(gin.ReleaseMode)

@@ -1,7 +1,7 @@
 package siotsvr
 
 import (
-	"actsvr/feature"
+	"actsvr/util"
 	"context"
 	"database/sql"
 	"fmt"
@@ -10,26 +10,23 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/buntdb"
-	"github.com/tochemey/goakt/v3/actor"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
 type PoiServer struct {
+	log *util.Log
 	rdb *sql.DB
 	gdb *buntdb.DB
 }
 
 func NewPoiServer() *PoiServer {
-	s := &PoiServer{}
-	return s
+	return &PoiServer{}
 }
 
-func (s *PoiServer) Featured() {
-	feature.Add(s)
-}
-
-func (s *PoiServer) Start(ctx context.Context, actorSystem actor.ActorSystem) error {
+func (s *PoiServer) Start(ctx context.Context) error {
+	s.log = DefaultLog()
+	s.log.Info("Starting PoiServer...")
 	if err := s.reload(); err != nil {
 		return err
 	}
@@ -47,6 +44,7 @@ func (s *PoiServer) Stop(ctx context.Context) error {
 			return err
 		}
 	}
+	s.log.Info("PoiServer stopped.")
 	return nil
 }
 
@@ -110,18 +108,32 @@ func (s *PoiServer) handleDebug(c *gin.Context) {
 }
 
 func (s *PoiServer) handleNearby(c *gin.Context) {
+	areaCode := c.Query("area_code")
 	lat := c.Query("la")
 	lon := c.Query("lo")
-	maxDist := c.DefaultQuery("maxDist", "1000") // Default to 1000 meters
-	maxN := c.DefaultQuery("maxN", "10")         // Default to 10 results
-
-	// Convert lat, lon, maxDist, maxN to appropriate types
-	latFloat, _ := strconv.ParseFloat(lat, 64)
-	lonFloat, _ := strconv.ParseFloat(lon, 64)
-	maxDistInt, _ := strconv.Atoi(maxDist)
+	maxN := c.DefaultQuery("n", "10") // Default to 10 results
 	maxNInt, _ := strconv.Atoi(maxN)
 
-	results, err := FindNearby(s.gdb, latFloat, lonFloat, maxDistInt, maxNInt)
+	var latFloat, lonFloat float64
+	if areaCode != "" {
+		var err error
+		// If areaCode is provided, find nearby points based on area code
+		latFloat, lonFloat, err = FindAreaLatLon(s.gdb, areaCode)
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Error finding area lat/lon: %v", err)
+			return
+		}
+		if latFloat == 0 && lonFloat == 0 {
+			c.String(http.StatusNotFound, "Area code not found")
+			return
+		}
+	} else {
+		// Convert lat, lon, maxN to appropriate types
+		latFloat, _ = strconv.ParseFloat(lat, 64)
+		lonFloat, _ = strconv.ParseFloat(lon, 64)
+	}
+
+	results, err := FindNearby(s.gdb, latFloat, lonFloat, maxNInt)
 	if err != nil {
 		c.String(http.StatusInternalServerError, "Error querying nearby POIs: %v", err)
 		return

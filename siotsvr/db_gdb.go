@@ -26,9 +26,44 @@ func FindAreaName(gdb *buntdb.DB, areaCode string) (string, error) {
 	return areaName, nil
 }
 
+func FindAreaLatLon(gdb *buntdb.DB, areaCode string) (float64, float64, error) {
+	var areaCoord string
+	err := gdb.View(func(tx *buntdb.Tx) error {
+		key := fmt.Sprintf("poi:%s:latlon", areaCode)
+		value, err := tx.Get(key)
+		if err != nil {
+			return fmt.Errorf("failed to get area name for %s: %w", areaCode, err)
+		}
+		areaCoord = value
+		return nil
+	})
+	if err != nil {
+		return 0, 0, err
+	}
+	return ParseLatLon(areaCoord)
+}
+
+func ParseLatLon(latLon string) (float64, float64, error) {
+	// Remove brackets and split by space to get lat and lon
+	trimmedValue := strings.Trim(latLon, "[]")
+	latLonParts := strings.Split(trimmedValue, " ")
+	if len(latLonParts) != 2 {
+		return 0, 0, fmt.Errorf("invalid latlon format: %s", latLon)
+	}
+	lat, err := strconv.ParseFloat(latLonParts[0], 64)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid latitude: %w", err)
+	}
+	lon, err := strconv.ParseFloat(latLonParts[1], 64)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid longitude: %w", err)
+	}
+	return lat, lon, nil
+}
+
 // FindNearby retrieves nearby points of interest from the GeoDB based on latitude and longitude.
 // It returns a slice of AreaCode representing the nearby points.
-func FindNearby(gdb *buntdb.DB, lat, lon float64, maxDistMeter int, maxN int) ([]NearbyResult, error) {
+func FindNearby(gdb *buntdb.DB, lat, lon float64, maxN int) ([]NearbyResult, error) {
 	var results []NearbyResult
 	point := fmt.Sprintf("[%f %f]", lat, lon)
 	err := gdb.View(func(tx *buntdb.Tx) error {
@@ -54,9 +89,6 @@ func FindNearby(gdb *buntdb.DB, lat, lon float64, maxDistMeter int, maxN int) ([
 					return false // Invalid longitude
 				}
 				dist := haversine(lat, lon, areaLat, areaLon)
-				if dist > maxDistMeter {
-					return false // Distance exceeds maxDist
-				}
 				nm, err := FindAreaName(gdb, areaCode)
 				if err != nil {
 					return false // Failed to get area name

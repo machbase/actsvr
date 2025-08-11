@@ -1,10 +1,8 @@
 package siotsvr
 
 import (
-	"actsvr/feature"
 	"actsvr/util"
 	"context"
-	"flag"
 	"fmt"
 	"net"
 	"net/http"
@@ -13,7 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/machbase/neo-server/v8/api"
 	"github.com/machbase/neo-server/v8/api/machcli"
-	"github.com/tochemey/goakt/v3/actor"
 )
 
 type HttpServer struct {
@@ -22,44 +19,32 @@ type HttpServer struct {
 	KeepAlive int // seconds
 	TempDir   string
 
-	actorSystem actor.ActorSystem
-	machCli     *machcli.Database
-	log         *util.Log
-	httpServer  *http.Server
-	router      *gin.Engine
+	machCli    *machcli.Database
+	log        *util.Log
+	httpServer *http.Server
+	router     *gin.Engine
 }
 
 func NewHttpServer() *HttpServer {
-	s := &HttpServer{
+	return &HttpServer{
 		Host:    "0.0.0.0",
 		Port:    8888,
 		TempDir: "/tmp",
 	}
-	flag.StringVar(&s.Host, "http-host", s.Host, "the host to bind the HTTP server to")
-	flag.IntVar(&s.Port, "http-port", s.Port, "the port to bind the HTTP server to")
-	flag.IntVar(&s.KeepAlive, "http-keepalive", 60, "the keep-alive period in seconds for HTTP connections")
-	flag.StringVar(&s.TempDir, "http-tempdir", s.TempDir, "the temporary directory for file uploads")
-
-	return s
 }
 
-func (s *HttpServer) Featured() {
-	feature.Add(s)
-}
-
-func (s *HttpServer) Start(ctx context.Context, actorSystem actor.ActorSystem) error {
-	s.actorSystem = actorSystem
-	s.log = actorSystem.Logger().(*util.Log)
+func (s *HttpServer) Start(ctx context.Context) error {
+	s.log = DefaultLog()
 	if err := s.openDatabase(); err != nil {
 		return err
 	}
-	s.log.Printf("Starting HTTP server on %s:%d", s.Host, s.Port)
+	s.log.Infof("Starting HTTP server on %s:%d", s.Host, s.Port)
 	return s.serve()
 }
 
 func (s *HttpServer) Stop(ctx context.Context) error {
 	s.closeDatabase()
-	s.log.Printf("Stopping HTTP server on %s:%d", s.Host, s.Port)
+	s.log.Infof("Stopping HTTP server on %s:%d", s.Host, s.Port)
 	return s.httpServer.Shutdown(ctx)
 }
 

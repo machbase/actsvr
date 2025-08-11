@@ -19,32 +19,45 @@ type Server struct {
 	Host       string
 	Port       int
 
-	logConf         util.LogConfig
+	log             *util.Log
 	actorSystem     actor.ActorSystem
 	onceParseFlags  sync.Once
 	interruptSignal chan os.Signal
 }
 
-func NewServer() *Server {
-	s := &Server{
-		logConf: util.DefaultLogConfig(),
+func NewServer(opts ...Option) *Server {
+	s := &Server{}
+	// apply options
+	for _, opt := range opts {
+		opt(s)
 	}
-	// actor system configuration
-	flag.StringVar(&s.SystemName, "name", "ACTSVR", "the name of the actor system")
-	flag.StringVar(&s.Host, "host", "0.0.0.0", "the host to bind the actor system to")
-	flag.IntVar(&s.Port, "port", 0, "the port to bind the actor system to")
-	// logging configuration
-	flag.StringVar(&s.logConf.Filename, "log-filename", s.logConf.Filename, "the log file name")
-	flag.IntVar(&s.logConf.MaxSize, "log-max-size", s.logConf.MaxSize, "the maximum size of the log file in megabytes")
-	flag.IntVar(&s.logConf.MaxBackups, "log-max-backups", s.logConf.MaxBackups, "the maximum number of log file backups")
-	flag.IntVar(&s.logConf.MaxAge, "log-max-age", s.logConf.MaxAge, "the maximum age of the log file in days")
-	flag.BoolVar(&s.logConf.Compress, "log-compress", s.logConf.Compress, "whether to compress the log file")
-	flag.BoolVar(&s.logConf.UTC, "log-utc", s.logConf.UTC, "whether to use local time in the log file")
-	flag.BoolVar(&s.logConf.Append, "log-append", s.logConf.Append, "whether to append to the log file or overwrite it")
-	flag.StringVar(&s.logConf.Timeformat, "log-timeformat", s.logConf.Timeformat, "the time format to use in the log file")
-	flag.IntVar(&s.logConf.Verbose, "log-verbose", s.logConf.Verbose, "0: no debug, 1: info, 2: debug")
-
 	return s
+}
+
+type Option func(*Server)
+
+func WithName(name string) Option {
+	return func(s *Server) {
+		s.SystemName = name
+	}
+}
+
+func WithHost(host string) Option {
+	return func(s *Server) {
+		s.Host = host
+	}
+}
+
+func WithPort(port int) Option {
+	return func(s *Server) {
+		s.Port = port
+	}
+}
+
+func WithLog(log *util.Log) Option {
+	return func(s *Server) {
+		s.log = log
+	}
 }
 
 func (s *Server) parseFlags() {
@@ -58,8 +71,9 @@ func (s *Server) Serve(ctx context.Context) error {
 	s.parseFlags()
 
 	// create an actor system.
-	opts := []actor.Option{
-		actor.WithLogger(util.NewLog(s.logConf)),
+	opts := []actor.Option{}
+	if s.log != nil {
+		opts = append(opts, actor.WithLogger(s.log))
 	}
 	if s.Port > 0 {
 		opts = append(opts, actor.WithRemote(remote.NewConfig(s.Host, s.Port)))
