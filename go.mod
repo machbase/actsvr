@@ -7,10 +7,12 @@ toolchain go1.24.5
 require (
 	fortio.org/progressbar v1.1.0
 	github.com/gin-gonic/gin v1.10.1
+	github.com/go-sql-driver/mysql v1.7.1
 	github.com/google/uuid v1.6.0
 	github.com/machbase/neo-server/v8 v8.0.56-0.20250803235306-c3325a7c8710
 	github.com/magefile/mage v1.15.0
 	github.com/stretchr/testify v1.10.0
+	github.com/tidwall/buntdb v1.3.2
 	github.com/tochemey/goakt/v3 v3.7.0
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -91,8 +93,13 @@ require (
 	github.com/spf13/cobra v1.9.1 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/tidwall/btree v1.7.0 // indirect
+	github.com/tidwall/gjson v1.18.0 // indirect
+	github.com/tidwall/grect v0.1.4 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/redcon v1.6.2 // indirect
+	github.com/tidwall/rtred v0.1.2 // indirect
+	github.com/tidwall/tinyqueue v0.1.1 // indirect
 	github.com/tochemey/olric v0.2.3 // indirect
 	github.com/travisjeffery/go-dynaport v1.0.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect

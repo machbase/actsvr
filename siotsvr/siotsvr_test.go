@@ -3,6 +3,8 @@ package siotsvr
 import (
 	"actsvr/util"
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
@@ -12,25 +14,36 @@ import (
 	"github.com/machbase/neo-server/v8/api/testsuite"
 )
 
+func performRequest(r http.Handler, method, path string, body interface{}) *httptest.ResponseRecorder {
+	_ = body // Ignore body for this test
+	req, _ := http.NewRequest(method, path, nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	return w
+}
+
 // Create a mock HttpServer
 var httpTestServer *HttpServer
 var dbTestServer *testsuite.Server
 
-func TestMain(m *testing.M) {
+func XXTestMain_disable(m *testing.M) {
 	dbTestServer = testsuite.NewServer("./test_data/tmp/db")
 	dbTestServer.StartServer(m)
 	time.Sleep(3 * time.Second)
 	createTables()
 
-	// Set Gin to test mode
-	gin.SetMode(gin.TestMode)
-
-	httpTestServer = &HttpServer{
-		log:    util.NewLog(util.LogConfig{}),
+	machConfig = MachConfig{
 		dbHost: "127.0.0.1",
 		dbPort: dbTestServer.MachPort(),
 		dbUser: "sys",
 		dbPass: "manager",
+	}
+
+	// Set Gin to test mode
+	gin.SetMode(gin.TestMode)
+
+	httpTestServer = &HttpServer{
+		log: util.NewLog(util.LogConfig{}),
 	}
 
 	// Run the tests

@@ -1,32 +1,75 @@
 package siotsvr
 
 import (
-	"actsvr/feature"
 	"actsvr/server"
 	"actsvr/util"
 	"context"
 	"flag"
 	"fmt"
-	"net"
-	"net/http"
 	"os"
 	"time"
-
-	"github.com/gin-gonic/gin"
-	"github.com/machbase/neo-server/v8/api"
-	"github.com/machbase/neo-server/v8/api/machcli"
-	"github.com/tochemey/goakt/v3/actor"
 )
 
+var DefaultLocation = time.Local
+var pid string = "./siotsvr.pid"
+var logger *util.Log
+
+var machConfig = MachConfig{
+	dbHost: "127.0.0.1",
+	dbPort: 5656,
+	dbUser: "sys",
+	dbPass: "manager",
+}
+
+var rdbConfig = RDBConfig{
+	host: "siot.redirectme.net",
+	port: 3306,
+	user: "iotdb",
+	pass: "iotmanager",
+	db:   "iotdb",
+}
+
 func Main() int {
+	flag.StringVar(&pid, "pid", pid, "the file to store the process ID")
+
+	flag.StringVar(&machConfig.dbHost, "db-host", machConfig.dbHost, "Database host")
+	flag.IntVar(&machConfig.dbPort, "db-port", machConfig.dbPort, "Database port")
+	flag.StringVar(&machConfig.dbUser, "db-user", machConfig.dbUser, "Database user")
+	flag.StringVar(&machConfig.dbPass, "db-pass", machConfig.dbPass, "Database password")
+
+	flag.StringVar(&rdbConfig.host, "rdb-host", rdbConfig.host, "RDB host")
+	flag.IntVar(&rdbConfig.port, "rdb-port", rdbConfig.port, "RDB port")
+	flag.StringVar(&rdbConfig.user, "rdb-user", rdbConfig.user, "RDB user")
+	flag.StringVar(&rdbConfig.pass, "rdb-pass", rdbConfig.pass, "RDB password")
+	flag.StringVar(&rdbConfig.db, "rdb-db", rdbConfig.db, "RDB database")
+
+	poiSvr := NewPoiServer()
+	poiSvr.Featured()
 	httpSvr := NewHttpServer()
 	httpSvr.Featured()
+
+	poiGroup := httpSvr.Router().Group("/db/poi")
+	poiSvr.Router(poiGroup)
 
 	ctx := context.Background()
 	svr := server.NewServer()
 	if err := svr.Serve(ctx); err != nil {
 		panic(err)
 	}
+
+	logger = svr.ActorSystem().Logger().(*util.Log)
+	if pid != "" {
+		if err := os.WriteFile(pid, []byte(fmt.Sprintf("%d", os.Getpid())), 0644); err != nil {
+			logger.Printf("failed to write PID file: %v", err)
+			panic(fmt.Errorf("failed to write PID file: %w", err))
+		}
+		defer func() {
+			if err := os.Remove(pid); err != nil {
+				logger.Printf("Failed to remove PID file %s: %v", pid, err)
+			}
+		}()
+	}
+
 	svr.WaitInterrupt()
 	if err := svr.Shutdown(ctx); err != nil {
 		panic(err)
@@ -34,139 +77,17 @@ func Main() int {
 	return 0
 }
 
-var DefaultLocation = time.Local
-
-type HttpServer struct {
-	Host      string
-	Port      int
-	KeepAlive int // seconds
-	TempDir   string
-
+type MachConfig struct {
 	dbHost string
 	dbPort int
 	dbUser string
 	dbPass string
-	pid    string
-
-	actorSystem actor.ActorSystem
-	machCli     *machcli.Database
-	log         *util.Log
-	httpServer  *http.Server
-	router      *gin.Engine
 }
 
-func NewHttpServer() *HttpServer {
-	s := &HttpServer{
-		Host:    "0.0.0.0",
-		Port:    8888,
-		TempDir: "/tmp",
-
-		pid:    "./siotsvr.pid",
-		dbHost: "127.0.0.1",
-		dbPort: 5656,
-		dbUser: "sys",
-		dbPass: "manager",
-	}
-	flag.StringVar(&s.Host, "http-host", s.Host, "the host to bind the HTTP server to")
-	flag.IntVar(&s.Port, "http-port", s.Port, "the port to bind the HTTP server to")
-	flag.IntVar(&s.KeepAlive, "http-keepalive", 60, "the keep-alive period in seconds for HTTP connections")
-	flag.StringVar(&s.TempDir, "http-tempdir", s.TempDir, "the temporary directory for file uploads")
-	flag.StringVar(&s.pid, "pid", s.pid, "the file to store the process ID")
-
-	flag.StringVar(&s.dbHost, "db-host", s.dbHost, "Database host")
-	flag.IntVar(&s.dbPort, "db-port", s.dbPort, "Database port")
-	flag.StringVar(&s.dbUser, "db-user", s.dbUser, "Database user")
-	flag.StringVar(&s.dbPass, "db-pass", s.dbPass, "Database password")
-
-	return s
-}
-
-func (s *HttpServer) Featured() {
-	feature.Add(s)
-}
-
-func (s *HttpServer) Start(ctx context.Context, actorSystem actor.ActorSystem) error {
-	if err := os.WriteFile(s.pid, []byte(fmt.Sprintf("%d", os.Getpid())), 0644); err != nil {
-		return fmt.Errorf("failed to write PID file: %w", err)
-	}
-
-	s.actorSystem = actorSystem
-	s.log = actorSystem.Logger().(*util.Log)
-	if err := s.openDatabase(); err != nil {
-		return err
-	}
-	s.log.Printf("Starting HTTP server on %s:%d", s.Host, s.Port)
-	return s.serve()
-}
-
-func (s *HttpServer) Stop(ctx context.Context) error {
-	defer func() {
-		if err := os.Remove(s.pid); err != nil {
-			s.log.Printf("Failed to remove PID file %s: %v", s.pid, err)
-		}
-	}()
-	s.closeDatabase()
-	s.log.Printf("Stopping HTTP server on %s:%d", s.Host, s.Port)
-	return s.httpServer.Shutdown(ctx)
-}
-
-func (s *HttpServer) serve() error {
-	connContext := func(ctx context.Context, c net.Conn) context.Context {
-		if tcpCon, ok := c.(*net.TCPConn); ok && tcpCon != nil {
-			tcpCon.SetNoDelay(true)
-			if s.KeepAlive > 0 {
-				tcpCon.SetKeepAlive(true)
-				tcpCon.SetKeepAlivePeriod(time.Duration(s.KeepAlive) * time.Second)
-			}
-			tcpCon.SetLinger(0)
-		}
-		return ctx
-	}
-	s.httpServer = &http.Server{
-		ConnContext: connContext,
-		Handler:     s.Router(),
-	}
-
-	lsnr, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.Host, s.Port))
-	if err != nil {
-		return fmt.Errorf("failed to start HTTP server: %w", err)
-	}
-
-	go s.httpServer.Serve(lsnr)
-	return nil
-}
-
-func (s *HttpServer) openDatabase() error {
-	if s.machCli == nil {
-		db, err := machcli.NewDatabase(&machcli.Config{
-			Host:         s.dbHost,
-			Port:         s.dbPort,
-			TrustUsers:   map[string]string{s.dbUser: s.dbPass},
-			MaxOpenConn:  -1,
-			MaxOpenQuery: -1,
-		})
-		if err != nil {
-			return err
-		}
-		s.machCli = db
-	}
-	return nil
-}
-
-func (s *HttpServer) closeDatabase() {
-	if s.machCli != nil {
-		s.machCli.Close()
-		s.machCli = nil
-	}
-}
-
-func (s *HttpServer) openConn(ctx context.Context) (api.Conn, error) {
-	if err := s.openDatabase(); err != nil {
-		return nil, err
-	}
-	conn, err := s.machCli.Connect(ctx, api.WithPassword(s.dbUser, s.dbPass))
-	if err != nil {
-		return nil, err
-	}
-	return conn, nil
+type RDBConfig struct {
+	host string
+	port int
+	user string
+	pass string
+	db   string
 }
