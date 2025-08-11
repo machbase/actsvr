@@ -6,41 +6,43 @@ import (
 	"strconv"
 	"strings"
 
+	"encoding/json"
+
 	"github.com/tidwall/buntdb"
 )
 
-func FindAreaName(gdb *buntdb.DB, areaCode string) (string, error) {
-	var areaName string
+func POIFindData(gdb *buntdb.DB, poiKey string) (string, error) {
+	var data string
 	err := gdb.View(func(tx *buntdb.Tx) error {
-		key := fmt.Sprintf("poi:%s:name", areaCode)
+		key := fmt.Sprintf("poi:%s:data", poiKey)
 		value, err := tx.Get(key)
 		if err != nil {
-			return fmt.Errorf("failed to get area name for %s: %w", areaCode, err)
+			return fmt.Errorf("failed to get poi data for %q %w", key, err)
 		}
-		areaName = value
+		data = value
 		return nil
 	})
 	if err != nil {
 		return "", err
 	}
-	return areaName, nil
+	return data, nil
 }
 
-func FindAreaLatLon(gdb *buntdb.DB, areaCode string) (float64, float64, error) {
-	var areaCoord string
+func POIFindLatLon(gdb *buntdb.DB, areaCode string) (float64, float64, error) {
+	var coord string
 	err := gdb.View(func(tx *buntdb.Tx) error {
 		key := fmt.Sprintf("poi:%s:latlon", areaCode)
 		value, err := tx.Get(key)
 		if err != nil {
 			return fmt.Errorf("failed to get area name for %s: %w", areaCode, err)
 		}
-		areaCoord = value
+		coord = value
 		return nil
 	})
 	if err != nil {
 		return 0, 0, err
 	}
-	return ParseLatLon(areaCoord)
+	return ParseLatLon(coord)
 }
 
 func ParseLatLon(latLon string) (float64, float64, error) {
@@ -69,41 +71,41 @@ func FindNearby(gdb *buntdb.DB, lat, lon float64, maxN int) ([]NearbyResult, err
 	err := gdb.View(func(tx *buntdb.Tx) error {
 		// Query the GeoDB for nearby points of interest
 		tx.Nearby("poi", point, func(key, value string, dist0 float64) bool {
-			if len(results) < maxN {
-				areaCode := strings.TrimPrefix(key, "poi:")
-				areaCode = strings.TrimSuffix(areaCode, ":latlon")
-				// Parse the latlon value to get latitude and longitude
-
-				// Remove brackets and split by space to get lat and lon
-				trimmedValue := strings.Trim(value, "[]")
-				latLonParts := strings.Split(trimmedValue, " ")
-				if len(latLonParts) != 2 {
-					return false // Invalid latlon format
-				}
-				areaLat, err := strconv.ParseFloat(latLonParts[0], 64)
-				if err != nil {
-					return false // Invalid latitude
-				}
-				areaLon, err := strconv.ParseFloat(latLonParts[1], 64)
-				if err != nil {
-					return false // Invalid longitude
-				}
-				dist := haversine(lat, lon, areaLat, areaLon)
-				nm, err := FindAreaName(gdb, areaCode)
-				if err != nil {
-					return false // Failed to get area name
-				}
-				result := NearbyResult{
-					AreaCode: areaCode,
-					AreaNm:   nm,
-					Lat:      areaLat,
-					Lon:      areaLon,
-					Dist:     dist,
-				}
-				results = append(results, result)
-				return true // Continue iterating until we have n results
+			if len(results) >= maxN {
+				return false // Stop iterating once we have enough results
 			}
-			return false // Stop iterating once we have enough results
+			poiKey := strings.TrimPrefix(key, "poi:")
+			poiKey = strings.TrimSuffix(poiKey, ":latlon")
+			// Parse the latlon value to get latitude and longitude
+
+			// Remove brackets and split by space to get lat and lon
+			trimmedValue := strings.Trim(value, "[]")
+			latLonParts := strings.Split(trimmedValue, " ")
+			if len(latLonParts) != 2 {
+				return false // Invalid latlon format
+			}
+			areaLat, err := strconv.ParseFloat(latLonParts[0], 64)
+			if err != nil {
+				return false // Invalid latitude
+			}
+			areaLon, err := strconv.ParseFloat(latLonParts[1], 64)
+			if err != nil {
+				return false // Invalid longitude
+			}
+			dist := haversine(lat, lon, areaLat, areaLon)
+			rawData, err := POIFindData(gdb, poiKey)
+			if err != nil {
+				return false // Failed to get poi data
+			}
+			data := map[string]any{}
+			if err := json.Unmarshal([]byte(rawData), &data); err != nil {
+				return false // Failed to unmarshal poi data
+			}
+			data["la"] = areaLat
+			data["lo"] = areaLon
+			data["dist"] = dist
+			results = append(results, data)
+			return true // Continue iterating until we have n results
 		})
 		return nil
 	})
@@ -113,13 +115,7 @@ func FindNearby(gdb *buntdb.DB, lat, lon float64, maxN int) ([]NearbyResult, err
 	return results, nil
 }
 
-type NearbyResult struct {
-	AreaCode string  `json:"area_code"`
-	AreaNm   string  `json:"area_nm"`
-	Lat      float64 `json:"la"`
-	Lon      float64 `json:"lo"`
-	Dist     int     `json:"dist"`
-}
+type NearbyResult map[string]any
 
 func haversine(lat1, lon1, lat2, lon2 float64) int {
 	const R = 6371000 // Radius of the Earth in meters

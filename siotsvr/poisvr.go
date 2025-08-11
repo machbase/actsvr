@@ -4,9 +4,11 @@ import (
 	"actsvr/util"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/buntdb"
@@ -15,9 +17,10 @@ import (
 )
 
 type PoiServer struct {
-	log *util.Log
-	rdb *sql.DB
-	gdb *buntdb.DB
+	log      *util.Log
+	rdb      *sql.DB
+	gdb      *buntdb.DB
+	gdbMutex sync.RWMutex
 }
 
 func NewPoiServer() *PoiServer {
@@ -30,7 +33,9 @@ func (s *PoiServer) Start(ctx context.Context) error {
 	if gdb, err := s.reload(); err != nil {
 		return err
 	} else {
+		s.gdbMutex.Lock()
 		s.gdb = gdb
+		s.gdbMutex.Unlock()
 	}
 	return nil
 }
@@ -41,6 +46,8 @@ func (s *PoiServer) Stop(ctx context.Context) error {
 			return err
 		}
 	}
+	s.gdbMutex.Lock()
+	defer s.gdbMutex.Unlock()
 	if s.gdb != nil {
 		if err := s.gdb.Close(); err != nil {
 			return err
@@ -71,10 +78,15 @@ func (s *PoiServer) reload() (*buntdb.DB, error) {
 	// Create the GeoDB index
 	gdb.CreateSpatialIndex("poi", "poi:*:latlon", buntdb.IndexRect)
 
-	// Initialize the GeoDB
-	selectAreaCode(s.rdb, func(ac *AreaCode) bool {
-		nmKey := fmt.Sprintf("poi:%s:name", ac.AreaCode.String)
-		nmValue := ac.AreaNm.String
+	// Load from AreaCode
+	err = selectAreaCode(s.rdb, func(ac *AreaCode) bool {
+		nmKey := fmt.Sprintf("poi:%s:data", ac.AreaCode.String)
+		nmMap := map[string]any{
+			"area_code": ac.AreaCode.String,
+			"area_nm":   ac.AreaNm.String,
+		}
+		nmRaw, _ := json.Marshal(nmMap)
+		nmValue := string(nmRaw)
 		latLonKey := fmt.Sprintf("poi:%s:latlon", ac.AreaCode.String)
 		latLonValue := fmt.Sprintf("[%f %f]", ac.La, ac.Lo)
 
@@ -91,6 +103,50 @@ func (s *PoiServer) reload() (*buntdb.DB, error) {
 		})
 		return err == nil
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize GeoDB from AreaCode: %w", err)
+	}
+	// Load from ModelInstallInfo
+	err = selectModlInstlInfo(s.rdb, func(mi *ModelInstallInfo, merr error) bool {
+		if merr != nil {
+			s.log.Warnf("failed to load ModelInstallInfo: %v", merr)
+			return true // Continue processing other records
+		}
+		key := fmt.Sprintf("%s_%d_%d", mi.ModlSerial, mi.TrnsmitServerNo, mi.DataNo)
+		nmKey := fmt.Sprintf("poi:%s:data", key)
+		nmMap := map[string]any{
+			"modl_serial":       mi.ModlSerial,
+			"trnsmit_server_no": mi.TrnsmitServerNo,
+			"data_no":           mi.DataNo,
+			"buld_nm":           nullString(mi.BuldNm),
+			"instl_floor":       nullInt64(mi.InstlFloor),
+			"instl_ho_no":       nullInt64(mi.InstlHoNo),
+			"adres":             nullString(mi.Adres),
+			"adres_detail":      nullString(mi.AdresDetail),
+			"la":                mi.La,
+			"lo":                mi.Lo,
+		}
+		nmRaw, _ := json.Marshal(nmMap)
+		nmValue := string(nmRaw)
+		latLonKey := fmt.Sprintf("poi:%s:latlon", key)
+		latLonValue := fmt.Sprintf("[%f %f]", mi.La, mi.Lo)
+		err := gdb.Update(func(tx *buntdb.Tx) error {
+			_, _, err := tx.Set(nmKey, nmValue, nil)
+			if err != nil {
+				return fmt.Errorf("failed to set model name: %w", err)
+			}
+			_, _, err = tx.Set(latLonKey, latLonValue, nil)
+			if err != nil {
+				return fmt.Errorf("failed to set model latlon: %w", err)
+			}
+			return err
+		})
+		return err == nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize GeoDB from ModelInstallInfo: %w", err)
+	}
+	s.log.Info("PoiServer GeoDB initialized successfully.")
 	return gdb, nil
 }
 
@@ -103,23 +159,52 @@ func (s *PoiServer) handleReload(c *gin.Context) {
 	if gdb, err := s.reload(); err != nil {
 		c.String(http.StatusInternalServerError, "Error reloading PoiServer: %v", err)
 	} else {
+		s.gdbMutex.Lock()
+		defer s.gdbMutex.Unlock()
+		if s.gdb != nil {
+			if err := s.gdb.Close(); err != nil {
+				defaultLog.Warnf("Error closing old GeoDB: %v", err)
+			}
+		}
 		s.gdb = gdb
 		c.String(http.StatusOK, "PoiServer reloaded successfully")
 	}
 }
 
 func (s *PoiServer) handleNearby(c *gin.Context) {
+	s.gdbMutex.RLock()
+	defer s.gdbMutex.RUnlock()
+
 	areaCode := c.Query("area_code")
 	lat := c.Query("la")
 	lon := c.Query("lo")
 	maxN := c.DefaultQuery("n", "10") // Default to 10 results
 	maxNInt, _ := strconv.Atoi(maxN)
+	modlSerial := c.Query("modl_serial")
+	trnsmitServerNo := c.Query("trnsmit_server_no")
+	dataNo := c.Query("data_no")
 
 	var latFloat, lonFloat float64
-	if areaCode != "" {
+	if modlSerial != "" && trnsmitServerNo != "" && dataNo != "" {
+		trnsmitServerNoInt, err := strconv.Atoi(trnsmitServerNo)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid transmit server number: %v", err)
+			return
+		}
+		dataNoInt, err := strconv.Atoi(dataNo)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid data number: %v", err)
+			return
+		}
+		latFloat, lonFloat, err = POIFindLatLon(s.gdb, fmt.Sprintf("%s_%d_%d", modlSerial, trnsmitServerNoInt, dataNoInt))
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Error finding model lat/lon: %v", err)
+			return
+		}
+	} else if areaCode != "" {
 		var err error
 		// If areaCode is provided, find nearby points based on area code
-		latFloat, lonFloat, err = FindAreaLatLon(s.gdb, areaCode)
+		latFloat, lonFloat, err = POIFindLatLon(s.gdb, areaCode)
 		if err != nil {
 			c.String(http.StatusInternalServerError, "Error finding area lat/lon: %v", err)
 			return

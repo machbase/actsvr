@@ -31,7 +31,7 @@ func DefaultLogConfig() LogConfig {
 		MaxAge:     28, // days
 		Compress:   false,
 		UTC:        false, // false: local time, true: UTC
-		Timeformat: "2006-01-02 15:04:05.000000 Z0700 MST",
+		Timeformat: "2006-01-02 15:04:05.000",
 		Append:     false, // false: overwrite, true: append
 		Verbose:    0,     // 0: no debug, 1: info 2: debug
 	}
