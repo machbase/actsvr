@@ -27,8 +27,10 @@ func NewPoiServer() *PoiServer {
 func (s *PoiServer) Start(ctx context.Context) error {
 	s.log = DefaultLog()
 	s.log.Info("Starting PoiServer...")
-	if err := s.reload(); err != nil {
+	if gdb, err := s.reload(); err != nil {
 		return err
+	} else {
+		s.gdb = gdb
 	}
 	return nil
 }
@@ -48,27 +50,26 @@ func (s *PoiServer) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (s *PoiServer) reload() error {
+func (s *PoiServer) reload() (*buntdb.DB, error) {
 	// Open the RDB connection
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		rdbConfig.user, rdbConfig.pass, rdbConfig.host, rdbConfig.port, rdbConfig.db)
 	if rdb, err := sql.Open("mysql", dsn); err != nil {
-		return err
+		return nil, err
 	} else {
 		s.rdb = rdb
 	}
 	// Check the RDB connection
 	if err := s.rdb.Ping(); err != nil {
-		return fmt.Errorf("failed to connect to RDB: %w", err)
+		return nil, fmt.Errorf("failed to connect to RDB: %w", err)
 	}
 	// Open the GeoDB connection
-	if gdb, err := buntdb.Open(":memory:"); err != nil {
-		return err
-	} else {
-		s.gdb = gdb
+	gdb, err := buntdb.Open(":memory:")
+	if err != nil {
+		return nil, err
 	}
 	// Create the GeoDB index
-	s.gdb.CreateSpatialIndex("poi", "poi:*:latlon", buntdb.IndexRect)
+	gdb.CreateSpatialIndex("poi", "poi:*:latlon", buntdb.IndexRect)
 
 	// Initialize the GeoDB
 	selectAreaCode(s.rdb, func(ac *AreaCode) bool {
@@ -77,7 +78,7 @@ func (s *PoiServer) reload() error {
 		latLonKey := fmt.Sprintf("poi:%s:latlon", ac.AreaCode.String)
 		latLonValue := fmt.Sprintf("[%f %f]", ac.La, ac.Lo)
 
-		err := s.gdb.Update(func(tx *buntdb.Tx) error {
+		err := gdb.Update(func(tx *buntdb.Tx) error {
 			_, _, err := tx.Set(nmKey, nmValue, nil)
 			if err != nil {
 				return fmt.Errorf("failed to set area name: %w", err)
@@ -90,21 +91,21 @@ func (s *PoiServer) reload() error {
 		})
 		return err == nil
 	})
-	return nil
+	return gdb, nil
 }
 
 func (s *PoiServer) Router(group *gin.RouterGroup) {
-	group.POST("/debug", s.handleDebug)
 	group.GET("/nearby", s.handleNearby)
+	group.POST("/reload", s.handleReload)
 }
 
-func (s *PoiServer) handleDebug(c *gin.Context) {
-	selectAreaCode(s.rdb, func(ac *AreaCode) bool {
-		// data, _ := json.Marshal(ac)
-		// fmt.Println(string(data))
-		return true
-	})
-	c.String(http.StatusOK, "POI Server is running")
+func (s *PoiServer) handleReload(c *gin.Context) {
+	if gdb, err := s.reload(); err != nil {
+		c.String(http.StatusInternalServerError, "Error reloading PoiServer: %v", err)
+	} else {
+		s.gdb = gdb
+		c.String(http.StatusOK, "PoiServer reloaded successfully")
+	}
 }
 
 func (s *PoiServer) handleNearby(c *gin.Context) {
