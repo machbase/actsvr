@@ -117,6 +117,11 @@ func FindNearby(gdb *buntdb.DB, lat, lon float64, maxN int) ([]NearbyResult, err
 
 type NearbyResult map[string]any
 
+func (r NearbyResult) String() string {
+	jsonData, _ := json.Marshal(r)
+	return string(jsonData)
+}
+
 func haversine(lat1, lon1, lat2, lon2 float64) int {
 	const R = 6371000 // Radius of the Earth in meters
 	lat1Rad := lat1 * (3.141592653589793 / 180)

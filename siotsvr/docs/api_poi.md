@@ -72,6 +72,14 @@ GET http://127.0.0.1:5680/db/poi/nearby?modl_serial=0000000032&trnsmit_server_no
 ]
 ```
 
+## Render the search results on the MAP
+
+To debug visually the search result on the MAP, add `&html=true` query parameter.
+
+e.g.) http://127.0.0.1:5680/db/poi/nearby?modl_serial=0000000032&trnsmit_server_no=3&data_no=1&n=15&html=true
+
+![image](./img/api_poi_html.jpg)
+
 
 ## Reload POI Database
 

@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
 	"strconv"
 	"sync"
@@ -173,8 +174,15 @@ func (s *PoiServer) handleReload(c *gin.Context) {
 
 func (s *PoiServer) handleNearby(c *gin.Context) {
 	s.gdbMutex.RLock()
-	defer s.gdbMutex.RUnlock()
+	defer func() {
+		s.gdbMutex.RUnlock()
+		if e := recover(); e != nil {
+			c.String(http.StatusInternalServerError, "Internal server error: %v", e)
+			return
+		}
+	}()
 
+	wantHtml := c.DefaultQuery("html", "false") == "true"
 	areaCode := c.Query("area_code")
 	lat := c.Query("la")
 	lon := c.Query("lo")
@@ -225,5 +233,92 @@ func (s *PoiServer) handleNearby(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, results)
+	if wantHtml {
+		renderHTML(c, results)
+	} else {
+		c.JSON(http.StatusOK, results)
+	}
 }
+
+func renderHTML(c *gin.Context, results []NearbyResult) {
+	contents := []string{HeaderTemplate, BaseTemplate, HtmlTemplate}
+	tpl := template.New("geomap").Funcs(template.FuncMap{
+		"safeJS": func(s interface{}) template.JS {
+			return template.JS(fmt.Sprint(s))
+		},
+	})
+	tpl = template.Must(tpl.Parse(contents[0]))
+	for _, cont := range contents[1:] {
+		tpl = template.Must(tpl.Parse(cont))
+	}
+	data := map[string]interface{}{
+		"PageTitle":     "POI Map",
+		"TileGrayscale": 100,
+		"GeomapID":      "geomap",
+		"Width":         "100%",
+		"Height":        "100%",
+		"Markers":       []Marker{},
+		"Center":        [2]float64{},
+	}
+	for i, res := range results {
+		lat := res["la"].(float64)
+		lon := res["lo"].(float64)
+		data["Markers"] = append(data["Markers"].([]Marker), Marker{Lat: lat, Lon: lon, Label: res.String()})
+		if i == 0 {
+			data["Center"] = [2]float64{lat, lon}
+		}
+	}
+
+	tpl.ExecuteTemplate(c.Writer, "geomap", data)
+}
+
+type Marker struct {
+	Lat   float64 `json:"lat"`
+	Lon   float64 `json:"lon"`
+	Label string  `json:"label"`
+}
+
+var HeaderTemplate = `
+{{ define "header" }}
+<head>
+    <meta charset="UTF-8">
+    <title>{{ .PageTitle }}</title>
+	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+	<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<style>
+    .geomap_container { width:100%; height:100%; display: flex;justify-content: center;align-items: center;}
+    .geomap_item {margin: auto;}
+    .leaflet-tile-pane{ -webkit-filter: grayscale({{ .TileGrayscale }}%); filter: grayscale({{ .TileGrayscale }}%);}
+</style>
+</head>
+{{ end }}
+`
+
+var BaseTemplate = `
+{{- define "base" }}
+<div class="geomap_container">
+    <div class="geomap_item" id="{{ .GeomapID }}" style="width:{{ .Width }};height:{{ .Height }};"></div>
+</div>
+{{- range .JSCodeAssets }}
+<script src="{{ . }}" type="text/javascript" charset="UTF-8"></script>
+{{- end }}
+{{ end }}
+`
+
+var HtmlTemplate = `{{- define "geomap" }}<!DOCTYPE html>
+<html>
+    {{- template "header" . }}
+<body style="width:100vw; height:100vh">
+    {{- template "base" . }}
+<script>
+	var map = L.map("{{ .GeomapID }}", {crs: L.CRS.EPSG3857, attributionControl:false});
+	map.setView([{{ index .Center 0 }}, {{ index .Center 1 }}], 13);
+	L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+	{{- range .Markers }}
+	L.marker([{{ .Lat }}, {{ .Lon }}]).addTo(map).bindPopup('{{ .Label }}');
+	{{- end }}
+</script>
+</body>
+</html>
+{{ end }}
+`
