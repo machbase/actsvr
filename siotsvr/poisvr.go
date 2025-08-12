@@ -3,7 +3,6 @@ package siotsvr
 import (
 	"actsvr/util"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -19,7 +18,6 @@ import (
 
 type PoiServer struct {
 	log      *util.Log
-	rdb      *sql.DB
 	gdb      *buntdb.DB
 	gdbMutex sync.RWMutex
 }
@@ -42,11 +40,6 @@ func (s *PoiServer) Start(ctx context.Context) error {
 }
 
 func (s *PoiServer) Stop(ctx context.Context) error {
-	if s.rdb != nil {
-		if err := s.rdb.Close(); err != nil {
-			return err
-		}
-	}
 	s.gdbMutex.Lock()
 	defer s.gdbMutex.Unlock()
 	if s.gdb != nil {
@@ -60,15 +53,14 @@ func (s *PoiServer) Stop(ctx context.Context) error {
 
 func (s *PoiServer) reload() (*buntdb.DB, error) {
 	// Open the RDB connection
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		rdbConfig.user, rdbConfig.pass, rdbConfig.host, rdbConfig.port, rdbConfig.db)
-	if rdb, err := sql.Open("mysql", dsn); err != nil {
+	rdb, err := rdbConfig.Connect()
+	if err != nil {
 		return nil, err
-	} else {
-		s.rdb = rdb
 	}
+	defer rdb.Close()
+
 	// Check the RDB connection
-	if err := s.rdb.Ping(); err != nil {
+	if err := rdb.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to connect to RDB: %w", err)
 	}
 	// Open the GeoDB connection
@@ -80,7 +72,7 @@ func (s *PoiServer) reload() (*buntdb.DB, error) {
 	gdb.CreateSpatialIndex("poi", "poi:*:latlon", buntdb.IndexRect)
 
 	// Load from AreaCode
-	err = selectAreaCode(s.rdb, func(ac *AreaCode) bool {
+	err = SelectAreaCode(rdb, func(ac *AreaCode) bool {
 		nmKey := fmt.Sprintf("poi:%s:data", ac.AreaCode.String)
 		nmMap := map[string]any{
 			"area_code": ac.AreaCode.String,
@@ -108,7 +100,7 @@ func (s *PoiServer) reload() (*buntdb.DB, error) {
 		return nil, fmt.Errorf("failed to initialize GeoDB from AreaCode: %w", err)
 	}
 	// Load from ModelInstallInfo
-	err = selectModlInstlInfo(s.rdb, func(mi *ModelInstallInfo, merr error) bool {
+	err = SelectModlInstlInfo(rdb, func(mi *ModelInstallInfo, merr error) bool {
 		if merr != nil {
 			s.log.Warnf("failed to load ModelInstallInfo: %v", merr)
 			return true // Continue processing other records

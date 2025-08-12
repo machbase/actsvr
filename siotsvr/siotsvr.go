@@ -3,6 +3,7 @@ package siotsvr
 import (
 	"actsvr/util"
 	"context"
+	"database/sql"
 	"flag"
 	"fmt"
 	"log"
@@ -15,6 +16,7 @@ import (
 var DefaultLocation = time.Local
 var pid string = "./siotsvr.pid"
 var defaultLog *util.Log
+var nowFunc = time.Now
 
 var machConfig = MachConfig{
 	dbHost: "127.0.0.1",
@@ -130,4 +132,14 @@ type RDBConfig struct {
 	user string
 	pass string
 	db   string
+}
+
+func (c RDBConfig) Connect() (*sql.DB, error) {
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		c.user, c.pass, c.host, c.port, c.db)
+	rdb, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return nil, err
+	}
+	return rdb, nil
 }

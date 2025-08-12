@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -19,10 +20,12 @@ type HttpServer struct {
 	KeepAlive int // seconds
 	TempDir   string
 
-	machCli    *machcli.Database
-	log        *util.Log
-	httpServer *http.Server
-	router     *gin.Engine
+	machCli       *machcli.Database
+	log           *util.Log
+	httpServer    *http.Server
+	router        *gin.Engine
+	certKeys      map[string]*Certkey
+	certKeysMutex sync.RWMutex
 }
 
 func NewHttpServer() *HttpServer {
@@ -35,6 +38,9 @@ func NewHttpServer() *HttpServer {
 
 func (s *HttpServer) Start(ctx context.Context) error {
 	s.log = DefaultLog()
+	if err := s.reloadCertkey(); err != nil {
+		return err
+	}
 	if err := s.openDatabase(); err != nil {
 		return err
 	}
@@ -107,4 +113,28 @@ func (s *HttpServer) openConn(ctx context.Context) (api.Conn, error) {
 		return nil, err
 	}
 	return conn, nil
+}
+
+func (s *HttpServer) reloadCertkey() error {
+	rdb, err := rdbConfig.Connect()
+	if err != nil {
+		return fmt.Errorf("failed to open RDB connection: %w", err)
+	}
+	defer rdb.Close()
+	if err := rdb.Ping(); err != nil {
+		return fmt.Errorf("failed to ping RDB: %w", err)
+	}
+	lst := map[string]*Certkey{}
+	err = SelectCertkey(rdb, func(certkey *Certkey) bool {
+		lst[certkey.CrtfcKey.String] = certkey
+		return true // Continue processing other records
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize Certkey: %w", err)
+	}
+	s.certKeysMutex.Lock()
+	s.certKeys = lst
+	s.log.Infof("Loaded %d certificate keys", len(lst))
+	s.certKeysMutex.Unlock()
+	return nil
 }
