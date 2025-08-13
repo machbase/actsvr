@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"sync"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -20,28 +21,46 @@ type HttpServer struct {
 	KeepAlive int // seconds
 	TempDir   string
 
-	machCli       *machcli.Database
-	log           *util.Log
-	httpServer    *http.Server
-	router        *gin.Engine
-	certKeys      map[string]*Certkey
-	certKeysMutex sync.RWMutex
+	machCli    *machcli.Database
+	log        *util.Log
+	httpServer *http.Server
+	router     *gin.Engine
+
+	rawPacketCh  chan *RawPacketData
+	parsPacketCh chan *ParsedPacketData
 }
 
 func NewHttpServer() *HttpServer {
 	return &HttpServer{
-		Host:    "0.0.0.0",
-		Port:    8888,
-		TempDir: "/tmp",
+		Host:         "0.0.0.0",
+		Port:         8888,
+		TempDir:      "/tmp",
+		rawPacketCh:  make(chan *RawPacketData),
+		parsPacketCh: make(chan *ParsedPacketData),
 	}
 }
 
 func (s *HttpServer) Start(ctx context.Context) error {
 	s.log = DefaultLog()
-	if err := s.reloadCertkey(); err != nil {
+	if err := reloadPoiData(); err != nil {
+		return err
+	}
+	if err := reloadCertkey(); err != nil {
+		return err
+	}
+	if err := reloadPacketDefinition(); err != nil {
+		return err
+	}
+	if err := reloadModelAreaCode(); err != nil {
 		return err
 	}
 	if err := s.openDatabase(); err != nil {
+		return err
+	}
+	if err := s.reloadPacketSeq(); err != nil {
+		return err
+	}
+	if err := s.reloadPacketParseSeq(); err != nil {
 		return err
 	}
 	s.log.Infof("Starting HTTP server on %s:%d", s.Host, s.Port)
@@ -49,9 +68,14 @@ func (s *HttpServer) Start(ctx context.Context) error {
 }
 
 func (s *HttpServer) Stop(ctx context.Context) error {
+	if s.httpServer != nil {
+		s.httpServer.Shutdown(ctx)
+	}
 	s.closeDatabase()
+	close(s.parsPacketCh)
+	close(s.rawPacketCh)
 	s.log.Infof("Stopping HTTP server on %s:%d", s.Host, s.Port)
-	return s.httpServer.Shutdown(ctx)
+	return nil
 }
 
 func (s *HttpServer) serve() error {
@@ -76,6 +100,8 @@ func (s *HttpServer) serve() error {
 		return fmt.Errorf("failed to start HTTP server: %w", err)
 	}
 
+	go s.loopRawPacket()
+	go s.loopParsPacket()
 	go s.httpServer.Serve(lsnr)
 	return nil
 }
@@ -115,26 +141,153 @@ func (s *HttpServer) openConn(ctx context.Context) (api.Conn, error) {
 	return conn, nil
 }
 
-func (s *HttpServer) reloadCertkey() error {
-	rdb, err := rdbConfig.Connect()
+var globalPacketSeq int64 = 0 // Global packet sequence number
+func nextPacketSeq() int64 {
+	return atomic.AddInt64(&globalPacketSeq, 1)
+}
+
+func (s *HttpServer) reloadPacketSeq() error {
+	ctx := context.Background()
+	conn, err := s.openConn(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to open RDB connection: %w", err)
+		panic(err)
 	}
-	defer rdb.Close()
-	if err := rdb.Ping(); err != nil {
-		return fmt.Errorf("failed to ping RDB: %w", err)
+	defer conn.Close()
+	row := conn.QueryRow(ctx, "SELECT MAX(PACKET_SEQ) FROM TB_RECPTN_PACKET_DATA")
+	if err := row.Err(); err != nil {
+		return err
 	}
-	lst := map[string]*Certkey{}
-	err = SelectCertkey(rdb, func(certkey *Certkey) bool {
-		lst[certkey.CrtfcKey.String] = certkey
-		return true // Continue processing other records
-	})
-	if err != nil {
-		return fmt.Errorf("failed to initialize Certkey: %w", err)
+	seq := int64(0)
+	if err := row.Scan(&seq); err != nil {
+		return fmt.Errorf("failed to scan packet sequence: %w", err)
 	}
-	s.certKeysMutex.Lock()
-	s.certKeys = lst
-	s.log.Infof("Loaded %d certificate keys", len(lst))
-	s.certKeysMutex.Unlock()
+	atomic.StoreInt64(&globalPacketSeq, seq+1)
 	return nil
+}
+
+var globalPacketParseSeq int64 = 0 // Global packet parse sequence number
+func nextPacketParseSeq() int64 {
+	return atomic.AddInt64(&globalPacketParseSeq, 1)
+}
+
+func (s *HttpServer) reloadPacketParseSeq() error {
+	ctx := context.Background()
+	conn, err := s.openConn(ctx)
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+	row := conn.QueryRow(ctx, "SELECT MAX(PACKET_PARS_SEQ) FROM TB_PACKET_PARS_DATA")
+	if err := row.Err(); err != nil {
+		return err
+	}
+	seq := int64(0)
+	if err := row.Scan(&seq); err != nil {
+		return fmt.Errorf("failed to scan packet parse sequence: %w", err)
+	}
+	atomic.StoreInt64(&globalPacketParseSeq, seq+1)
+	return nil
+}
+
+func (s *HttpServer) loopRawPacket() {
+	ctx := context.Background()
+	conn, err := s.openConn(ctx)
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+	for data := range s.rawPacketCh {
+		if data == nil {
+			break
+		}
+		fmt.Println("Received packet values:")
+		fmt.Printf("ModelSerial: %s\n", data.ModlSerial)
+		fmt.Printf("TSN: %d\n", data.TrnsmitServerNo)
+		fmt.Printf("DataNo: %d\n", data.DataNo)
+		fmt.Printf("AreaCode: %s\n", data.AreaCode)
+		fmt.Printf("PkSeq: %d\n", data.PkSeq)
+
+		sqlText := `INSERT INTO TB_RECPTN_PACKET_DATA(
+                    PACKET_SEQ,
+                    TRNSMIT_SERVER_NO,
+                    DATA_NO,
+                    PK_SEQ,
+                    AREA_CODE,
+                    MODL_SERIAL,
+					DQMCRR_OP,
+                    PACKET,
+                    PACKET_STTUS_CODE,
+                    RECPTN_RESULT_CODE,
+                    RECPTN_RESULT_MSSAGE,
+                    PARS_SE_CODE,
+                    REGIST_DE,
+                    REGIST_TIME,
+                    REGIST_DT
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		result := conn.Exec(ctx, sqlText,
+			data.PacketSeq, data.TrnsmitServerNo, data.DataNo,
+			data.PkSeq, data.AreaCode, data.ModlSerial, data.DqmCrrOp, data.Packet,
+			data.PacketSttusCode, data.RecptnResultCode, data.RecptnResultMssage,
+			data.ParsSeCode, data.RegistDe, data.RegistTime, data.RegistDt)
+		if err := result.Err(); err != nil {
+			s.log.Error("Failed to insert RecptnPacketData:", err)
+		} else {
+			s.parseRawPacket(data)
+		}
+	}
+}
+
+func (s *HttpServer) loopParsPacket() {
+	ctx := context.Background()
+	conn, err := s.openConn(ctx)
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+
+	for data := range s.parsPacketCh {
+		if data == nil {
+			break
+		}
+		sqlBuilder := strings.Builder{}
+		sqlBuilder.WriteString(`INSERT INTO TB_PACKET_PARS_DATA(`)
+		sqlBuilder.WriteString(`PACKET_PARS_SEQ,`)
+		sqlBuilder.WriteString(`PACKET_SEQ,`)
+		sqlBuilder.WriteString(`TRNSMIT_SERVER_NO,`)
+		sqlBuilder.WriteString(`DATA_NO,`)
+		sqlBuilder.WriteString(`REGIST_DT,`)
+		sqlBuilder.WriteString(`REGIST_DE,`)
+		sqlBuilder.WriteString(`SERVICE_SEQ,`)
+		sqlBuilder.WriteString(`AREA_CODE,`)
+		sqlBuilder.WriteString(`MODL_SERIAL,`)
+		sqlBuilder.WriteString(`DQMCRR_OP`)
+		for i := range data.Values {
+			sqlBuilder.WriteString(fmt.Sprintf(",COLUMN%d", i))
+		}
+		sqlBuilder.WriteString(`) VALUES(?,?,?,?,?,?,?,?,?,?`)
+		for range data.Values {
+			sqlBuilder.WriteString(",?")
+		}
+		sqlBuilder.WriteString(`)`)
+
+		values := []interface{}{
+			data.PacketParsSeq,
+			data.PacketSeq,
+			data.TrnsmitServerNo,
+			data.DataNo,
+			data.RegistDt,
+			data.RegistDe,
+			data.ServiceSeq,
+			data.AreaCode,
+			data.ModlSerial,
+			data.DqmCrrOp,
+		}
+		for _, val := range data.Values {
+			values = append(values, val)
+		}
+		result := conn.Exec(ctx, sqlBuilder.String(), values...)
+		if result.Err() != nil {
+			s.log.Error("Failed to insert PacketParsData:", result.Err())
+		}
+	}
 }

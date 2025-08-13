@@ -1,6 +1,7 @@
 package siotsvr
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -31,10 +32,17 @@ func (s *HttpServer) writeRecptnPacketData(c *gin.Context) {
 		return
 	}
 
-	conn, err := s.openConn(c)
+	if err := s.insertRecptnPacketData(c, data); err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("Failed to write RecptnPacketData: %s", err.Error()))
+	} else {
+		c.String(http.StatusOK, "RecptnPacketData written successfully!")
+	}
+}
+
+func (s *HttpServer) insertRecptnPacketData(ctx context.Context, data RecptnPacketData) error {
+	conn, err := s.openConn(ctx)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Database connection error")
-		return
+		return err
 	}
 	defer conn.Close()
 
@@ -45,6 +53,7 @@ func (s *HttpServer) writeRecptnPacketData(c *gin.Context) {
                     PK_SEQ,
                     AREA_CODE,
                     MODL_SERIAL,
+					DQMCRR_OP,
                     PACKET,
                     PACKET_STTUS_CODE,
                     RECPTN_RESULT_CODE,
@@ -53,16 +62,16 @@ func (s *HttpServer) writeRecptnPacketData(c *gin.Context) {
                     REGIST_DE,
                     REGIST_TIME,
                     REGIST_DT
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	result := conn.Exec(c, sqlText, data.PacketSeq, data.TransmitServerNo, data.DataNo,
-		data.PkSeq, data.AreaCode, data.ModlSerial, data.Packet,
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	result := conn.Exec(ctx, sqlText,
+		data.PacketSeq, data.TrnsmitServerNo, data.DataNo,
+		data.PkSeq, data.AreaCode, data.ModlSerial, data.DqmCrrOp, data.Packet,
 		data.PacketSttusCode, data.RecptnResultCode, data.RecptnResultMssage,
 		data.ParsSeCode, data.RegistDe, data.RegistTime, data.RegistDt)
 	if result.Err() != nil {
-		c.String(http.StatusInternalServerError, "Failed to write RecptnPacketData, "+result.Err().Error())
-		return
+		return result.Err()
 	}
-	c.String(http.StatusOK, "RecptnPacketData written successfully!")
+	return nil
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -109,11 +118,12 @@ func (s *HttpServer) writeRecptnPacketData(c *gin.Context) {
 //     and server will set it to current time
 type RecptnPacketData struct {
 	PacketSeq          int64  `form:"PACKET_SEQ" json:"PACKET_SEQ" binding:"required"`
-	TransmitServerNo   int    `form:"TRNSMIT_SERVER_NO" json:"TRNSMIT_SERVER_NO" binding:"required"`
+	TrnsmitServerNo    int64  `form:"TRNSMIT_SERVER_NO" json:"TRNSMIT_SERVER_NO" binding:"required"`
 	DataNo             int    `form:"DATA_NO" json:"DATA_NO" binding:"required"`
 	PkSeq              int64  `form:"PK_SEQ" json:"PK_SEQ" binding:"required"`
 	AreaCode           string `form:"AREA_CODE" json:"AREA_CODE" binding:"required"`
 	ModlSerial         string `form:"MODL_SERIAL" json:"MODL_SERIAL" binding:"required"`
+	DqmCrrOp           int    `form:"DQMCRR_OP" json:"DQMCRR_OP" binding:"required"`
 	Packet             string `form:"PACKET" json:"PACKET" binding:"required"`
 	PacketSttusCode    string `form:"PACKET_STTUS_CODE" json:"PACKET_STTUS_CODE" binding:"required"`
 	RecptnResultCode   string `form:"RECPTN_RESULT_CODE" json:"RECPTN_RESULT_CODE" binding:"required"`
@@ -131,8 +141,8 @@ func (data *RecptnPacketData) Validate() error {
 	}
 
 	// Validate TransmitServerNo - should not be empty
-	if data.TransmitServerNo < 0 {
-		return fmt.Errorf("invalid TRNSMIT_SERVER_NO: %d, must be non-negative", data.TransmitServerNo)
+	if data.TrnsmitServerNo < 0 {
+		return fmt.Errorf("invalid TRNSMIT_SERVER_NO: %d, must be non-negative", data.TrnsmitServerNo)
 	}
 
 	// Validate DataNo - should be non-negative

@@ -95,6 +95,10 @@ func (l *Log) ID() string {
 	return LogID
 }
 
+func (l *Log) SetVerbose(v int) {
+	l.verbose = v
+}
+
 func (l *Log) write(level log.Level, msg string) {
 	ts := time.Now().In(l.tz).Format(l.timeformat)
 	fmt.Fprintln(l.w, ts, levels[level], msg)

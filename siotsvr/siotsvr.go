@@ -34,7 +34,6 @@ var rdbConfig = RDBConfig{
 }
 
 func Main() int {
-	poiSvr := NewPoiServer()
 	httpSvr := NewHttpServer()
 
 	flag.StringVar(&pid, "pid", pid, "the file to store the process ID")
@@ -75,9 +74,6 @@ func Main() int {
 	flag.Parse()
 	defaultLog = util.NewLog(logConf)
 
-	poiGroup := httpSvr.Router().Group("/db/poi")
-	poiSvr.Router(poiGroup)
-
 	if pid != "" {
 		if err := os.WriteFile(pid, []byte(fmt.Sprintf("%d", os.Getpid())), 0644); err != nil {
 			log.Printf("failed to write PID file: %v", err)
@@ -91,12 +87,6 @@ func Main() int {
 	}
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
-	if err := poiSvr.Start(ctx); err != nil {
-		log.Printf("Failed to start PoiServer: %v", err)
-		ctxCancel()
-		return 1
-	}
-	defer poiSvr.Stop(ctx)
 	if err := httpSvr.Start(ctx); err != nil {
 		log.Printf("Failed to start HttpServer: %v", err)
 		ctxCancel()

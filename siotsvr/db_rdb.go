@@ -8,13 +8,165 @@ import (
 	"time"
 )
 
+type ModelPacketMaster struct {
+	PacketMasterSeq int64          `sql:"packet_master_seq"` // primary key
+	TrnsmitServerNo sql.NullInt64  `sql:"trnsmit_server_no"`
+	DataNo          sql.NullInt64  `sql:"data_no"`
+	PacketSize      sql.NullInt64  `sql:"packet_size"`
+	HderSize        sql.NullInt64  `sql:"hder_size"`
+	DataSize        sql.NullInt64  `sql:"data_size"`
+	RegisterNo      sql.NullString `sql:"register_no"`
+	RegistDt        sql.NullTime   `sql:"regist_dt"`
+	UpdusrNo        sql.NullString `sql:"updusr_no"`
+	UpdtDt          sql.NullTime   `sql:"updt_dt"`
+}
+
+func SelectModelPacketMaster(db *sql.DB, callback func(*ModelPacketMaster) bool) error {
+	rows, err := db.Query(`SELECT
+		PACKET_MASTR_SEQ,
+		TRNSMIT_SERVER_NO,
+		DATA_NO,
+		PACKET_SIZE,
+		HDER_SIZE,
+		DATA_SIZE,
+		REGISTER_NO,
+		REGIST_DT,
+		UPDUSR_NO,
+		UPDT_DT
+	FROM TB_MODL_PACKET_MASTR`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var mp ModelPacketMaster
+		err := rows.Scan(
+			&mp.PacketMasterSeq,
+			&mp.TrnsmitServerNo,
+			&mp.DataNo,
+			&mp.PacketSize,
+			&mp.HderSize,
+			&mp.DataSize,
+			&mp.RegisterNo,
+			&mp.RegistDt,
+			&mp.UpdusrNo,
+			&mp.UpdtDt)
+		if err != nil {
+			return err
+		}
+		if !callback(&mp) {
+			break
+		}
+	}
+	return nil
+}
+
+type ModelPacketDetail struct {
+	PacketDetailSeq int64           `sql:"packet_detail_seq"` // primary key
+	PacketMastrSeq  sql.NullInt64   `sql:"packet_master_seq"`
+	PacketSeCode    sql.NullString  `sql:"packet_se_code"`
+	PacketNm        sql.NullString  `sql:"packet_nm"`
+	DataCd          sql.NullString  `sql:"data_cd"`
+	PacketByte      sql.NullInt64   `sql:"packet_byte"`
+	PacketUnit      sql.NullString  `sql:"packet_unit"`
+	ValdRuleType    sql.NullString  `sql:"vald_rule_type"`
+	MaxValue        sql.NullFloat64 `sql:"max_value"`
+	MinValue        sql.NullFloat64 `sql:"min_value"`
+	ArrValue        sql.NullString  `sql:"arr_value"`
+	PacketCtgry     sql.NullString  `sql:"packet_ctgry"`
+	DC              sql.NullString  `sql:"dc"`
+	PublicYn        sql.NullString  `sql:"public_yn"`
+	GraphYn         sql.NullString  `sql:"graph_yn"`
+	LimitValue      sql.NullString  `sql:"limit_value"`
+	CeckPttrn       sql.NullString  `sql:"ceck_pttrn"`
+	SortOrdr        sql.NullInt64   `sql:"sort_ordr"`
+	RegisterNo      sql.NullString  `sql:"register_no"`
+	RegistDt        sql.NullTime    `sql:"regist_dt"`
+	UpdusrNo        sql.NullString  `sql:"updusr_no"`
+	UpdtDt          sql.NullTime    `sql:"updt_dt"`
+}
+
+func SelectModelPacketDetail(db *sql.DB, masterSeq int64, callback func(*ModelPacketDetail) bool) error {
+	rows, err := db.Query(`SELECT
+		PACKET_DETAIL_SEQ,
+		PACKET_MASTR_SEQ,
+		PACKET_SE_CODE,
+		PACKET_NM,
+		DATA_CD,
+		PACKET_BYTE,
+		PACKET_UNIT,
+		VALD_RULE_TYPE,
+		MAX_VALUE,
+		MIN_VALUE,
+		ARR_VALUE,
+		PACKET_CTGRY,
+		DC,
+		PUBLIC_YN,
+		GRAPH_YN,
+		LIMIT_VALUE,
+		CECK_PTTRN,
+		SORT_ORDR,
+		REGISTER_NO,
+		REGIST_DT,
+		UPDUSR_NO,
+		UPDT_DT
+	FROM
+		TB_MODL_PACKET_DETAIL
+	WHERE
+		PACKET_MASTR_SEQ = ?
+	ORDER BY
+		PACKET_DETAIL_SEQ`,
+		masterSeq)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var mpd ModelPacketDetail
+		err := rows.Scan(
+			&mpd.PacketDetailSeq,
+			&mpd.PacketMastrSeq,
+			&mpd.PacketSeCode,
+			&mpd.PacketNm,
+			&mpd.DataCd,
+			&mpd.PacketByte,
+			&mpd.PacketUnit,
+			&mpd.ValdRuleType,
+			&mpd.MaxValue,
+			&mpd.MinValue,
+			&mpd.ArrValue,
+			&mpd.PacketCtgry,
+			&mpd.DC,
+			&mpd.PublicYn,
+			&mpd.GraphYn,
+			&mpd.LimitValue,
+			&mpd.CeckPttrn,
+			&mpd.SortOrdr,
+			&mpd.RegisterNo,
+			&mpd.RegistDt,
+			&mpd.UpdusrNo,
+			&mpd.UpdtDt)
+
+		if err != nil {
+			return err
+		}
+
+		if !callback(&mpd) {
+			break
+		}
+	}
+	return nil
+}
+
 type Certkey struct {
 	CertkeySeq      int64          `sql:"certkey_seq"` // primary key
 	TrnsmitServerNo sql.NullInt64  `sql:"trnsmit_server_no"`
 	CrtfcKey        sql.NullString `sql:"crtfc_key"`
 	BeginValidDe    time.Time      `sql:"begin_valid_de"`
 	EndValidDe      time.Time      `sql:"end_valid_de"`
-	SttsCode        sql.NullString `sql:"stts_code"`
+	SttusCode       sql.NullString `sql:"sttus_code"`
 	RegisterNo      sql.NullString `sql:"register_no"`
 	RegistDt        sql.NullTime   `sql:"regist_dt"`
 	UpdusrNo        sql.NullString `sql:"updusr_no"`
@@ -28,7 +180,7 @@ func SelectCertkey(db *sql.DB, callback func(*Certkey) bool) error {
 		CRTFC_KEY,
 		BEGIN_VALID_DE,
 		END_VALID_DE,
-		STTS_CODE,
+		STTUS_CODE,
 		REGISTER_NO,
 		REGIST_DT,
 		UPDUSR_NO,
@@ -49,7 +201,7 @@ func SelectCertkey(db *sql.DB, callback func(*Certkey) bool) error {
 			&ck.CrtfcKey,
 			&BeginValidDe,
 			&EndValidDe,
-			&ck.SttsCode,
+			&ck.SttusCode,
 			&ck.RegisterNo,
 			&ck.RegistDt,
 			&ck.UpdusrNo,
@@ -58,15 +210,18 @@ func SelectCertkey(db *sql.DB, callback func(*Certkey) bool) error {
 			return err
 		}
 		if !BeginValidDe.Valid || !EndValidDe.Valid {
-			return fmt.Errorf("invalid date range for CertkeySeq %d: BeginValidDe %v, EndValidDe %v", ck.CertkeySeq, BeginValidDe, EndValidDe)
+			defaultLog.Warnf("CERTKEY invalid date range for CertkeySeq %d: BeginValidDe %v, EndValidDe %v", ck.CertkeySeq, BeginValidDe, EndValidDe)
+			continue
 		}
 		ck.BeginValidDe, err = stringToDate(BeginValidDe.String)
 		if err != nil {
-			return fmt.Errorf("invalid BeginValidDe: %q, for CertkeySeq %d", BeginValidDe.String, ck.CertkeySeq)
+			defaultLog.Warnf("CERTKEY invalid BeginValidDe: %q, for CertkeySeq %d", BeginValidDe.String, ck.CertkeySeq)
+			continue
 		}
 		ck.EndValidDe, err = stringToDate(EndValidDe.String)
 		if err != nil {
-			return fmt.Errorf("invalid EndValidDe: %q, for CertkeySeq %d", EndValidDe.String, ck.CertkeySeq)
+			defaultLog.Warnf("CERTKEY invalid EndValidDe: %q, for CertkeySeq %d", EndValidDe.String, ck.CertkeySeq)
+			continue
 		}
 		if !callback(&ck) {
 			break
@@ -151,7 +306,7 @@ type ModelInstallInfo struct {
 	UpdtDt          sql.NullTime   `json:"updt_dt"`
 }
 
-func SelectModlInstlInfo(db *sql.DB, callback func(*ModelInstallInfo, error) bool) error {
+func SelectModelInstallInfo(db *sql.DB, callback func(*ModelInstallInfo, error) bool) error {
 	rows, err := db.Query(`SELECT
 		MODL_SERIAL,
 		TRNSMIT_SERVER_NO,

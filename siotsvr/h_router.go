@@ -2,7 +2,6 @@ package siotsvr
 
 import (
 	"embed"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -33,6 +32,8 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 	r.POST("/db/write/RecptnPacketData", s.writeRecptnPacketData)
 	r.GET("/db/write/PacketParsData", s.writePacketParsData)
 	r.POST("/db/write/PacketParsData", s.writePacketParsData)
+	r.GET("/db/poi/nearby", s.handlePoiNearby)
+	r.POST("/db/poi/reload", s.handlePoiReload)
 	r.GET("/n/api/serverstat/:certkey", s.handleServerStat)
 	r.GET("/n/api/send/:certkey/1/:pk_seq/:serial_num/:packet", s.handleSendPacket)
 	r.NoRoute(func(c *gin.Context) {
@@ -41,91 +42,19 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 	return r
 }
 
-func (s *HttpServer) handleSendPacket(c *gin.Context) {
-	certkey := c.Param("certkey")      // string e.g. a2a3a4a5testauthkey9
-	pkSeq := c.Param("pk_seq")         // integer e.g. 202008030000000301
-	serialNum := c.Param("serial_num") // string e.g. 3A4A50D
-	packet := c.Param("packet")        // string data
-	dqmcrrOp := c.Query("dqmcrr_op")   // 100 | 200
-
-	if certkey == "" || pkSeq == "" || serialNum == "" || packet == "" {
-		c.JSON(http.StatusOK, ApiErrorInvalidParameters)
-		return
-	}
-
-	_ = dqmcrrOp // Ignore dqmcrr_op for now
-
-	if false { // If package length is wrong
-		ret := ApiErrorInvalidPacketLength
-		ret.ResultStats.ResultMsg = fmt.Sprintf("%s 패킷정의길이:%d(H:15/T7),수신패킷길이:%d",
-			ret.ResultStats.ResultMsg, 0, 1)
-		c.JSON(http.StatusOK, ret)
-		return
-	}
-	valid, err := s.VerifyCertkey(certkey, 1) // Assuming 1 is the transmit server number
-	if err != nil || !valid {
-		c.JSON(http.StatusOK, ApiErrorInvalidCertkey)
-		return
-	}
-
-	c.JSON(http.StatusOK, ApiReceiveSuccess)
-}
-
-func (s *HttpServer) handleServerStat(c *gin.Context) {
-	certkey := c.Param("certkey")
-
-	ret := struct {
-		ResultStats struct {
-			ResultCode string `json:"resultCode"`
-			ResultMsg  string `json:"resultMsg"`
-		} `json:"resultStats"`
-	}{}
-
-	if s.certKeys == nil {
-		ret.ResultStats.ResultCode = "ERROR-900"
-		ret.ResultStats.ResultMsg = "System Error"
-	}
-
-	s.certKeysMutex.RLock()
-	key, exists := s.certKeys[certkey]
-	s.certKeysMutex.RUnlock()
-	if !exists {
-		ret.ResultStats.ResultCode = "ERROR-200"
-		ret.ResultStats.ResultMsg = "인증키가 올바르지 않습니다."
-		c.JSON(http.StatusOK, ret)
-		return
-	}
-
-	now := nowFunc()
-	if now.Before(key.BeginValidDe) || now.After(key.EndValidDe) {
-		ret.ResultStats.ResultCode = "ERROR-200"
-		ret.ResultStats.ResultMsg = "인증키가 올바르지 않습니다."
-		c.JSON(http.StatusOK, ret)
-		return
-	}
-	ret.ResultStats.ResultCode = "READY-000"
-	ret.ResultStats.ResultMsg = "수신가능"
-	c.JSON(http.StatusOK, ret)
-}
-
-func (s *HttpServer) VerifyCertkey(certkey string, tsn int64) (bool, error) {
-	s.certKeysMutex.RLock()
-	defer s.certKeysMutex.RUnlock()
-	if s.certKeys == nil {
-		return false, errors.New("certificate keys not loaded")
-	}
-	key, exists := s.certKeys[certkey]
-	if !exists {
-		return false, fmt.Errorf("unknown certificate key: %q", certkey)
+func (s *HttpServer) VerifyCertkey(certkey string) (int64, error) {
+	key, err := getCertKey(certkey)
+	if err != nil {
+		return 0, err
 	}
 	now := nowFunc()
 	if now.Before(key.BeginValidDe) || now.After(key.EndValidDe) {
-		return false, fmt.Errorf("certificate key %q is not valid", certkey)
+		return 0, fmt.Errorf("certificate key %q is not valid", certkey)
 	}
-	if !key.TrnsmitServerNo.Valid || key.TrnsmitServerNo.Int64 != tsn {
-		return false, fmt.Errorf("certificate key %q is not valid for transmit server %d", certkey, tsn)
+	if !key.TrnsmitServerNo.Valid {
+		return 0, fmt.Errorf("certificate key %q has invalid tsn", certkey)
 	}
-	return true, nil
+	return key.TrnsmitServerNo.Int64, nil
 }
 
 type ApiResult struct {
@@ -139,38 +68,69 @@ type ApiResultStats struct {
 var (
 	ApiReceiveSuccess = ApiResult{
 		ResultStats: ApiResultStats{
-			ResultCode: "SUCCESS-000",
-			ResultMsg:  "수신완료",
+			ResultCode: "SUCC-000",
+			ResultMsg:  "수신 완료",
 		},
 	}
-	ApiErrorInvalidCertkey = ApiResult{
+	ApiReady = ApiResult{
+		ResultStats: ApiResultStats{
+			ResultCode: "READY-000",
+			ResultMsg:  "수신 가능",
+		},
+	}
+	ApiErrorWrongCertkey = ApiResult{
 		ResultStats: ApiResultStats{
 			ResultCode: "ERROR-200",
 			ResultMsg:  "인증키가 올바르지 않습니다.",
 		},
 	}
+	ApiErrorExpiredCertkey = ApiResult{
+		ResultStats: ApiResultStats{
+			ResultCode: "ERROR-210",
+			ResultMsg:  "인증키 유효기관을 확인 바립니다.",
+		},
+	}
+	ApiErrorInvalidCertkey = ApiResult{
+		ResultStats: ApiResultStats{
+			ResultCode: "ERROR-210",
+			ResultMsg:  "인증키가 유효하지 않습니다.",
+		},
+	}
+
 	ApiErrorInvalidPacketLength = ApiResult{
 		ResultStats: ApiResultStats{
 			ResultCode: "ERROR-300",
 			ResultMsg:  "패킷의 길이가 정의서와 다릅니다.",
 		},
 	}
+	ApiErrorInvalidPacketLegend = ApiResult{
+		ResultStats: ApiResultStats{
+			ResultCode: "ERROR-310",
+			ResultMsg:  "패킷 데이터의 범주가 정의서와 다릅니다.",
+		},
+	}
+	ApiErrorServer = ApiResult{
+		ResultStats: ApiResultStats{
+			ResultCode: "ERROR-500",
+			ResultMsg:  "서버 오류입니다. 지속적으로 발생시 담당기관의 문의 바랍니다.",
+		},
+	}
 	ApiErrorUnknownDevice = ApiResult{
 		ResultStats: ApiResultStats{
 			ResultCode: "ERROR-600",
-			ResultMsg:  "미등록 기기입니다.",
+			ResultMsg:  "미등록 기기의 패킷 데이터 입니다.",
 		},
 	}
 	ApiErrorIntervalExceeded = ApiResult{
 		ResultStats: ApiResultStats{
 			ResultCode: "ERROR-610",
-			ResultMsg:  "수신간격초과입니다.",
+			ResultMsg:  "수신 간격 초과 패킷 데이터 입니다.",
 		},
 	}
 	ApiErrorLegend = ApiResult{
 		ResultStats: ApiResultStats{
 			ResultCode: "ERROR-620",
-			ResultMsg:  "범례 오류 입니다.",
+			ResultMsg:  "범례 초과 패킷 데이터 입니다.",
 		},
 	}
 	ApiErrorInvalidPacket = ApiResult{
@@ -191,10 +151,10 @@ var (
 			ResultMsg:  "잘못된 파라미터입니다.",
 		},
 	}
-	ApiErrorSystemError = ApiResult{
+	ApiErrorOther = ApiResult{
 		ResultStats: ApiResultStats{
 			ResultCode: "ERROR-900",
-			ResultMsg:  "시스템 오류입니다.",
+			ResultMsg:  "기타 에러",
 		},
 	}
 )

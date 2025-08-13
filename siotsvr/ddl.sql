@@ -8,7 +8,9 @@ CREATE TABLE IF NOT EXISTS TB_RECPTN_PACKET_DATA (
     TRNSMIT_SERVER_NO      int,
     DATA_NO                int,
     PK_SEQ                 long,
+    AREA_CODE              varchar(10),
     MODL_SERIAL            varchar(20),
+    DQMCRR_OP              int,
     PACKET                 varchar(1000),
     PACKET_STTUS_CODE      varchar(4),
     RECPTN_RESULT_CODE     varchar(10),
@@ -17,15 +19,11 @@ CREATE TABLE IF NOT EXISTS TB_RECPTN_PACKET_DATA (
     PARS_DT                datetime,
     REGIST_DE              varchar(8),
     REGIST_TIME            varchar(4),
-    REGIST_DT              datetime,
-    AREA_CODE              varchar(10)
+    REGIST_DT              datetime
 );
 
 create index IDX_TB_RECPTN_PACKET_DATA_01 
 on TB_RECPTN_PACKET_DATA(TRNSMIT_SERVER_NO);
-
-create index IDX_TB_RECPTN_PACKET_DATA_02
-on TB_RECPTN_PACKET_DATA(DATA_NO);
 
 create index IDX_TB_RECPTN_PACKET_DATA_03
 on TB_RECPTN_PACKET_DATA(REGIST_DT);
@@ -35,6 +33,10 @@ on TB_RECPTN_PACKET_DATA(MODL_SERIAL);
 
 create index TB_RECPTN_PACKET_DATA_AREA_CODE
 on TB_RECPTN_PACKET_DATA(AREA_CODE);
+
+-- DO NOT MAKE: inefficient index
+-- create index IDX_TB_RECPTN_PACKET_DATA_02
+-- on TB_RECPTN_PACKET_DATA(DATA_NO);
 
 ---------------------------------------
 -- TB_PACKET_PARS_DATA
@@ -50,6 +52,7 @@ CREATE TABLE IF NOT EXISTS TB_PACKET_PARS_DATA (
     SERVICE_SEQ       int,
     AREA_CODE         varchar(10),
     MODL_SERIAL       varchar(20),
+    DQMCRR_OP         varchar(10),
     COLUMN0           varchar(50),
     COLUMN1           varchar(50),
     COLUMN2           varchar(50),
@@ -128,5 +131,5 @@ on TB_PACKET_PARS_DATA(AREA_CODE);
 create index IDX_PACKET_PARS_DATA_01 
 on TB_PACKET_PARS_DATA(TRNSMIT_SERVER_NO);
 
-create index IDX_PACKET_PARS_DATA_02
-on TB_PACKET_PARS_DATA(DATA_NO);
+-- create index IDX_PACKET_PARS_DATA_02
+-- on TB_PACKET_PARS_DATA(DATA_NO);

@@ -5,11 +5,118 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
 
 	"encoding/json"
 
 	"github.com/tidwall/buntdb"
 )
+
+var cachePoi *buntdb.DB
+var cachePoiMutex sync.RWMutex
+
+func reloadPoiData() error {
+	// Open the RDB connection
+	rdb, err := rdbConfig.Connect()
+	if err != nil {
+		return err
+	}
+	defer rdb.Close()
+
+	// Check the RDB connection
+	if err := rdb.Ping(); err != nil {
+		return fmt.Errorf("failed to connect to RDB: %w", err)
+	}
+	// Open the GeoDB connection
+	gdb, err := buntdb.Open(":memory:")
+	if err != nil {
+		return err
+	}
+	// Create the GeoDB index
+	gdb.CreateSpatialIndex("poi", "poi:*:latlon", buntdb.IndexRect)
+
+	// Load from AreaCode
+	err = SelectAreaCode(rdb, func(ac *AreaCode) bool {
+		nmKey := fmt.Sprintf("poi:%s:data", ac.AreaCode.String)
+		nmMap := map[string]any{
+			"area_code": ac.AreaCode.String,
+			"area_nm":   ac.AreaNm.String,
+		}
+		nmRaw, _ := json.Marshal(nmMap)
+		nmValue := string(nmRaw)
+		latLonKey := fmt.Sprintf("poi:%s:latlon", ac.AreaCode.String)
+		latLonValue := fmt.Sprintf("[%f %f]", ac.La, ac.Lo)
+
+		err := gdb.Update(func(tx *buntdb.Tx) error {
+			_, _, err := tx.Set(nmKey, nmValue, nil)
+			if err != nil {
+				return fmt.Errorf("failed to set area name: %w", err)
+			}
+			_, _, err = tx.Set(latLonKey, latLonValue, nil)
+			if err != nil {
+				return fmt.Errorf("failed to set area latlon: %w", err)
+			}
+			return err
+		})
+		return err == nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize GeoDB from AreaCode: %w", err)
+	}
+	poiCount := 0
+	// Load from ModelInstallInfo
+	err = SelectModelInstallInfo(rdb, func(mi *ModelInstallInfo, merr error) bool {
+		if merr != nil {
+			defaultLog.Warnf("failed to load ModelInstallInfo: %v", merr)
+			return true // Continue processing other records
+		}
+		key := fmt.Sprintf("%s_%d_%d", mi.ModlSerial, mi.TrnsmitServerNo, mi.DataNo)
+		nmKey := fmt.Sprintf("poi:%s:data", key)
+		nmMap := map[string]any{
+			"modl_serial":       mi.ModlSerial,
+			"trnsmit_server_no": mi.TrnsmitServerNo,
+			"data_no":           mi.DataNo,
+			"buld_nm":           nullString(mi.BuldNm),
+			"instl_floor":       nullInt64(mi.InstlFloor),
+			"instl_ho_no":       nullInt64(mi.InstlHoNo),
+			"adres":             nullString(mi.Adres),
+			"adres_detail":      nullString(mi.AdresDetail),
+			"la":                mi.La,
+			"lo":                mi.Lo,
+		}
+		nmRaw, _ := json.Marshal(nmMap)
+		nmValue := string(nmRaw)
+		latLonKey := fmt.Sprintf("poi:%s:latlon", key)
+		latLonValue := fmt.Sprintf("[%f %f]", mi.La, mi.Lo)
+		err := gdb.Update(func(tx *buntdb.Tx) error {
+			_, _, err := tx.Set(nmKey, nmValue, nil)
+			if err != nil {
+				return fmt.Errorf("failed to set model name: %w", err)
+			}
+			_, _, err = tx.Set(latLonKey, latLonValue, nil)
+			if err != nil {
+				return fmt.Errorf("failed to set model latlon: %w", err)
+			}
+			poiCount++
+			return err
+		})
+		return err == nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize GeoDB from ModelInstallInfo: %w", err)
+	}
+	defaultLog.Infof("Loaded %d poi", poiCount)
+	cachePoiMutex.Lock()
+	oldGdb := cachePoi
+	cachePoi = gdb
+	cachePoiMutex.Unlock()
+	if oldGdb != nil {
+		if err := oldGdb.Close(); err != nil {
+			defaultLog.Warnf("Error closing old POI GeoDB: %v", err)
+		}
+	}
+	return nil
+}
 
 func POIFindData(gdb *buntdb.DB, poiKey string) (string, error) {
 	var data string

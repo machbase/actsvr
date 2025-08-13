@@ -1,26 +1,20 @@
 package siotsvr
 
 import (
-	"context"
 	"net/http"
 	"testing"
 
-	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPoiServer(t *testing.T) {
+	defaultLog = DefaultLog()
 	// Initialize the PoiServer
-	poiSvr := &PoiServer{}
-	if err := poiSvr.Start(context.Background()); err != nil {
-		t.Fatalf("Failed to start PoiServer: %v", err)
+	if err := reloadPoiData(); err != nil {
+		t.Fatalf("Failed to reload POI data: %v", err)
 	}
-	defer poiSvr.Stop(context.Background())
-
 	// Create a Gin router group for the PoiServer
-	router := gin.Default()
-	group := router.Group("/db/poi")
-	poiSvr.Router(group)
+	router := NewHttpServer().Router()
 
 	// Test the /db/poi/reload
 	w := performRequest(router, "POST", "/db/poi/reload", nil)
