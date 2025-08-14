@@ -112,6 +112,10 @@ func (l *Log) Printf(f string, args ...any) {
 	l.write(log.InvalidLevel, fmt.Sprintf(f, args...))
 }
 
+func (l *Log) InfoEnabled() bool {
+	return l.verbose > 0
+}
+
 // Info starts a new message with info level.
 func (l *Log) Info(args ...any) {
 	if l.verbose > 0 {
@@ -168,6 +172,10 @@ func (l *Log) Panic(args ...any) {
 // is called which stops the ordinary flow of a goroutine.
 func (l *Log) Panicf(f string, args ...any) {
 	l.write(log.PanicLevel, fmt.Sprintf(f, args...))
+}
+
+func (l *Log) DebugEnabled() bool {
+	return l.verbose > 1
 }
 
 // Debug starts a new message with debug level.

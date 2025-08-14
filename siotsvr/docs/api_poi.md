@@ -84,5 +84,5 @@ e.g.) http://127.0.0.1:5680/db/poi/nearby?modl_serial=0000000032&trnsmit_server_
 ## Reload POI Database
 
 ```http
-POST http://127.0.0.1:5680/db/poi/reload
+POST http://127.0.0.1:5680/db/admin/reload?target=poi
 ```

@@ -11,14 +11,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func (s *HttpServer) handlePoiReload(c *gin.Context) {
-	if err := reloadPoiData(); err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
-		return
-	}
-	c.String(http.StatusOK, "POI reloaded successfully")
-}
-
 func (s *HttpServer) handlePoiNearby(c *gin.Context) {
 	cachePoiMutex.RLock()
 	defer func() {

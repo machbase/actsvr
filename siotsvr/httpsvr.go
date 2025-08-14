@@ -63,8 +63,20 @@ func (s *HttpServer) Start(ctx context.Context) error {
 	if err := s.reloadPacketParseSeq(); err != nil {
 		return err
 	}
+	go s.loopRawPacket()
+	go s.loopParsPacket()
+
+	s.httpServer = &http.Server{
+		ConnContext: s.httpContext,
+		Handler:     s.Router(),
+	}
+	lsnr, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.Host, s.Port))
+	if err != nil {
+		return fmt.Errorf("failed to start HTTP server: %w", err)
+	}
+	go s.httpServer.Serve(lsnr)
 	s.log.Infof("Starting HTTP server on %s:%d", s.Host, s.Port)
-	return s.serve()
+	return nil
 }
 
 func (s *HttpServer) Stop(ctx context.Context) error {
@@ -78,32 +90,16 @@ func (s *HttpServer) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (s *HttpServer) serve() error {
-	connContext := func(ctx context.Context, c net.Conn) context.Context {
-		if tcpCon, ok := c.(*net.TCPConn); ok && tcpCon != nil {
-			tcpCon.SetNoDelay(true)
-			if s.KeepAlive > 0 {
-				tcpCon.SetKeepAlive(true)
-				tcpCon.SetKeepAlivePeriod(time.Duration(s.KeepAlive) * time.Second)
-			}
-			tcpCon.SetLinger(0)
+func (s *HttpServer) httpContext(ctx context.Context, c net.Conn) context.Context {
+	if tcpCon, ok := c.(*net.TCPConn); ok && tcpCon != nil {
+		tcpCon.SetNoDelay(true)
+		if s.KeepAlive > 0 {
+			tcpCon.SetKeepAlive(true)
+			tcpCon.SetKeepAlivePeriod(time.Duration(s.KeepAlive) * time.Second)
 		}
-		return ctx
+		tcpCon.SetLinger(0)
 	}
-	s.httpServer = &http.Server{
-		ConnContext: connContext,
-		Handler:     s.Router(),
-	}
-
-	lsnr, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.Host, s.Port))
-	if err != nil {
-		return fmt.Errorf("failed to start HTTP server: %w", err)
-	}
-
-	go s.loopRawPacket()
-	go s.loopParsPacket()
-	go s.httpServer.Serve(lsnr)
-	return nil
+	return ctx
 }
 
 func (s *HttpServer) openDatabase() error {
@@ -196,44 +192,41 @@ func (s *HttpServer) loopRawPacket() {
 		panic(err)
 	}
 	defer conn.Close()
+
+	sqlText := strings.Join([]string{
+		"INSERT INTO TB_RECPTN_PACKET_DATA(",
+		"PACKET_SEQ,",
+		"TRNSMIT_SERVER_NO,",
+		"DATA_NO,",
+		"PK_SEQ,",
+		"AREA_CODE,",
+		"MODL_SERIAL,",
+		"DQMCRR_OP,",
+		"PACKET,",
+		"PACKET_STTUS_CODE,",
+		"RECPTN_RESULT_CODE,",
+		"RECPTN_RESULT_MSSAGE,",
+		"PARS_SE_CODE,",
+		"REGIST_DE,",
+		"REGIST_TIME,",
+		"REGIST_DT",
+		") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+	}, "")
 	for data := range s.rawPacketCh {
 		if data == nil {
 			break
 		}
-		fmt.Println("Received packet values:")
-		fmt.Printf("ModelSerial: %s\n", data.ModlSerial)
-		fmt.Printf("TSN: %d\n", data.TrnsmitServerNo)
-		fmt.Printf("DataNo: %d\n", data.DataNo)
-		fmt.Printf("AreaCode: %s\n", data.AreaCode)
-		fmt.Printf("PkSeq: %d\n", data.PkSeq)
-
-		sqlText := `INSERT INTO TB_RECPTN_PACKET_DATA(
-                    PACKET_SEQ,
-                    TRNSMIT_SERVER_NO,
-                    DATA_NO,
-                    PK_SEQ,
-                    AREA_CODE,
-                    MODL_SERIAL,
-					DQMCRR_OP,
-                    PACKET,
-                    PACKET_STTUS_CODE,
-                    RECPTN_RESULT_CODE,
-                    RECPTN_RESULT_MSSAGE,
-                    PARS_SE_CODE,
-                    REGIST_DE,
-                    REGIST_TIME,
-                    REGIST_DT
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 		result := conn.Exec(ctx, sqlText,
 			data.PacketSeq, data.TrnsmitServerNo, data.DataNo,
 			data.PkSeq, data.AreaCode, data.ModlSerial, data.DqmCrrOp, data.Packet,
 			data.PacketSttusCode, data.RecptnResultCode, data.RecptnResultMssage,
 			data.ParsSeCode, data.RegistDe, data.RegistTime, data.RegistDt)
 		if err := result.Err(); err != nil {
-			s.log.Error("Failed to insert RecptnPacketData:", err)
-		} else {
-			s.parseRawPacket(data)
+			s.log.Errorf("Failed to insert RecptnPacketData: %v, data: %#v", err, data)
+			continue
 		}
+		parsed := s.parseRawPacket(data)
+		s.parsPacketCh <- parsed
 	}
 }
 

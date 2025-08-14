@@ -10,22 +10,27 @@ import (
 )
 
 func (s *HttpServer) handleSendPacket(c *gin.Context) {
+	// Request의 패킷 정보를 로깅
 	if c.Request.URL.RawQuery != "" {
 		defaultLog.Info(c.Request.URL.Path + "?" + c.Request.URL.RawQuery)
 	} else {
 		defaultLog.Info(c.Request.URL.Path)
 	}
+	// Path params
 	certkey := c.Param("certkey")        // string e.g. a2a3a4a5testauthkey9
 	pkSeqStr := c.Param("pk_seq")        // integer e.g. 202008030000000301
 	modelSerial := c.Param("serial_num") // string e.g. 3A4A50D
 	packet := c.Param("packet")          // string data
-	dqmcrrOpStr := c.Query("DQMCRR_OP")  // 100 | 200
+	// Query params
+	dqmcrrOpStr := c.Query("DQMCRR_OP") // 100 | 200
 	dataNo := 1
 
+	// Validate required parameters
 	if certkey == "" || pkSeqStr == "" || modelSerial == "" || packet == "" {
 		c.JSON(http.StatusOK, ApiErrorInvalidParameters)
 		return
 	}
+	// pkSeq should be a valid integer
 	pkSeq, err := strconv.ParseInt(pkSeqStr, 10, 64)
 	if err != nil {
 		c.JSON(http.StatusOK, ApiErrorInvalidParameters)
@@ -47,7 +52,10 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 		return
 	}
 
+	// get current time
 	now := nowFunc().In(DefaultLocation)
+
+	// Build RawPacketData
 	data := RawPacketData{
 		PacketSeq:          nextPacketSeq(),
 		TrnsmitServerNo:    tsn,
@@ -64,6 +72,7 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 		RegistDt:           now.UnixNano(),
 	}
 
+	// set DQMCCR_OP if it exists
 	if dqmcrrOpStr != "" {
 		if dqmcrrOp, err := strconv.Atoi(dqmcrrOpStr); err == nil {
 			data.DqmCrrOp = dqmcrrOp
@@ -100,8 +109,12 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	c.JSON(http.StatusOK, ret)
 }
 
-func (s *HttpServer) parseRawPacket(data *RawPacketData) {
+func (s *HttpServer) parseRawPacket(data *RawPacketData) *ParsedPacketData {
 	definition := getPacketDefinition(data.TrnsmitServerNo)
+	if definition == nil {
+		defaultLog.Errorf("No packet definition found for transmit server number: %d", data.TrnsmitServerNo)
+		return nil
+	}
 	packet := data.Packet
 	// split packet into values
 	values := make([]string, len(definition.Fields))
@@ -110,26 +123,27 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) {
 		packet = packet[field.PacketByte:]
 	}
 
-	for i, field := range definition.Fields {
-		defaultLog.Debugf("%d [%d] %s %s: %s", data.PacketSeq, i, field.PacketSeCode, field.PacketName, values[i])
+	// log packet parsing
+	if defaultLog.DebugEnabled() {
+		for i, field := range definition.Fields {
+			defaultLog.Debugf("%d [%d] %s %s: %s", data.PacketSeq, i, field.PacketSeCode, field.PacketName, values[i])
+		}
 	}
-	packetParsSeq := nextPacketParseSeq()
-	serviceSeq := int(0) // TODO: how to get service sequence?
 
 	parsed := &ParsedPacketData{
-		PacketParsSeq:   packetParsSeq,
+		PacketParsSeq:   nextPacketParseSeq(),
 		PacketSeq:       data.PacketSeq,
 		TrnsmitServerNo: data.TrnsmitServerNo,
 		DataNo:          data.DataNo,
 		RegistDt:        data.RegistDt,
 		RegistDe:        data.RegistDe,
-		ServiceSeq:      serviceSeq,
+		ServiceSeq:      definition.PacketMasterSeq,
 		AreaCode:        data.AreaCode,
 		ModlSerial:      data.ModlSerial,
 		DqmCrrOp:        data.DqmCrrOp,
 		Values:          values,
 	}
-	s.parsPacketCh <- parsed
+	return parsed
 }
 
 func (s *HttpServer) handleServerStat(c *gin.Context) {
@@ -199,7 +213,7 @@ type ParsedPacketData struct {
 	PacketSeq       int64
 	TrnsmitServerNo int64
 	DataNo          int
-	ServiceSeq      int
+	ServiceSeq      int64
 	AreaCode        string
 	ModlSerial      string
 	DqmCrrOp        int

@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tochemey/goakt/v3/log"
@@ -28,12 +29,9 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 	r := gin.New()
 	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusFound, "/static/") })
 	r.GET("/static/", gin.WrapF(http.FileServerFS(htmlFS).ServeHTTP))
-	r.GET("/db/write/RecptnPacketData", s.writeRecptnPacketData)
-	r.POST("/db/write/RecptnPacketData", s.writeRecptnPacketData)
-	r.GET("/db/write/PacketParsData", s.writePacketParsData)
-	r.POST("/db/write/PacketParsData", s.writePacketParsData)
+	r.GET("/db/admin/log", s.handleAdminLog)
+	r.GET("/db/admin/reload", s.handleAdminReload)
 	r.GET("/db/poi/nearby", s.handlePoiNearby)
-	r.POST("/db/poi/reload", s.handlePoiReload)
 	r.GET("/n/api/serverstat/:certkey", s.handleServerStat)
 	r.GET("/n/api/send/:certkey/1/:pk_seq/:serial_num/:packet", s.handleSendPacket)
 	r.NoRoute(func(c *gin.Context) {
@@ -55,6 +53,45 @@ func (s *HttpServer) VerifyCertkey(certkey string) (int64, error) {
 		return 0, fmt.Errorf("certificate key %q has invalid tsn", certkey)
 	}
 	return key.TrnsmitServerNo.Int64, nil
+}
+
+func (s *HttpServer) handleAdminLog(c *gin.Context) {
+	verbose := c.Query("verbose")
+	switch verbose {
+	case "1":
+		defaultLog.SetVerbose(1)
+	case "2":
+		defaultLog.SetVerbose(2)
+	default:
+		defaultLog.SetVerbose(0)
+	}
+	c.String(http.StatusOK, fmt.Sprintf("set log verbose: %d", defaultLog.LogLevel()))
+}
+
+func (s *HttpServer) handleAdminReload(c *gin.Context) {
+	var err error
+	target := c.Query("target")
+	switch strings.ToLower(target) {
+	case "poi":
+		err = reloadPoiData()
+	case "certkey":
+		err = reloadCertkey()
+	case "model":
+		err = reloadPacketDefinition()
+	case "model_areacode":
+		err = reloadModelAreaCode()
+	case "packet_seq":
+		err = s.reloadPacketSeq()
+	case "packet_parse_seq":
+		err = s.reloadPacketParseSeq()
+	default:
+		c.String(http.StatusNotFound, "Unknown reload target: %s", target)
+	}
+	if err != nil {
+		c.String(http.StatusInternalServerError, "Failed to reload %s: %v", target, err)
+	} else {
+		c.String(http.StatusOK, "Reloaded %s successfully", target)
+	}
 }
 
 type ApiResult struct {
