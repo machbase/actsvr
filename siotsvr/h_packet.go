@@ -79,7 +79,7 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	// set DQMCCR_OP if it exists
 	if dqmcrrOpStr != "" {
 		if dqmcrrOp, err := strconv.Atoi(dqmcrrOpStr); err == nil {
-			data.DqmCrrOp = dqmcrrOp
+			data.DqmCrrOp = fmt.Sprintf("%d", dqmcrrOp)
 		}
 	}
 
@@ -205,7 +205,7 @@ type RawPacketData struct {
 	PkSeq              int64
 	AreaCode           string
 	ModlSerial         string
-	DqmCrrOp           int
+	DqmCrrOp           string
 	Packet             string
 	PacketSttusCode    string
 	RecptnResultCode   string
@@ -224,7 +224,7 @@ type ParsedPacketData struct {
 	ServiceSeq      int64
 	AreaCode        string
 	ModlSerial      string
-	DqmCrrOp        int
+	DqmCrrOp        string
 	RegistDt        int64  // Use int64 for timestamp
 	RegistDe        string // 20060102
 	Values          []string
