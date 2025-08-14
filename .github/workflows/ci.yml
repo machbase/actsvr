@@ -38,6 +38,7 @@ jobs:
           path: |
             tmp/siotsvr
             tmp/loader
+            tmp/csvrev
       - name: Release files
         if: startsWith(github.ref, 'refs/tags/v')
         uses: svenstaro/upload-release-action@v2
