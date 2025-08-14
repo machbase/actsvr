@@ -119,7 +119,11 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) *ParsedPacketData {
 	// split packet into values
 	values := make([]string, len(definition.Fields))
 	for i, field := range definition.Fields {
-		values[i] = strings.TrimSpace(packet[0:field.PacketByte])
+		val := strings.TrimSpace(packet[0:field.PacketByte])
+		if strings.Trim(val, "x") == "" {
+			val = ""
+		}
+		values[i] = val
 		packet = packet[field.PacketByte:]
 	}
 
