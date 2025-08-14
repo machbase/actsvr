@@ -14,13 +14,22 @@ import (
 func (s *HttpServer) handleData(c *gin.Context) {
 	tick := time.Now()
 	nrow := 0
+	cancel := false
 	defer func() {
 		// Request의 패킷 정보를 로깅
 		req := c.Request.URL.Path
 		if c.Request.URL.RawQuery != "" {
 			req += "?" + c.Request.URL.RawQuery
 		}
-		defaultLog.Info(c.Writer.Status(), " ", time.Since(tick), " ", nrow, " ", req)
+		reply := fmt.Sprintf("%d", nrow)
+		if cancel {
+			reply += " (canceled)"
+		}
+		defaultLog.Info(
+			c.Writer.Status(), " ",
+			time.Since(tick), " ",
+			reply, " ",
+			req)
 	}()
 	// Path params
 	tsnStr := c.Param("tsn")
@@ -113,13 +122,13 @@ func (s *HttpServer) handleData(c *gin.Context) {
 	defer conn.Close()
 
 	if isPars {
-		nrow = handleParsData(c, conn, tsn, dataNo, startTime, endTime, modelSerial, areaCode)
+		nrow, cancel = handleParsData(c, conn, tsn, dataNo, startTime, endTime, modelSerial, areaCode)
 	} else {
-		nrow = handleRawData(c, conn, tsn, dataNo, startTime, endTime, modelSerial, areaCode)
+		nrow, cancel = handleRawData(c, conn, tsn, dataNo, startTime, endTime, modelSerial, areaCode)
 	}
 }
 
-func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTime time.Time, endTime time.Time, modelSerial string, areaCode string) (nrow int) {
+func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTime time.Time, endTime time.Time, modelSerial string, areaCode string) (nrow int, cancel bool) {
 	definition := getPacketDefinition(tsn, dataNo)
 	if definition == nil {
 		defaultLog.Errorf("No packet definition found for tsn: %d and data_no: %d", tsn, dataNo)
@@ -176,7 +185,13 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 	fmt.Fprintf(c.Writer, `"startDateTime":"%s",`, startTime.Format("20060102150405"))
 	fmt.Fprintf(c.Writer, `"endDateTime":"%s",`, endTime.Format("20060102150405"))
 	fmt.Fprintf(c.Writer, `"resultdata":[`)
-	for rows.Next() {
+
+	go func() {
+		<-c.Done()
+		cancel = true
+	}()
+
+	for rows.Next() && !cancel {
 		var seq int64
 		var modelSerial string
 		var date time.Time
@@ -210,7 +225,7 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 	return
 }
 
-func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTime time.Time, endTime time.Time, modelSerial string, areaCode string) (nrow int) {
+func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTime time.Time, endTime time.Time, modelSerial string, areaCode string) (nrow int, cancel bool) {
 	sb := &strings.Builder{}
 	sb.WriteString(`select
 			PACKET_SEQ,
@@ -255,7 +270,12 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 	fmt.Fprintf(c.Writer, `"startDateTime":"%s",`, startTime.Format("20060102150405"))
 	fmt.Fprintf(c.Writer, `"endDateTime":"%s",`, endTime.Format("20060102150405"))
 	fmt.Fprintf(c.Writer, `"resultdata":[`)
-	for rows.Next() {
+
+	go func() {
+		<-c.Done()
+		cancel = true
+	}()
+	for rows.Next() && !cancel {
 		var seq int64
 		var modelSerial string
 		var date time.Time

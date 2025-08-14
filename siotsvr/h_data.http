@@ -12,6 +12,7 @@ GET http://127.0.0.1:5680/n/api/servers/30/data/1
 
 GET http://127.0.0.1:5680/n/api/servers/30/data/1
     ?certKey=a42398c0e429415ab9e6
+    &modelSerial=V02Q1940343
     &end=20250612180815
 
 ###
