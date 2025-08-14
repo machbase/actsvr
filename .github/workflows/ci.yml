@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev-*
+    tags:
+      - v*
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: ubuntu-24.04, arch: x64, os: linux }
+          - { platform: ubuntu-24.04-arm, arch: arm64, os: linux }
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup go compiler
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          check-latest: false
+      - name: Build Docker Image
+        run: docker build -t ubuntu18-build-env -f ./Dockerfile .
+      - name: Run Build Container
+        run: docker run --rm -v ./tmp:/app/tmp ubuntu18-build-env
+      - name: Upload Artifact
+        if: startsWith(github.ref, 'refs/tags/v') != true
+        uses: actions/upload-artifact@v4
+        with:
+          name: siotsvr-${{ matrix.os }}-${{ matrix.arch }}
+          retention-days: 5
+          path: |
+            tmp/siotsvr
+            tmp/loader
+      - name: Release files
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GIT_PASS }}
+          file: packages/siotsvr-v*.zip
+          repo_name: machbase/actsvr
+          prerelease: true
+          tag: ${{ github.ref }}
+          overwrite: true
+          file_glob: true
