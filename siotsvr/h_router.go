@@ -34,6 +34,7 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 	r.GET("/db/poi/nearby", s.handlePoiNearby)
 	r.GET("/n/api/serverstat/:certkey", s.handleServerStat)
 	r.GET("/n/api/send/:certkey/1/:pk_seq/:serial_num/:packet", s.handleSendPacket)
+	r.GET("/n/api/servers/:tsn/data/:data_no", s.handleData)
 	r.NoRoute(func(c *gin.Context) {
 		c.String(http.StatusNotFound, "404 Not Found")
 	})
@@ -124,7 +125,7 @@ var (
 	ApiErrorExpiredCertkey = ApiResult{
 		ResultStats: ApiResultStats{
 			ResultCode: "ERROR-210",
-			ResultMsg:  "인증키 유효기관을 확인 바립니다.",
+			ResultMsg:  "인증키 유효기간을 확인 바립니다.",
 		},
 	}
 	ApiErrorInvalidCertkey = ApiResult{

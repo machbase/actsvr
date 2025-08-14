@@ -7,7 +7,7 @@ import (
 
 var cacheCertKeys map[string]*Certkey // key: crtfc_key
 var cacheCertKeysMutex sync.RWMutex
-var cachePacketDefinition map[int64]*PacketDefinition // key: trnsmit_server_no
+var cachePacketDefinition map[string]*PacketDefinition // key: trnsmit_server_no
 var cachePacketDefinitionMutex sync.RWMutex
 var cacheModelAreaCode map[string]string // key: {{model_serial}}_{{tsn}}_{{data_no}}, value: area_code
 var cacheModelAreaCodeMutex sync.RWMutex
@@ -148,11 +148,11 @@ func reloadPacketDefinition() error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize ModelPacketMaster: %w", err)
 	}
-	packets := map[int64]*PacketDefinition{}
+	packets := map[string]*PacketDefinition{}
 	for _, master := range lst {
-		// Skip if DataNo is not 1
-		if !master.DataNo.Valid || master.DataNo.Int64 != 1 {
-			continue
+		dataNo := 1
+		if master.DataNo.Valid {
+			dataNo = int(master.DataNo.Int64)
 		}
 		tsn := master.TrnsmitServerNo.Int64
 		fields := []PacketFieldDefinition{}
@@ -197,7 +197,8 @@ func reloadPacketDefinition() error {
 		if err != nil {
 			return fmt.Errorf("failed to load fields for packet master %d: %w", master.PacketMasterSeq, err)
 		}
-		packets[tsn] = &PacketDefinition{
+		key := fmt.Sprintf("%d_%d", tsn, dataNo)
+		packets[key] = &PacketDefinition{
 			PacketMasterSeq: master.PacketMasterSeq,
 			TrnsmitServerNo: tsn,
 			DataNo:          master.DataNo.Int64,
@@ -214,13 +215,14 @@ func reloadPacketDefinition() error {
 	return nil
 }
 
-func getPacketDefinition(tsn int64) *PacketDefinition {
+func getPacketDefinition(tsn int64, dataNo int) *PacketDefinition {
 	cachePacketDefinitionMutex.RLock()
 	defer cachePacketDefinitionMutex.RUnlock()
 	if cachePacketDefinition == nil {
 		return nil
 	}
-	def, exists := cachePacketDefinition[tsn]
+	key := fmt.Sprintf("%d_%d", tsn, dataNo)
+	def, exists := cachePacketDefinition[key]
 	if !exists {
 		return nil
 	}

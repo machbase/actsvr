@@ -5,17 +5,21 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 func (s *HttpServer) handleSendPacket(c *gin.Context) {
-	// Request의 패킷 정보를 로깅
-	if c.Request.URL.RawQuery != "" {
-		defaultLog.Info(c.Request.URL.Path + "?" + c.Request.URL.RawQuery)
-	} else {
-		defaultLog.Info(c.Request.URL.Path)
-	}
+	tick := time.Now()
+	defer func() {
+		// Request의 패킷 정보를 로깅
+		req := c.Request.URL.Path
+		if c.Request.URL.RawQuery != "" {
+			req += "?" + c.Request.URL.RawQuery
+		}
+		defaultLog.Info(c.Writer.Status(), " ", time.Since(tick), " ", req)
+	}()
 	// Path params
 	certkey := c.Param("certkey")        // string e.g. a2a3a4a5testauthkey9
 	pkSeqStr := c.Param("pk_seq")        // integer e.g. 202008030000000301
@@ -45,7 +49,7 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	}
 
 	// find packet definition
-	definition := getPacketDefinition(tsn)
+	definition := getPacketDefinition(tsn, dataNo)
 	if definition == nil {
 		defaultLog.Errorf("No packet definition found for transmit server number: %d", tsn)
 		c.JSON(http.StatusOK, ApiErrorServer)
@@ -110,7 +114,7 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 }
 
 func (s *HttpServer) parseRawPacket(data *RawPacketData) *ParsedPacketData {
-	definition := getPacketDefinition(data.TrnsmitServerNo)
+	definition := getPacketDefinition(data.TrnsmitServerNo, data.DataNo)
 	if definition == nil {
 		defaultLog.Errorf("No packet definition found for transmit server number: %d", data.TrnsmitServerNo)
 		return nil
