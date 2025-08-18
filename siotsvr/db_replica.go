@@ -49,7 +49,10 @@ func (s *HttpServer) loopReplicaRawPacket() {
 			REGIST_DE,
 			REGIST_TIME,
 			REGIST_DT
-		FROM TB_RECPTN_PACKET_DATA WHERE PACKET_SEQ > ? limit ?`, lastSeq, replicaRowsPerRun)
+		FROM TB_RECPTN_PACKET_DATA
+		WHERE PACKET_SEQ > ?
+		ORDER BY PACKET_SEQ
+		LIMIT ?`, lastSeq, replicaRowsPerRun)
 		if err != nil {
 			panic(err)
 		}
@@ -138,7 +141,10 @@ func (s *HttpServer) loopReplicaParsPacket() {
 			COLUMN50, COLUMN51, COLUMN52, COLUMN53, COLUMN54,
 			COLUMN55, COLUMN56, COLUMN57, COLUMN58, COLUMN59,
 			COLUMN60, COLUMN61, COLUMN62, COLUMN63
-		FROM TB_PACKET_PARS_DATA WHERE PACKET_PARS_SEQ > ? limit ?`, lastParsSeq, replicaRowsPerRun)
+		FROM TB_PACKET_PARS_DATA
+		WHERE PACKET_PARS_SEQ > ?
+		ORDER BY PACKET_PARS_SEQ
+		LIMIT ?`, lastParsSeq, replicaRowsPerRun)
 		if err != nil {
 			panic(err)
 		}
