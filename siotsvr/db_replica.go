@@ -66,7 +66,7 @@ func (s *HttpServer) loopReplicaRawPacket() {
 				defaultLog.Errorf("Failed to scan row: %v", err)
 				continue
 			}
-			lastSeq = data.PacketSeq // Assuming first column is PACKET_SEQ
+			lastSeq = data.PacketSeq
 
 			_, err = rdb.ExecContext(ctx, `INSERT INTO TB_RECPTN_PACKET_DATA(
 				PACKET_SEQ, TRNSMIT_SERVER_NO, DATA_NO,
@@ -89,7 +89,7 @@ func (s *HttpServer) loopReplicaRawPacket() {
 
 		if cnt == 0 {
 			if err := rdb.Ping(); err != nil {
-				defaultLog.Errorf("Failed to ping Redis: %v", err)
+				defaultLog.Errorf("Failed to ping: %v", err)
 			}
 			time.Sleep(3 * time.Second)
 		}
@@ -122,16 +122,9 @@ func (s *HttpServer) loopReplicaParsPacket() {
 
 	for s.replicaAlive {
 		rows, err := conn.Query(ctx, `SELECT
-			PACKET_PARS_SEQ,
-			PACKET_SEQ,
-			TRNSMIT_SERVER_NO,
-			DATA_NO,
-			REGIST_DT,
-			REGIST_DE,
-			SERVICE_SEQ,
-			AREA_CODE,
-			MODL_SERIAL,
-			DQMCRR_OP,
+			PACKET_PARS_SEQ, PACKET_SEQ, TRNSMIT_SERVER_NO, DATA_NO,
+			REGIST_DT, REGIST_DE,
+			SERVICE_SEQ, AREA_CODE, MODL_SERIAL, DQMCRR_OP,
 			COLUMN0, COLUMN1, COLUMN2, COLUMN3, COLUMN4,
 			COLUMN5, COLUMN6, COLUMN7, COLUMN8, COLUMN9,
 			COLUMN10, COLUMN11, COLUMN12, COLUMN13, COLUMN14,
@@ -163,7 +156,7 @@ func (s *HttpServer) loopReplicaParsPacket() {
 			err := rows.Scan(&data.PacketParsSeq, &data.PacketSeq,
 				&data.TrnsmitServerNo, &data.DataNo,
 				&data.RegistDt, &data.RegistDe,
-				// &data.ServiceSeq, &data.AreaCode, &data.ModlSerial, &data.DqmCrrOp,
+				&data.ServiceSeq, &data.AreaCode, &data.ModlSerial, &data.DqmCrrOp,
 				&data.Column0, &data.Column1, &data.Column2, &data.Column3, &data.Column4,
 				&data.Column5, &data.Column6, &data.Column7, &data.Column8, &data.Column9,
 				&data.Column10, &data.Column11, &data.Column12, &data.Column13, &data.Column14,
@@ -200,8 +193,8 @@ func (s *HttpServer) loopReplicaParsPacket() {
 				COLUMN53, COLUMN54, COLUMN55, COLUMN56, COLUMN57, COLUMN58,
 				COLUMN59, COLUMN60, COLUMN61, COLUMN62, COLUMN63
 			) VALUES (
-			 	?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-			 	?, ?, ?, ?, ?, ?, ?, ?,
+			 	?, ?, ?, ?, ?, ?,`+ // ?, ?, ?, ?,
+				`?, ?, ?, ?, ?, ?, ?, ?,
 				?, ?, ?, ?, ?, ?, ?, ?,
 				?, ?, ?, ?, ?, ?, ?, ?,
 				?, ?, ?, ?, ?, ?, ?, ?,
@@ -235,7 +228,7 @@ func (s *HttpServer) loopReplicaParsPacket() {
 
 		if cnt == 0 {
 			if err := rdb.Ping(); err != nil {
-				defaultLog.Errorf("Failed to ping Redis: %v", err)
+				defaultLog.Errorf("Failed to ping: %v", err)
 			}
 			time.Sleep(3 * time.Second)
 		}
