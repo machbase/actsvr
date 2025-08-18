@@ -69,12 +69,12 @@ func (s *HttpServer) loopReplicaRawPacket() {
 			lastSeq = data.PacketSeq // Assuming first column is PACKET_SEQ
 
 			_, err = rdb.ExecContext(ctx, `INSERT INTO TB_RECPTN_PACKET_DATA(
-				PACKET_SE, TRNSMIT_SERVER_NO, DATA_NO,
+				PACKET_SEQ, TRNSMIT_SERVER_NO, DATA_NO,
 				PK_SEQ, MODL_SERIAL, PACKET,
 				PACKET_STTUS_CODE, RECPTN_RESULT_CODE, RECPTN_RESULT_MSSAGE,
 				PARS_SE_CODE, PARS_DT, REGIST_DE,
 				REGIST_TIME, REGIST_DT
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			`, data.PacketSeq, data.TrnsmitServerNo, data.DataNo,
 				data.PkSeq, data.ModlSerial, data.Packet,
 				data.PacketSttusCode, data.RecptnResultCode, data.RecptnResultMssage,
