@@ -41,6 +41,7 @@ func NewHttpServer() *HttpServer {
 		TempDir:      "/tmp",
 		rawPacketCh:  make(chan *RawPacketData),
 		parsPacketCh: make(chan *ParsedPacketData),
+		replicaAlive: true,
 	}
 }
 
