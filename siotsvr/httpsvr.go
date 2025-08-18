@@ -238,6 +238,9 @@ func (s *HttpServer) loopParsPacket() {
 	}
 	defer conn.Close()
 
+	// Failed to insert PacketParsData:
+	// MACHCLI-ERR-2233, Error occurred at column (10):
+	// (Failed to convert type (INT32) to type (VARCHAR).)
 	for data := range s.parsPacketCh {
 		if data == nil {
 			break
