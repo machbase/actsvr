@@ -88,7 +88,7 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 
 	// find AreaCode of the model by serial number
 	if code, err := getModelAreaCode(modelSerial, tsn, dataNo); err != nil {
-		defaultLog.Errorf("Failed to get area code for model_serial:%s, tsn:%d, dataNo:%d", modelSerial, tsn, dataNo)
+		defaultLog.Errorf("%d Failed to get area code for model_serial:%s, tsn:%d, dataNo:%d", packetSeq, modelSerial, tsn, dataNo)
 	} else {
 		data.AreaCode = code
 	}
@@ -177,7 +177,7 @@ func removeLeadingZeros(s string) string {
 func (s *HttpServer) parseRawPacket(data *RawPacketData) *ParsedPacketData {
 	definition := getPacketDefinition(data.TrnsmitServerNo, data.DataNo)
 	if definition == nil {
-		defaultLog.Errorf("No packet definition found for transmit server number: %d", data.TrnsmitServerNo)
+		defaultLog.Errorf("%d No packet definition found for transmit server number: %d", data.PacketSeq, data.TrnsmitServerNo)
 		return nil
 	}
 	packet := data.Packet

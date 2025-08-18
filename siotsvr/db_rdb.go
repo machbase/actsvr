@@ -421,3 +421,27 @@ func stringToDate(dateStr string) (time.Time, error) {
 	layout := "20060102"
 	return time.Parse(layout, dateStr)
 }
+
+func SelectMaxPacketSeq(db *sql.DB) (int64, error) {
+	row := db.QueryRow(`SELECT MAX(PACKET_SEQ) FROM TB_RECPTN_PACKET_DATA`)
+	if err := row.Err(); err != nil {
+		return 0, err
+	}
+	var maxPacketSeq int64
+	if err := row.Scan(&maxPacketSeq); err != nil {
+		return 0, err
+	}
+	return maxPacketSeq, nil
+}
+
+func SelectMaxPacketParsSeq(db *sql.DB) (int64, error) {
+	row := db.QueryRow(`SELECT MAX(PACKET_PARS_SEQ) FROM TB_PACKET_PARS_DATA`)
+	if err := row.Err(); err != nil {
+		return 0, err
+	}
+	var maxPacketParsSeq int64
+	if err := row.Scan(&maxPacketParsSeq); err != nil {
+		return 0, err
+	}
+	return maxPacketParsSeq, nil
+}

@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -28,6 +29,9 @@ type HttpServer struct {
 
 	rawPacketCh  chan *RawPacketData
 	parsPacketCh chan *ParsedPacketData
+
+	replicaAlive bool
+	replicaWg    sync.WaitGroup
 }
 
 func NewHttpServer() *HttpServer {
@@ -65,6 +69,8 @@ func (s *HttpServer) Start(ctx context.Context) error {
 	}
 	go s.loopRawPacket()
 	go s.loopParsPacket()
+	go s.loopReplicaRawPacket()
+	go s.loopReplicaParsPacket()
 
 	s.httpServer = &http.Server{
 		ConnContext: s.httpContext,
@@ -83,6 +89,8 @@ func (s *HttpServer) Stop(ctx context.Context) error {
 	if s.httpServer != nil {
 		s.httpServer.Shutdown(ctx)
 	}
+	s.replicaAlive = false
+	s.replicaWg.Wait()
 	s.closeDatabase()
 	close(s.parsPacketCh)
 	close(s.rawPacketCh)
@@ -222,7 +230,7 @@ func (s *HttpServer) loopRawPacket() {
 			data.PacketSttusCode, data.RecptnResultCode, data.RecptnResultMssage,
 			data.ParsSeCode, data.RegistDe, data.RegistTime, data.RegistDt)
 		if err := result.Err(); err != nil {
-			s.log.Errorf("Failed to insert RecptnPacketData: %v, data: %#v", err, data)
+			s.log.Errorf("%d Failed to insert RecptnPacketData: %v, data: %#v", data.PacketSeq, err, data)
 			continue
 		}
 		parsed := s.parseRawPacket(data)
@@ -283,7 +291,7 @@ func (s *HttpServer) loopParsPacket() {
 		}
 		result := conn.Exec(ctx, sqlBuilder.String(), values...)
 		if result.Err() != nil {
-			s.log.Error("Failed to insert PacketParsData:", result.Err())
+			s.log.Error(data.PacketSeq, "Failed to insert PacketParsData:", result.Err())
 		}
 	}
 }
