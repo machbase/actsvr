@@ -177,8 +177,8 @@ func (s *HttpServer) loopReplicaParsPacket() {
 			}
 			lastParsSeq = data.PacketParsSeq
 
-			_, err = rdb.ExecContext(ctx, `INSERT INTO TB_PACKET_PARS_DATA (
-				PACKET_PARS_SEQ, PACKET_SEQ, TRNSMIT_SERVER_NO, DATA_NO,`+
+			_, err = rdb.ExecContext(ctx, `INSERT INTO TB_PACKET_PARS_DATA (`+
+				/*PACKET_PARS_SEQ,*/ `PACKET_SEQ, TRNSMIT_SERVER_NO, DATA_NO,`+
 				//	SERVICE_SEQ, AREA_CODE, MODL_SERIAL, DQMCRR_OP,
 				`REGIST_DT, REGIST_DE, 
 				COLUMN0, COLUMN1, COLUMN2, COLUMN3, COLUMN4,
@@ -193,7 +193,7 @@ func (s *HttpServer) loopReplicaParsPacket() {
 				COLUMN53, COLUMN54, COLUMN55, COLUMN56, COLUMN57, COLUMN58,
 				COLUMN59, COLUMN60, COLUMN61, COLUMN62, COLUMN63
 			) VALUES (
-			 	?, ?, ?, ?, ?, ?,`+ // ?, ?, ?, ?,
+			 	?, ?, ?, ?, ?,`+ //?, ?, ?, ?, ?,
 				`?, ?, ?, ?, ?, ?, ?, ?,
 				?, ?, ?, ?, ?, ?, ?, ?,
 				?, ?, ?, ?, ?, ?, ?, ?,
@@ -202,7 +202,8 @@ func (s *HttpServer) loopReplicaParsPacket() {
 				?, ?, ?, ?, ?, ?, ?, ?,
 				?, ?, ?, ?, ?, ?, ?, ?,
 				?, ?, ?, ?, ?, ?, ?, ?)
-			`, data.PacketParsSeq, data.PacketSeq, data.TrnsmitServerNo, data.DataNo,
+			`, // data.PacketParsSeq,
+				data.PacketSeq, data.TrnsmitServerNo, data.DataNo,
 				// data.ServiceSeq, data.AreaCode, data.ModlSerial, data.DqmCrrOp,
 				data.RegistDt, data.RegistDe,
 				snull(data.Column0), snull(data.Column1), snull(data.Column2), snull(data.Column3), snull(data.Column4),
