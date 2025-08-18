@@ -166,6 +166,14 @@ func (s *HttpServer) reloadPacketSeq() error {
 	if err := row.Scan(&seq); err != nil {
 		return fmt.Errorf("failed to scan packet sequence: %w", err)
 	}
+
+	if rdb, err := rdbConfig.Connect(); err == nil {
+		defer rdb.Close()
+		rdbMax, err := SelectMaxPacketSeq(rdb)
+		if err == nil && rdbMax > seq {
+			seq = rdbMax
+		}
+	}
 	atomic.StoreInt64(&globalPacketSeq, seq+1)
 	return nil
 }
@@ -189,6 +197,13 @@ func (s *HttpServer) reloadPacketParseSeq() error {
 	seq := int64(0)
 	if err := row.Scan(&seq); err != nil {
 		return fmt.Errorf("failed to scan packet parse sequence: %w", err)
+	}
+	if rdb, err := rdbConfig.Connect(); err == nil {
+		defer rdb.Close()
+		rdbMax, err := SelectMaxPacketParsSeq(rdb)
+		if err == nil && rdbMax > seq {
+			seq = rdbMax
+		}
 	}
 	atomic.StoreInt64(&globalPacketParseSeq, seq+1)
 	return nil
