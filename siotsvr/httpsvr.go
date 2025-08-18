@@ -169,11 +169,18 @@ func (s *HttpServer) reloadPacketSeq() error {
 
 	if rdb, err := rdbConfig.Connect(); err == nil {
 		defer rdb.Close()
-		rdbMax, err := SelectMaxPacketSeq(rdb)
-		if err == nil && rdbMax > seq {
-			seq = rdbMax
+		if rdbMax, err := SelectMaxPacketSeq(rdb); err != nil {
+			defaultLog.Error("Failed to select max packet sequence from RDB:", err)
+		} else {
+			defaultLog.Info("Max packet sequence from RDB:", rdbMax)
+			if rdbMax > seq {
+				seq = rdbMax
+			}
 		}
+	} else {
+		defaultLog.Error("Failed to connect to RDB:", err)
 	}
+	defaultLog.Info("PacketSeq:", seq)
 	atomic.StoreInt64(&globalPacketSeq, seq+1)
 	return nil
 }
@@ -200,11 +207,18 @@ func (s *HttpServer) reloadPacketParseSeq() error {
 	}
 	if rdb, err := rdbConfig.Connect(); err == nil {
 		defer rdb.Close()
-		rdbMax, err := SelectMaxPacketParsSeq(rdb)
-		if err == nil && rdbMax > seq {
-			seq = rdbMax
+		if rdbMax, err := SelectMaxPacketParsSeq(rdb); err != nil {
+			defaultLog.Error("Failed to select max packet parse sequence from RDB:", err)
+		} else {
+			defaultLog.Info("Max packet parse sequence from RDB:", rdbMax)
+			if rdbMax > seq {
+				seq = rdbMax
+			}
 		}
+	} else {
+		defaultLog.Error("Failed to connect to RDB:", err)
 	}
+	defaultLog.Info("PacketParseSeq:", seq)
 	atomic.StoreInt64(&globalPacketParseSeq, seq+1)
 	return nil
 }
