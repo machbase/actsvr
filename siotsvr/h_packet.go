@@ -3,6 +3,7 @@ package siotsvr
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -12,13 +13,14 @@ import (
 
 func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	tick := time.Now()
+	packetSeq := int64(-1)
 	defer func() {
 		// Request의 패킷 정보를 로깅
 		req := c.Request.URL.Path
 		if c.Request.URL.RawQuery != "" {
 			req += "?" + c.Request.URL.RawQuery
 		}
-		defaultLog.Info(c.Writer.Status(), " ", time.Since(tick), " ", req)
+		defaultLog.Info(packetSeq, " ", c.Writer.Status(), " ", time.Since(tick), " ", req)
 	}()
 	// Path params
 	certkey := c.Param("certkey")        // string e.g. a2a3a4a5testauthkey9
@@ -60,8 +62,9 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	now := nowFunc().In(DefaultLocation)
 
 	// Build RawPacketData
+	packetSeq = nextPacketSeq()
 	data := RawPacketData{
-		PacketSeq:          nextPacketSeq(),
+		PacketSeq:          packetSeq,
 		TrnsmitServerNo:    tsn,
 		DataNo:             dataNo,
 		PkSeq:              pkSeq,
@@ -113,6 +116,40 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	c.JSON(http.StatusOK, ret)
 }
 
+// 앞의 0 패딩을 제거하는 정규표현식
+var leadingZeroRegex = regexp.MustCompile(`^0+([1-9]\d*(?:\.\d+)?|0\.\d+|0)$`)
+var numericRegex = regexp.MustCompile(`^[+-]?(\d+\.?\d*|\.\d+)$`)
+
+// 사용 예시
+func removeLeadingZeros(s string) string {
+	if s == "" {
+		return ""
+	}
+
+	// 숫자형 문자열이 아닐 경우 그대로 반환
+	if !numericRegex.MatchString(s) {
+		return s
+	}
+
+	// 부동소수점 또는 정수에서 앞의 0 제거
+	if leadingZeroRegex.MatchString(s) {
+		return leadingZeroRegex.ReplaceAllString(s, "$1")
+	}
+	// 특별한 경우 처리
+	if s == "0" || s == "00" || s == "000" {
+		return "0"
+	}
+	if strings.HasPrefix(s, "0.") {
+		return s // 0.123 같은 경우는 그대로 유지
+	}
+	// 일반적인 경우: 앞의 0들 제거
+	trimmed := strings.TrimLeft(s, "0")
+	if trimmed == "" || trimmed == "." {
+		return "0"
+	}
+	return trimmed
+}
+
 func (s *HttpServer) parseRawPacket(data *RawPacketData) *ParsedPacketData {
 	definition := getPacketDefinition(data.TrnsmitServerNo, data.DataNo)
 	if definition == nil {
@@ -126,8 +163,12 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) *ParsedPacketData {
 		val := strings.TrimSpace(packet[0:field.PacketByte])
 		if strings.Trim(val, "x") == "" {
 			val = ""
+		} else if strings.Trim(val, "X") == "" {
+			val = ""
 		}
-		values[i] = val
+
+		// remove 0 padding
+		values[i] = removeLeadingZeros(val)
 		packet = packet[field.PacketByte:]
 	}
 

@@ -223,3 +223,28 @@ func TestPacketSendCases(t *testing.T) {
 		parseWg.Wait()
 	}
 }
+
+func TestRemoveLeadingZeros(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"00ABC", "00ABC"},
+		{"00123", "123"},
+		{"0000", "0"},
+		{"00", "0"},
+		{"0.123", "0.123"},
+		{"123.456", "123.456"},
+		{"000123.456", "123.456"},
+		{"0000.0000", "0.0000"},
+		{"0", "0"},
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := removeLeadingZeros(tt.input)
+			require.Equal(t, tt.expected, result, result)
+		})
+	}
+}
