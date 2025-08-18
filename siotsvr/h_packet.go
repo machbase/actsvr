@@ -116,14 +116,25 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	c.JSON(http.StatusOK, ret)
 }
 
-// 앞의 0 패딩을 제거하는 정규표현식
-var leadingZeroRegex = regexp.MustCompile(`^0+([1-9]\d*(?:\.\d+)?|0\.\d+|0)$`)
+// 앞의 0 패딩을 제거하는 정규표현식 (숫자 패턴 검증 및 변환을 위한)
 var numericRegex = regexp.MustCompile(`^[+-]?(\d+\.?\d*|\.\d+)$`)
 
-// 사용 예시
+// removeLeadingZeros 함수: 문자열에서 앞의 0 패딩을 제거
+// - 빈 문자열이나 "x", "X"만 있는 경우: 빈 문자열 반환
+// - 숫자가 아닌 문자열: 원본 반환
+// - 숫자 문자열: 앞의 0 제거 후 반환 (음수, 소수점 처리 포함)
 func removeLeadingZeros(s string) string {
+	// 빈 문자열 처리
 	if s == "" {
 		return ""
+	}
+
+	// "x" 또는 "X"만 있는 경우 (패딩 문자로 사용되는 경우)
+	if len(s) > 0 && (s[0] == 'x' || s[0] == 'X') {
+		trimmed := strings.Trim(s, "xX")
+		if trimmed == "" {
+			return ""
+		}
 	}
 
 	// 숫자형 문자열이 아닐 경우 그대로 반환
@@ -131,23 +142,36 @@ func removeLeadingZeros(s string) string {
 		return s
 	}
 
-	// 부동소수점 또는 정수에서 앞의 0 제거
-	if leadingZeroRegex.MatchString(s) {
-		return leadingZeroRegex.ReplaceAllString(s, "$1")
+	// 부호 분리 (음수/양수 처리를 위해)
+	sign := ""
+	numStr := s
+	if strings.HasPrefix(s, "+") || strings.HasPrefix(s, "-") {
+		sign = s[:1]
+		numStr = s[1:]
 	}
-	// 특별한 경우 처리
-	if s == "0" || s == "00" || s == "000" {
+
+	// 소수점이 있는 경우
+	if strings.Contains(numStr, ".") {
+		parts := strings.Split(numStr, ".")
+		intPart := strings.TrimLeft(parts[0], "0")
+		if intPart == "" {
+			intPart = "0"
+		}
+		return sign + intPart + "." + parts[1]
+	}
+
+	// 정수인 경우
+	trimmed := strings.TrimLeft(numStr, "0")
+	if trimmed == "" {
+		// 0인 경우, 부호가 +/-인 경우에는 부호를 유지하지만,
+		// 실제로는 0이므로 부호를 제거하는 것이 일반적
+		// 하지만 테스트 요구사항에 맞춰 부호를 유지
+		if sign == "+" || sign == "-" {
+			return sign + "0"
+		}
 		return "0"
 	}
-	if strings.HasPrefix(s, "0.") {
-		return s // 0.123 같은 경우는 그대로 유지
-	}
-	// 일반적인 경우: 앞의 0들 제거
-	trimmed := strings.TrimLeft(s, "0")
-	if trimmed == "" || trimmed == "." {
-		return "0"
-	}
-	return trimmed
+	return sign + trimmed
 }
 
 func (s *HttpServer) parseRawPacket(data *RawPacketData) *ParsedPacketData {
@@ -161,13 +185,7 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) *ParsedPacketData {
 	values := make([]string, len(definition.Fields))
 	for i, field := range definition.Fields {
 		val := strings.TrimSpace(packet[0:field.PacketByte])
-		if strings.Trim(val, "x") == "" {
-			val = ""
-		} else if strings.Trim(val, "X") == "" {
-			val = ""
-		}
-
-		// remove 0 padding
+		// remove padding
 		values[i] = removeLeadingZeros(val)
 		packet = packet[field.PacketByte:]
 	}
