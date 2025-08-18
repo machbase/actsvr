@@ -37,6 +37,7 @@ jobs:
           retention-days: 5
           path: |
             tmp/siotsvr
+            tmp/siotdata
             tmp/loader
             tmp/csvrev
       - name: Release files

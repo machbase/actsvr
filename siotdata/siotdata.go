@@ -39,6 +39,20 @@ func Main() int {
 	// cache
 	certKeys = make(map[string]*Certkey)
 
+	// open input file
+	if input == "" {
+		fmt.Printf("Input file path is required\n")
+		return 1
+	}
+	var inputFile *os.File
+	if f, err := os.Open(input); err != nil {
+		fmt.Printf("Failed to open input file: %v\n", err)
+		return 1
+	} else {
+		inputFile = f
+	}
+	defer inputFile.Close()
+
 	// load certkeys
 	var db, err = rdbConfig.Connect()
 	if err != nil {
@@ -54,17 +68,17 @@ func Main() int {
 		return true
 	})
 
-	// open input file
-	if input == "" {
-		fmt.Printf("Input file path is required\n")
-		return 1
+	// output
+	var out io.Writer = os.Stdout
+	if output != "-" {
+		outFile, err := os.OpenFile(output, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		if err != nil {
+			fmt.Printf("Failed to open output file: %v\n", err)
+			return 1
+		}
+		defer outFile.Close()
+		out = io.MultiWriter(outFile, os.Stdout)
 	}
-	inputFile, err := os.Open(input)
-	if err != nil {
-		fmt.Printf("Failed to open input file: %v\n", err)
-		return 1
-	}
-	defer inputFile.Close()
 
 	// create clients
 	clientC := make(chan interface{}, clients)
@@ -75,18 +89,9 @@ func Main() int {
 	csvReader := csv.NewReader(inputFile)
 	wg := sync.WaitGroup{}
 	apiServer = strings.TrimSuffix(apiServer, "/")
-	out := os.Stdout
 	start := time.Now()
 	cnt := 0
-	if output != "-" {
-		outFile, err := os.OpenFile(output, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-		if err != nil {
-			fmt.Printf("Failed to open output file: %v\n", err)
-			return 1
-		}
-		defer outFile.Close()
-		out = outFile
-	}
+
 	for {
 		record, err := csvReader.Read()
 		if err == io.EOF {
@@ -151,7 +156,8 @@ func Main() int {
 	wg.Wait()
 
 	// print cnt with comma formating
+	elapsed := time.Since(start)
 	pr := message.NewPrinter(language.Korean)
-	pr.Fprintf(out, "Processed %d requests in %v\n", cnt, time.Since(start))
+	pr.Fprintf(out, "Processed %d requests in %v\n", cnt, elapsed)
 	return 0
 }
