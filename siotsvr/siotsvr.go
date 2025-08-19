@@ -89,7 +89,7 @@ func Main() int {
 		}()
 	}
 
-	collector := httpSvr.Collector()
+	collector := Collector(httpSvr.DataDir)
 	collector.Start()
 
 	ctx, ctxCancel := context.WithCancel(context.Background())

@@ -18,7 +18,7 @@ import (
 
 var collector *metric.Collector
 
-func (s *HttpServer) Collector() *metric.Collector {
+func Collector(dataDir string) *metric.Collector {
 	if collector == nil {
 		collector = metric.NewCollector(1*time.Second,
 			metric.WithSeries("30m", 10*time.Second, 180),
@@ -26,7 +26,7 @@ func (s *HttpServer) Collector() *metric.Collector {
 			metric.WithSeries("8d", 1*time.Hour, 192),
 			metric.WithExpvarPrefix("metrics"),
 			metric.WithReceiverSize(100),
-			metric.WithStorage(metric.NewFileStorage(filepath.Join(s.DataDir, "metrics"))),
+			metric.WithStorage(metric.NewFileStorage(filepath.Join(dataDir, "metrics"))),
 		)
 		collector.AddInputFunc(metric_ps.Collect)
 		collector.AddInputFunc(metric_runtime.Collect)
@@ -34,29 +34,32 @@ func (s *HttpServer) Collector() *metric.Collector {
 	return collector
 }
 
-func (s *HttpServer) CollectorMiddleware(c *gin.Context) {
+func CollectorMiddleware(c *gin.Context) {
 	tick := nowFunc()
 	c.Next()
 
-	if collector != nil {
-		latency := time.Since(tick)
-		measure := metric.Measurement{Name: "http"}
-		measure.AddField(metric.Field{Name: "requests", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
-		measure.AddField(metric.Field{Name: "latency", Value: float64(latency.Nanoseconds()), Unit: metric.UnitDuration, Type: metric.FieldTypeHistogram(100, 0.5, 0.9, 0.99)})
-		switch sc := c.Request.Response.StatusCode; {
-		case sc >= 100 && sc < 200:
-			measure.AddField(metric.Field{Name: "status_1xx", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
-		case sc >= 200 && sc < 300:
-			measure.AddField(metric.Field{Name: "status_2xx", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
-		case sc >= 300 && sc < 400:
-			measure.AddField(metric.Field{Name: "status_3xx", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
-		case sc >= 400 && sc < 500:
-			measure.AddField(metric.Field{Name: "status_4xx", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
-		case sc >= 500:
-			measure.AddField(metric.Field{Name: "status_5xx", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
-		}
-		collector.SendEvent(measure)
+	if collector == nil {
+		return
 	}
+	latency := time.Since(tick)
+	measure := metric.Measurement{Name: "http"}
+	measure.AddField(metric.Field{Name: "requests", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+	measure.AddField(metric.Field{Name: "latency", Value: float64(latency.Nanoseconds()), Unit: metric.UnitDuration, Type: metric.FieldTypeHistogram(100, 0.5, 0.9, 0.99)})
+	statusCat := ""
+	switch sc := c.Writer.Status(); {
+	case sc >= 100 && sc < 200:
+		statusCat = "status_1xx"
+	case sc >= 200 && sc < 300:
+		statusCat = "status_2xx"
+	case sc >= 300 && sc < 400:
+		statusCat = "status_3xx"
+	case sc >= 400 && sc < 500:
+		statusCat = "status_4xx"
+	case sc >= 500:
+		statusCat = "status_5xx"
+	}
+	measure.AddField(metric.Field{Name: statusCat, Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+	collector.SendEvent(measure)
 }
 
 func (s *HttpServer) handleAdminStatz(c *gin.Context) {
