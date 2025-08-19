@@ -20,6 +20,7 @@ func Main() int {
 	var input string
 	var output string = "-"
 	var clients int = 1
+	var clientTps int = 10
 	var apiServer string = "http://127.0.0.1:5680"
 
 	// RDB configuration
@@ -29,6 +30,7 @@ func Main() int {
 	flag.StringVar(&rdbConfig.pass, "rdb-pass", rdbConfig.pass, "RDB password")
 	flag.StringVar(&rdbConfig.db, "rdb-db", rdbConfig.db, "RDB database")
 	flag.IntVar(&clients, "clients", clients, "Number of clients to run simultaneously")
+	flag.IntVar(&clientTps, "client-tps", clientTps, "Transactions per second per client")
 	// api server
 	flag.StringVar(&apiServer, "api-server", apiServer, "API server URL")
 	// input & output
@@ -91,7 +93,7 @@ func Main() int {
 	apiServer = strings.TrimSuffix(apiServer, "/")
 	start := time.Now()
 	cnt := 0
-
+	minElapsePerClient := time.Second / time.Duration(clientTps)
 	for {
 		record, err := csvReader.Read()
 		if err == io.EOF {
@@ -129,7 +131,11 @@ func Main() int {
 		<-clientC
 		wg.Add(1)
 		go func(urlPath *url.URL) {
+			tick := time.Now()
 			defer func() {
+				if elapse := time.Since(tick); elapse < minElapsePerClient {
+					time.Sleep(minElapsePerClient - elapse)
+				}
 				clientC <- struct{}{}
 				wg.Done()
 			}()
