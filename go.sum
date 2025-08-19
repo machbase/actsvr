@@ -4,8 +4,8 @@ connectrpc.com/connect v1.18.1/go.mod h1:0292hj1rnx8oFrStN7cB4jjVBeqs+Yx5yDIC2pr
 fortio.org/progressbar v1.1.0 h1:Z5/5xT5rZMmwJp5GJUBqC0rDr9iyXUjEwY7p2AWYBVc=
 fortio.org/progressbar v1.1.0/go.mod h1:YOqRraul+IPFlGh5sVw6oGNLnRhasuvRoA3wNqJvzzQ=
 github.com/DataDog/datadog-go v3.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
-github.com/OutOfBedlam/metric v0.0.0-20250819043946-c10dc154fa84 h1:M7XFMPj2QgdN1+5p/O4fXn7z42/n74/1Rhbxaq/TDqc=
-github.com/OutOfBedlam/metric v0.0.0-20250819043946-c10dc154fa84/go.mod h1:utCPVqpc0xv/lZOrNP1CPpl+Fot5DjWdWsBSx3iYCfo=
+github.com/OutOfBedlam/metric v0.0.0-20250819052824-f8a171b1d044 h1:4+G/5GXhKC26VMghfFn1Fmwc2cpnu+PvkqTkaGRs0DM=
+github.com/OutOfBedlam/metric v0.0.0-20250819052824-f8a171b1d044/go.mod h1:utCPVqpc0xv/lZOrNP1CPpl+Fot5DjWdWsBSx3iYCfo=
 github.com/OutOfBedlam/metrical v0.0.0-20250819023249-a46f0b65b3c3 h1:8ozE0wsq/iShihkNHW/qxga5o0WedHTxdHtLKdNtO4U=
 github.com/OutOfBedlam/metrical v0.0.0-20250819023249-a46f0b65b3c3/go.mod h1:wHgHlV/NrbdnhfkfR7vYQJl+vtGoW2wj2OFa0XDQlMA=
 github.com/RoaringBitmap/roaring v1.9.4 h1:yhEIoH4YezLYT04s1nHehNO64EKFTop/wBhxv2QzDdQ=
