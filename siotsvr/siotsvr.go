@@ -9,8 +9,13 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
+
+	"github.com/OutOfBedlam/metric"
+	metric_ps "github.com/OutOfBedlam/metrical/input/ps"
+	metric_runtime "github.com/OutOfBedlam/metrical/input/runtime"
 )
 
 var DefaultLocation = time.Local
@@ -55,7 +60,10 @@ func Main() int {
 	flag.StringVar(&httpSvr.Host, "http-host", httpSvr.Host, "the host to bind the HTTP server to")
 	flag.IntVar(&httpSvr.Port, "http-port", httpSvr.Port, "the port to bind the HTTP server to")
 	flag.IntVar(&httpSvr.KeepAlive, "http-keepalive", 60, "the keep-alive period in seconds for HTTP connections")
-	flag.StringVar(&httpSvr.TempDir, "http-tempdir", httpSvr.TempDir, "the temporary directory for file uploads")
+	flag.StringVar(&httpSvr.DataDir, "http-datadir", httpSvr.DataDir, "the data directory")
+
+	// replica configuration
+	flag.IntVar(&replicaRowsPerRun, "replica-rows", replicaRowsPerRun, "number of rows to process in each replica sync run")
 
 	// logging configuration
 	logConf := util.DefaultLogConfig()
@@ -86,18 +94,33 @@ func Main() int {
 		}()
 	}
 
+	collector := metric.NewCollector(1*time.Second,
+		metric.WithSeries("30m", 10*time.Second, 180),
+		metric.WithSeries("10h", 5*time.Minute, 120),
+		metric.WithSeries("8d", 1*time.Hour, 192),
+		metric.WithExpvarPrefix("metrics"),
+		metric.WithReceiverSize(100),
+		metric.WithStorage(metric.NewFileStorage(filepath.Join(httpSvr.DataDir, "metrics"))),
+	)
+	collector.AddInputFunc(metric_ps.Collect)
+	collector.AddInputFunc(metric_runtime.Collect)
+	collector.Start()
+
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	if err := httpSvr.Start(ctx); err != nil {
 		log.Printf("Failed to start HttpServer: %v", err)
 		ctxCancel()
 		return 1
 	}
-	defer httpSvr.Stop(ctx)
 
 	interruptSignal := make(chan os.Signal, 1)
 	signal.Notify(interruptSignal, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	<-interruptSignal
 
+	if err := httpSvr.Stop(ctx); err != nil {
+		log.Printf("Error stopping HttpServer: %v", err)
+	}
+	collector.Stop()
 	ctxCancel()
 	return 0
 }

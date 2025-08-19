@@ -116,20 +116,21 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	c.JSON(http.StatusOK, ret)
 }
 
-// 앞의 0 패딩을 제거하는 정규표현식 (숫자 패턴 검증 및 변환을 위한)
+// Regular expression for removing leading zero padding
+// (for numeric pattern validation and conversion)
 var numericRegex = regexp.MustCompile(`^[+-]?(\d+\.?\d*|\.\d+)$`)
 
-// removeLeadingZeros 함수: 문자열에서 앞의 0 패딩을 제거
-// - 빈 문자열이나 "x", "X"만 있는 경우: 빈 문자열 반환
-// - 숫자가 아닌 문자열: 원본 반환
-// - 숫자 문자열: 앞의 0 제거 후 반환 (음수, 소수점 처리 포함)
+// removeLeadingZeros function: removes leading zero padding from a string
+// - If the s is empty or contains only "x" or "X": returns an empty string
+// - If the s is not numeric: returns the original string
+// - If the s is numeric: removes leading zeros and returns the result (handles negative numbers and decimals)
 func removeLeadingZeros(s string) string {
-	// 빈 문자열 처리
+	// empty string
 	if s == "" {
 		return ""
 	}
 
-	// "x" 또는 "X"만 있는 경우 (패딩 문자로 사용되는 경우)
+	// If the string contains only "x" or "X" (used as padding character)
 	if len(s) > 0 && (s[0] == 'x' || s[0] == 'X') {
 		trimmed := strings.Trim(s, "xX")
 		if trimmed == "" {
@@ -137,12 +138,12 @@ func removeLeadingZeros(s string) string {
 		}
 	}
 
-	// 숫자형 문자열이 아닐 경우 그대로 반환
+	// If the string is not numeric, return it as is
 	if !numericRegex.MatchString(s) {
 		return s
 	}
 
-	// 부호 분리 (음수/양수 처리를 위해)
+	// Separate sign (for handling negative/positive numbers)
 	sign := ""
 	numStr := s
 	if strings.HasPrefix(s, "+") || strings.HasPrefix(s, "-") {
@@ -150,7 +151,7 @@ func removeLeadingZeros(s string) string {
 		numStr = s[1:]
 	}
 
-	// 소수점이 있는 경우
+	// If there is a decimal point
 	if strings.Contains(numStr, ".") {
 		parts := strings.Split(numStr, ".")
 		intPart := strings.TrimLeft(parts[0], "0")
@@ -160,12 +161,11 @@ func removeLeadingZeros(s string) string {
 		return sign + intPart + "." + parts[1]
 	}
 
-	// 정수인 경우
+	// For integer values
 	trimmed := strings.TrimLeft(numStr, "0")
 	if trimmed == "" {
-		// 0인 경우, 부호가 +/-인 경우에는 부호를 유지하지만,
-		// 실제로는 0이므로 부호를 제거하는 것이 일반적
-		// 하지만 테스트 요구사항에 맞춰 부호를 유지
+		// If the value is 0, normally the sign (+/-) is removed,
+		// but to meet test requirements, keep the sign if present.
 		if sign == "+" || sign == "-" {
 			return sign + "0"
 		}
@@ -174,11 +174,10 @@ func removeLeadingZeros(s string) string {
 	return sign + trimmed
 }
 
-func (s *HttpServer) parseRawPacket(data *RawPacketData) *ParsedPacketData {
+func (s *HttpServer) parseRawPacket(data *RawPacketData) (*ParsedPacketData, error) {
 	definition := getPacketDefinition(data.TrnsmitServerNo, data.DataNo)
 	if definition == nil {
-		defaultLog.Errorf("%d No packet definition found for transmit server number: %d", data.PacketSeq, data.TrnsmitServerNo)
-		return nil
+		return nil, fmt.Errorf("no packet definition found for transmit server number: %d", data.TrnsmitServerNo)
 	}
 	packet := data.Packet
 	// split packet into values
@@ -193,7 +192,12 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) *ParsedPacketData {
 	// log packet parsing
 	if defaultLog.DebugEnabled() {
 		for i, field := range definition.Fields {
-			defaultLog.Debugf("%d [%d] %s %s: %s", data.PacketSeq, i, field.PacketSeCode, field.PacketName, values[i])
+			dc := ""
+			if field.DC != "" {
+				dc = fmt.Sprintf(" / %s", field.DC)
+			}
+			defaultLog.Debugf("%d [%d] %s %s%s: %s",
+				data.PacketSeq, i, field.PacketSeCode, field.PacketName, dc, values[i])
 		}
 	}
 
@@ -210,7 +214,7 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) *ParsedPacketData {
 		DqmCrrOp:        data.DqmCrrOp,
 		Values:          values,
 	}
-	return parsed
+	return parsed, nil
 }
 
 func (s *HttpServer) handleServerStat(c *gin.Context) {

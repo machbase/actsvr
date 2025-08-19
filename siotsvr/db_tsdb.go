@@ -3,10 +3,238 @@ package siotsvr
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
+	"sync/atomic"
 	"time"
+
+	"github.com/machbase/neo-server/v8/api"
+	"github.com/machbase/neo-server/v8/api/machcli"
 )
 
-var replicaRowsPerRun = 100
+func (s *HttpServer) openDatabase() error {
+	if s.machCli == nil {
+		db, err := machcli.NewDatabase(&machcli.Config{
+			Host:         machConfig.dbHost,
+			Port:         machConfig.dbPort,
+			TrustUsers:   map[string]string{machConfig.dbUser: machConfig.dbPass},
+			MaxOpenConn:  -1,
+			MaxOpenQuery: -1,
+		})
+		if err != nil {
+			return err
+		}
+		s.machCli = db
+	}
+	return nil
+}
+
+func (s *HttpServer) closeDatabase() {
+	if s.machCli != nil {
+		s.machCli.Close()
+		s.machCli = nil
+	}
+}
+
+func (s *HttpServer) openConn(ctx context.Context) (api.Conn, error) {
+	if err := s.openDatabase(); err != nil {
+		return nil, err
+	}
+	conn, err := s.machCli.Connect(ctx, api.WithPassword(machConfig.dbUser, machConfig.dbPass))
+	if err != nil {
+		return nil, err
+	}
+	return conn, nil
+}
+
+var globalPacketSeq int64 = 0 // Global packet sequence number
+func nextPacketSeq() int64 {
+	return atomic.AddInt64(&globalPacketSeq, 1)
+}
+
+func (s *HttpServer) reloadPacketSeq() error {
+	ctx := context.Background()
+	conn, err := s.openConn(ctx)
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+	row := conn.QueryRow(ctx, "SELECT MAX(PACKET_SEQ) FROM TB_RECPTN_PACKET_DATA")
+	if err := row.Err(); err != nil {
+		return err
+	}
+	seq := int64(0)
+	if err := row.Scan(&seq); err != nil {
+		return fmt.Errorf("failed to scan packet sequence: %w", err)
+	}
+
+	if rdb, err := rdbConfig.Connect(); err == nil {
+		defer rdb.Close()
+		if rdbMax, err := SelectMaxPacketSeq(rdb); err != nil {
+			defaultLog.Error("Failed to select max packet sequence from RDB:", err)
+		} else {
+			defaultLog.Info("Max packet sequence from RDB:", rdbMax)
+			if rdbMax > seq {
+				seq = rdbMax
+			}
+		}
+	} else {
+		defaultLog.Error("Failed to connect to RDB:", err)
+	}
+	defaultLog.Info("PacketSeq:", seq)
+	atomic.StoreInt64(&globalPacketSeq, seq+1)
+	return nil
+}
+
+var globalPacketParseSeq int64 = 0 // Global packet parse sequence number
+func nextPacketParseSeq() int64 {
+	return atomic.AddInt64(&globalPacketParseSeq, 1)
+}
+
+func (s *HttpServer) reloadPacketParseSeq() error {
+	ctx := context.Background()
+	conn, err := s.openConn(ctx)
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+	row := conn.QueryRow(ctx, "SELECT MAX(PACKET_PARS_SEQ) FROM TB_PACKET_PARS_DATA")
+	if err := row.Err(); err != nil {
+		return err
+	}
+	seq := int64(0)
+	if err := row.Scan(&seq); err != nil {
+		return fmt.Errorf("failed to scan packet parse sequence: %w", err)
+	}
+	if rdb, err := rdbConfig.Connect(); err == nil {
+		defer rdb.Close()
+		if rdbMax, err := SelectMaxPacketParsSeq(rdb); err != nil {
+			defaultLog.Error("Failed to select max packet parse sequence from RDB:", err)
+		} else {
+			defaultLog.Info("Max packet parse sequence from RDB:", rdbMax)
+			if rdbMax > seq {
+				seq = rdbMax
+			}
+		}
+	} else {
+		defaultLog.Error("Failed to connect to RDB:", err)
+	}
+	defaultLog.Info("PacketParseSeq:", seq)
+	atomic.StoreInt64(&globalPacketParseSeq, seq+1)
+	return nil
+}
+
+func (s *HttpServer) loopRawPacket() {
+	ctx := context.Background()
+	conn, err := s.openConn(ctx)
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+
+	sqlText := strings.Join([]string{
+		"INSERT INTO TB_RECPTN_PACKET_DATA(",
+		"PACKET_SEQ,",
+		"TRNSMIT_SERVER_NO,",
+		"DATA_NO,",
+		"PK_SEQ,",
+		"AREA_CODE,",
+		"MODL_SERIAL,",
+		"DQMCRR_OP,",
+		"PACKET,",
+		"PACKET_STTUS_CODE,",
+		"RECPTN_RESULT_CODE,",
+		"RECPTN_RESULT_MSSAGE,",
+		"PARS_SE_CODE,",
+		"REGIST_DE,",
+		"REGIST_TIME,",
+		"REGIST_DT",
+		") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+	}, "")
+	for data := range s.rawPacketCh {
+		if data == nil {
+			break
+		}
+		result := conn.Exec(ctx, sqlText,
+			data.PacketSeq, data.TrnsmitServerNo, data.DataNo,
+			data.PkSeq, data.AreaCode, data.ModlSerial, data.DqmCrrOp, data.Packet,
+			data.PacketSttusCode, data.RecptnResultCode, data.RecptnResultMssage,
+			data.ParsSeCode, data.RegistDe, data.RegistTime, data.RegistDt)
+		if err := result.Err(); err != nil {
+			s.log.Errorf("%d Failed to insert RecptnPacketData: %v, data: %#v", data.PacketSeq, err, data)
+			continue
+		}
+		if data.RecptnResultCode == ApiReceiveSuccess.ResultStats.ResultCode {
+			parsed, err := s.parseRawPacket(data)
+			if err != nil {
+				s.log.Errorf("%d %v", data.PacketSeq, err.Error())
+				continue
+			} else {
+				s.parsPacketCh <- parsed
+			}
+		}
+	}
+}
+
+func (s *HttpServer) loopParsPacket() {
+	ctx := context.Background()
+	conn, err := s.openConn(ctx)
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+
+	// Failed to insert PacketParsData:
+	// MACHCLI-ERR-2233, Error occurred at column (10):
+	// (Failed to convert type (INT32) to type (VARCHAR).)
+	for data := range s.parsPacketCh {
+		if data == nil {
+			break
+		}
+		sqlBuilder := strings.Builder{}
+		sqlBuilder.WriteString(`INSERT INTO TB_PACKET_PARS_DATA(`)
+		sqlBuilder.WriteString(`PACKET_PARS_SEQ,`)
+		sqlBuilder.WriteString(`PACKET_SEQ,`)
+		sqlBuilder.WriteString(`TRNSMIT_SERVER_NO,`)
+		sqlBuilder.WriteString(`DATA_NO,`)
+		sqlBuilder.WriteString(`REGIST_DT,`)
+		sqlBuilder.WriteString(`REGIST_DE,`)
+		sqlBuilder.WriteString(`SERVICE_SEQ,`)
+		sqlBuilder.WriteString(`AREA_CODE,`)
+		sqlBuilder.WriteString(`MODL_SERIAL,`)
+		sqlBuilder.WriteString(`DQMCRR_OP`)
+		for i := range data.Values {
+			sqlBuilder.WriteString(fmt.Sprintf(",COLUMN%d", i))
+		}
+		sqlBuilder.WriteString(`) VALUES(?,?,?,?,?,?,?,?,?,?`)
+		for range data.Values {
+			sqlBuilder.WriteString(",?")
+		}
+		sqlBuilder.WriteString(`)`)
+
+		values := []interface{}{
+			data.PacketParsSeq,
+			data.PacketSeq,
+			data.TrnsmitServerNo,
+			data.DataNo,
+			data.RegistDt,
+			data.RegistDe,
+			data.ServiceSeq,
+			data.AreaCode,
+			data.ModlSerial,
+			data.DqmCrrOp,
+		}
+		for _, val := range data.Values {
+			values = append(values, val)
+		}
+		result := conn.Exec(ctx, sqlBuilder.String(), values...)
+		if result.Err() != nil {
+			s.log.Error(data.PacketSeq, "Failed to insert PacketParsData:", result.Err())
+		}
+	}
+}
+
+var replicaRowsPerRun = 200
 
 func (s *HttpServer) loopReplicaRawPacket() {
 	s.replicaWg.Add(1)
@@ -33,6 +261,10 @@ func (s *HttpServer) loopReplicaRawPacket() {
 	defer conn.Close()
 
 	for s.replicaAlive {
+		if replicaRowsPerRun <= 0 {
+			time.Sleep(3 * time.Second)
+			continue
+		}
 		rows, err := conn.Query(ctx, `SELECT
 			PACKET_SEQ,
 			TRNSMIT_SERVER_NO,
@@ -69,7 +301,6 @@ func (s *HttpServer) loopReplicaRawPacket() {
 				defaultLog.Errorf("Failed to scan row: %v", err)
 				continue
 			}
-			lastSeq = data.PacketSeq
 
 			_, err = rdb.ExecContext(ctx, `INSERT INTO TB_RECPTN_PACKET_DATA(
 				PACKET_SEQ, TRNSMIT_SERVER_NO, DATA_NO,
@@ -87,6 +318,7 @@ func (s *HttpServer) loopReplicaRawPacket() {
 				defaultLog.Errorf("Failed to insert row: %v", err)
 				continue
 			}
+			lastSeq = data.PacketSeq
 		}
 		rows.Close()
 
@@ -124,6 +356,10 @@ func (s *HttpServer) loopReplicaParsPacket() {
 	defer conn.Close()
 
 	for s.replicaAlive {
+		if replicaRowsPerRun <= 0 {
+			time.Sleep(3 * time.Second)
+			continue
+		}
 		rows, err := conn.Query(ctx, `SELECT
 			PACKET_PARS_SEQ, PACKET_SEQ, TRNSMIT_SERVER_NO, DATA_NO,
 			REGIST_DT, REGIST_DE,
@@ -181,7 +417,6 @@ func (s *HttpServer) loopReplicaParsPacket() {
 				defaultLog.Errorf("Failed to scan row: %v", err)
 				continue
 			}
-			lastParsSeq = data.PacketParsSeq
 
 			_, err = rdb.ExecContext(ctx, `INSERT INTO TB_PACKET_PARS_DATA (`+
 				/*PACKET_PARS_SEQ,*/ `PACKET_SEQ, TRNSMIT_SERVER_NO, DATA_NO,`+
@@ -230,6 +465,7 @@ func (s *HttpServer) loopReplicaParsPacket() {
 				defaultLog.Errorf("Failed to insert row: %v", err)
 				continue
 			}
+			lastParsSeq = data.PacketParsSeq
 		}
 		rows.Close()
 

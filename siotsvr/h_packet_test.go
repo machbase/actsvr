@@ -39,7 +39,7 @@ func TestPacketSend(t *testing.T) {
 			"PkSeq":202506010000030000,
 			"AreaCode":"11200",
 			"ModlSerial":"SCMS-SEOUL-SD-0006",
-			"DqmCrrOp":0,
+			"DqmCrrOp":"",
 			"Packet":"SCMS-SEOUL-SDSCMS-SEOUL-SD-00060004",
 			"PacketSttusCode":"S",
 			"RecptnResultCode":"SUCC-000",
@@ -50,7 +50,8 @@ func TestPacketSend(t *testing.T) {
 			"RegistDt":1755129018971253000
 		}`
 		require.JSONEq(t, expect, string(data))
-		parsed := s.parseRawPacket(d)
+		parsed, err := s.parseRawPacket(d)
+		require.NoError(t, err, "Failed to parse raw packet data")
 		s.parsPacketCh <- parsed
 	}()
 	defer close(s.rawPacketCh)
@@ -67,13 +68,13 @@ func TestPacketSend(t *testing.T) {
 		"PacketSeq":1, 
 		"TrnsmitServerNo":43, 
 		"DataNo":1, 
-		"ServiceSeq":0, 
+		"ServiceSeq":55, 
 		"AreaCode":"11200", 
 		"ModlSerial":"SCMS-SEOUL-SD-0006", 
-		"DqmCrrOp":0, 
+		"DqmCrrOp":"", 
 		"RegistDt":1755129018971253000, 
 		"RegistDe":"20250814", 
-		"Values":["SCMS-SEOUL-SD", "SCMS-SEOUL-SD-0006", "0004"]}`
+		"Values":["SCMS-SEOUL-SD", "SCMS-SEOUL-SD-0006", "4"]}`
 		require.JSONEq(t, expect, string(data))
 	}()
 	defer close(s.parsPacketCh)
@@ -135,7 +136,7 @@ func TestPacketSendCases(t *testing.T) {
 			packetMasterSeq: 55,
 			tsn:             43,
 			areaCode:        "11200",
-			values:          []string{"SCMS-SEOUL-SD", "SCMS-SEOUL-SD-0006", "0004"},
+			values:          []string{"SCMS-SEOUL-SD", "SCMS-SEOUL-SD-0006", "4"},
 		},
 		{
 			name:            "tc_36",
@@ -148,9 +149,9 @@ func TestPacketSendCases(t *testing.T) {
 			tsn:             30,
 			areaCode:        "11380",
 			values: []string{
-				"SDOT001", "V02Q1940343", "0001", "0002", "00029.1", "075", "", "", "", "",
-				"000000", "00000.0", "44", "0000.03", "0000.02", "0001.03", "0000.08", "0000.19", "0001.09",
-				"", "0001", "0002", "202506302359", "00000.0", "", "", "", "", "", "", ""},
+				"SDOT001", "V02Q1940343", "1", "2", "29.1", "75", "", "", "", "",
+				"0", "0.0", "44", "0.03", "0.02", "1.03", "0.08", "0.19", "1.09",
+				"", "1", "2", "202506302359", "0.0", "", "", "", "", "", "", ""},
 		},
 		{
 			name:            "tc_142",
@@ -162,7 +163,7 @@ func TestPacketSendCases(t *testing.T) {
 			packetMasterSeq: 142,
 			tsn:             111,
 			areaCode:        "11545",
-			values:          []string{"IMC_1000A", "c8c3a7e5abea7", "025", "071", "0004", "0003", "00927", "02131"},
+			values:          []string{"IMC_1000A", "c8c3a7e5abea7", "25", "71", "4", "3", "927", "2131"},
 		},
 		// Add more test cases as needed
 	}
@@ -188,7 +189,8 @@ func TestPacketSendCases(t *testing.T) {
 			require.Equal(t, time.Unix(0, tc.now).Format("20060102"), d.RegistDe, "RegistDe")
 			require.Equal(t, time.Unix(0, tc.now).Format("1504"), d.RegistTime, "RegistTime")
 			require.Equal(t, tc.now, d.RegistDt, "RegistDt should be "+strconv.FormatInt(tc.now, 10))
-			parsed := s.parseRawPacket(d)
+			parsed, err := s.parseRawPacket(d)
+			require.NoError(t, err, "Failed to parse raw packet data")
 			s.parsPacketCh <- parsed
 		}()
 
