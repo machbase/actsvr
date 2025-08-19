@@ -85,13 +85,13 @@ func (s *HttpServer) handleAdminStatz(c *gin.Context) {
 			"metrics:ps:mem_percent",
 			"metrics:runtime:goroutines",
 			"metrics:runtime:heap_inuse",
-			"metrics:http:requests",
-			"metrics:http:latency",
-			"metrics:http:status_1xx",
-			"metrics:http:status_2xx",
-			"metrics:http:status_3xx",
-			"metrics:http:status_4xx",
-			"metrics:http:status_5xx",
+			// "metrics:http:requests",
+			// "metrics:http:latency",
+			// "metrics:http:status_1xx",
+			// "metrics:http:status_2xx",
+			// "metrics:http:status_3xx",
+			// "metrics:http:status_4xx",
+			// "metrics:http:status_5xx",
 		}
 	} else {
 		data.MetricNames = []string{name}

@@ -137,7 +137,8 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 	r.GET("/db/admin/log", s.handleAdminLog)
 	r.GET("/db/admin/reload", s.handleAdminReload)
 	r.GET("/db/admin/replica", s.handleAdminReplica)
-	r.Use(CollectorMiddleware)
+	// FIXME: deadlock
+	// r.Use(CollectorMiddleware)
 	r.GET("/db/poi/nearby", s.handlePoiNearby)
 	r.GET("/n/api/serverstat/:certkey", s.handleServerStat)
 	r.GET("/n/api/send/:certkey/1/:pk_seq/:serial_num/:packet", s.handleSendPacket)
