@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/OutOfBedlam/metric"
 	"github.com/machbase/neo-server/v8/api"
 	"github.com/machbase/neo-server/v8/api/machcli"
 )
@@ -155,23 +156,40 @@ func (s *HttpServer) loopRawPacket() {
 		if data == nil {
 			break
 		}
+		tick := nowFunc()
 		result := conn.Exec(ctx, sqlText,
 			data.PacketSeq, data.TrnsmitServerNo, data.DataNo,
 			data.PkSeq, data.AreaCode, data.ModlSerial, data.DqmCrrOp, data.Packet,
 			data.PacketSttusCode, data.RecptnResultCode, data.RecptnResultMssage,
 			data.ParsSeCode, data.RegistDe, data.RegistTime, data.RegistDt)
-		if err := result.Err(); err != nil {
-			s.log.Errorf("%d Failed to insert RecptnPacketData: %v, data: %#v", data.PacketSeq, err, data)
-			continue
-		}
-		if data.RecptnResultCode == ApiReceiveSuccess.ResultStats.ResultCode {
-			parsed, err := s.parseRawPacket(data)
-			if err != nil {
-				s.log.Errorf("%d %v", data.PacketSeq, err.Error())
-				continue
+		var insertErr = result.Err()
+		insertLatency := time.Since(tick)
+
+		var parseErr error
+		if insertErr == nil && data.RecptnResultCode == ApiReceiveSuccess.ResultStats.ResultCode {
+			if parsed, err := s.parseRawPacket(data); err != nil {
+				parseErr = err
 			} else {
 				s.parsPacketCh <- parsed
 			}
+		}
+		if insertErr != nil {
+			s.log.Errorf("%d Failed to insert RecptnPacketData: %v, data: %#v", data.PacketSeq, insertErr, data)
+		}
+		if parseErr != nil {
+			s.log.Errorf("%d %v", data.PacketSeq, parseErr)
+		}
+		if collector != nil {
+			measure := metric.Measurement{Name: "packet_data"}
+			if insertErr == nil {
+				measure.AddField(metric.Field{Name: "insert_latency", Value: float64(insertLatency.Microseconds()), Unit: metric.UnitDuration, Type: metric.FieldTypeHistogram(100, 0.5, 0.9, 0.99)})
+			} else {
+				measure.AddField(metric.Field{Name: "insert_error", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+			}
+			if parseErr != nil {
+				measure.AddField(metric.Field{Name: "parse_error", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+			}
+			collector.SendEvent(measure)
 		}
 	}
 }
@@ -184,13 +202,11 @@ func (s *HttpServer) loopParsPacket() {
 	}
 	defer conn.Close()
 
-	// Failed to insert PacketParsData:
-	// MACHCLI-ERR-2233, Error occurred at column (10):
-	// (Failed to convert type (INT32) to type (VARCHAR).)
 	for data := range s.parsPacketCh {
 		if data == nil {
 			break
 		}
+		tick := time.Now()
 		sqlBuilder := strings.Builder{}
 		sqlBuilder.WriteString(`INSERT INTO TB_PACKET_PARS_DATA(`)
 		sqlBuilder.WriteString(`PACKET_PARS_SEQ,`)
@@ -228,8 +244,20 @@ func (s *HttpServer) loopParsPacket() {
 			values = append(values, val)
 		}
 		result := conn.Exec(ctx, sqlBuilder.String(), values...)
-		if result.Err() != nil {
-			s.log.Error(data.PacketSeq, "Failed to insert PacketParsData:", result.Err())
+		insertErr := result.Err()
+		if insertErr != nil {
+			s.log.Error(data.PacketSeq, "Failed to insert PacketParsData:", insertErr)
+		}
+
+		if collector != nil {
+			latency := time.Since(tick)
+			measure := metric.Measurement{Name: "pars_data"}
+			if insertErr == nil {
+				measure.AddField(metric.Field{Name: "insert_latency", Value: float64(latency.Microseconds()), Unit: metric.UnitDuration, Type: metric.FieldTypeHistogram(100, 0.5, 0.9, 0.99)})
+			} else {
+				measure.AddField(metric.Field{Name: "insert_error", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+			}
+			collector.SendEvent(measure)
 		}
 	}
 }
@@ -302,7 +330,8 @@ func (s *HttpServer) loopReplicaRawPacket() {
 				continue
 			}
 
-			_, err = rdb.ExecContext(ctx, `INSERT INTO TB_RECPTN_PACKET_DATA(
+			tick := nowFunc()
+			_, insertErr := rdb.ExecContext(ctx, `INSERT INTO TB_RECPTN_PACKET_DATA(
 				PACKET_SEQ, TRNSMIT_SERVER_NO, DATA_NO,
 				PK_SEQ, MODL_SERIAL, PACKET,
 				PACKET_STTUS_CODE, RECPTN_RESULT_CODE, RECPTN_RESULT_MSSAGE,
@@ -314,11 +343,21 @@ func (s *HttpServer) loopReplicaRawPacket() {
 				data.PacketSttusCode, data.RecptnResultCode, data.RecptnResultMssage,
 				data.ParsSeCode, nowFunc(), data.RegistDe,
 				data.RegistTime, data.RegistDt)
-			if err != nil {
-				defaultLog.Errorf("Failed to insert row: %v", err)
-				continue
+			if insertErr != nil {
+				defaultLog.Errorf("%d failed to insert row: %v", data.PacketSeq, insertErr)
 			}
 			lastSeq = data.PacketSeq
+
+			if collector != nil {
+				latency := time.Since(tick)
+				measure := metric.Measurement{Name: "rdb_packet_data"}
+				if insertErr == nil {
+					measure.AddField(metric.Field{Name: "insert_latency", Value: float64(latency.Microseconds()), Unit: metric.UnitDuration, Type: metric.FieldTypeHistogram(100, 0.5, 0.9, 0.99)})
+				} else {
+					measure.AddField(metric.Field{Name: "insert_error", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+				}
+				collector.SendEvent(measure)
+			}
 		}
 		rows.Close()
 
@@ -418,7 +457,8 @@ func (s *HttpServer) loopReplicaParsPacket() {
 				continue
 			}
 
-			_, err = rdb.ExecContext(ctx, `INSERT INTO TB_PACKET_PARS_DATA (`+
+			tick := nowFunc()
+			_, insertErr := rdb.ExecContext(ctx, `INSERT INTO TB_PACKET_PARS_DATA (`+
 				`PACKET_PARS_SEQ, PACKET_SEQ, TRNSMIT_SERVER_NO, DATA_NO,`+
 				//	SERVICE_SEQ, AREA_CODE, MODL_SERIAL, DQMCRR_OP,
 				`REGIST_DT, REGIST_DE, 
@@ -460,11 +500,21 @@ func (s *HttpServer) loopReplicaParsPacket() {
 				snull(data.Column55), snull(data.Column56), snull(data.Column57), snull(data.Column58), snull(data.Column59),
 				snull(data.Column60), snull(data.Column61), snull(data.Column62), snull(data.Column63),
 			)
-			if err != nil {
-				defaultLog.Errorf("Failed to insert row: %v", err)
-				continue
+			if insertErr != nil {
+				defaultLog.Errorf("%d failed to insert row: %v", data.PacketSeq, insertErr)
 			}
 			lastParsSeq = data.PacketParsSeq
+
+			if collector != nil {
+				latency := time.Since(tick)
+				measure := metric.Measurement{Name: "rdb_pars_data"}
+				if insertErr == nil {
+					measure.AddField(metric.Field{Name: "insert_latency", Value: float64(latency.Microseconds()), Unit: metric.UnitDuration, Type: metric.FieldTypeHistogram(100, 0.5, 0.9, 0.99)})
+				} else {
+					measure.AddField(metric.Field{Name: "insert_error", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+				}
+				collector.SendEvent(measure)
+			}
 		}
 		rows.Close()
 
