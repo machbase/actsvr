@@ -9,13 +9,8 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
-
-	"github.com/OutOfBedlam/metric"
-	metric_ps "github.com/OutOfBedlam/metrical/input/ps"
-	metric_runtime "github.com/OutOfBedlam/metrical/input/runtime"
 )
 
 var DefaultLocation = time.Local
@@ -94,16 +89,7 @@ func Main() int {
 		}()
 	}
 
-	collector := metric.NewCollector(1*time.Second,
-		metric.WithSeries("30m", 10*time.Second, 180),
-		metric.WithSeries("10h", 5*time.Minute, 120),
-		metric.WithSeries("8d", 1*time.Hour, 192),
-		metric.WithExpvarPrefix("metrics"),
-		metric.WithReceiverSize(100),
-		metric.WithStorage(metric.NewFileStorage(filepath.Join(httpSvr.DataDir, "metrics"))),
-	)
-	collector.AddInputFunc(metric_ps.Collect)
-	collector.AddInputFunc(metric_runtime.Collect)
+	collector := httpSvr.Collector()
 	collector.Start()
 
 	ctx, ctxCancel := context.WithCancel(context.Background())

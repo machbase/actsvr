@@ -5,13 +5,56 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/OutOfBedlam/metric"
+	metric_ps "github.com/OutOfBedlam/metrical/input/ps"
+	metric_runtime "github.com/OutOfBedlam/metrical/input/runtime"
 	"github.com/OutOfBedlam/metrical/output/svg"
 	"github.com/gin-gonic/gin"
 )
+
+var collector *metric.Collector
+
+func (s *HttpServer) Collector() *metric.Collector {
+	if collector == nil {
+		collector = metric.NewCollector(1*time.Second,
+			metric.WithSeries("30m", 10*time.Second, 180),
+			metric.WithSeries("10h", 5*time.Minute, 120),
+			metric.WithSeries("8d", 1*time.Hour, 192),
+			metric.WithExpvarPrefix("metrics"),
+			metric.WithReceiverSize(100),
+			metric.WithStorage(metric.NewFileStorage(filepath.Join(s.DataDir, "metrics"))),
+		)
+		collector.AddInputFunc(metric_ps.Collect)
+		collector.AddInputFunc(metric_runtime.Collect)
+	}
+	return collector
+}
+
+func (s *HttpServer) CollectorMiddleware(c *gin.Context) {
+	tick := nowFunc()
+	defer func() {
+		measure := metric.Measurement{Name: "http"}
+		measure.AddField(metric.Field{Name: "requests", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+		measure.AddField(metric.Field{Name: "latency", Value: float64(time.Since(tick).Nanoseconds()), Unit: metric.UnitDuration, Type: metric.FieldTypeHistogram(100, 0.5, 0.9, 0.99)})
+		switch sc := c.Request.Response.StatusCode; {
+		case sc >= 100 && sc < 200:
+			measure.AddField(metric.Field{Name: "status_1xx", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+		case sc >= 200 && sc < 300:
+			measure.AddField(metric.Field{Name: "status_2xx", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+		case sc >= 300 && sc < 400:
+			measure.AddField(metric.Field{Name: "status_3xx", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+		case sc >= 400 && sc < 500:
+			measure.AddField(metric.Field{Name: "status_4xx", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+		case sc >= 500:
+			measure.AddField(metric.Field{Name: "status_5xx", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+		}
+	}()
+	c.Next()
+}
 
 func (s *HttpServer) handleAdminStatz(c *gin.Context) {
 	c.Writer.Header().Set("Content-Type", "text/html")
@@ -33,15 +76,17 @@ func (s *HttpServer) handleAdminStatz(c *gin.Context) {
 	var err error
 	var data = Data{}
 	metricNames := []string{
-		"metrical:ps:cpu_percent",
-		"metrical:ps:mem_percent",
-		"metrical:runtime:goroutines",
-		"metrical:runtime:heap_inuse",
-		// "metrical:http:requests",
-		// "metrical:http:latency",
-		// "metrical:http:status_2xx",
-		// "metrical:http:read_bytes",
-		// "metrical:http:write_bytes",
+		"metrics:ps:cpu_percent",
+		"metrics:ps:mem_percent",
+		"metrics:runtime:goroutines",
+		"metrics:runtime:heap_inuse",
+		"metrics:http:requests",
+		"metrics:http:latency",
+		"metrics:http:status_1xx",
+		"metrics:http:status_2xx",
+		"metrics:http:status_3xx",
+		"metrics:http:status_4xx",
+		"metrics:http:status_5xx",
 	}
 
 	if name == "" {
