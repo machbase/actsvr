@@ -93,7 +93,13 @@ func Main() int {
 	apiServer = strings.TrimSuffix(apiServer, "/")
 	start := time.Now()
 	cnt := 0
+	fmt.Printf("clients: %v\n", clients)
+	fmt.Printf("client-tps: %v\n", clientTps)
+	if clientTps <= 0 {
+		clientTps = 1
+	}
 	minElapsePerClient := time.Second / time.Duration(clientTps)
+	fmt.Printf("flow control per client: %v\n", minElapsePerClient)
 	for {
 		record, err := csvReader.Read()
 		if err == io.EOF {
@@ -133,9 +139,6 @@ func Main() int {
 		go func(urlPath *url.URL) {
 			tick := time.Now()
 			defer func() {
-				if elapse := time.Since(tick); elapse < minElapsePerClient {
-					time.Sleep(minElapsePerClient - elapse)
-				}
 				clientC <- struct{}{}
 				wg.Done()
 			}()
@@ -154,6 +157,9 @@ func Main() int {
 				fmt.Fprintf(out, "Failed to send request: %v, %s\n",
 					strings.TrimSpace(string(msg)), urlPath.String())
 				return
+			}
+			if elapse := time.Since(tick); elapse < minElapsePerClient {
+				time.Sleep(minElapsePerClient - elapse)
 			}
 		}(urlPath)
 		cnt++

@@ -63,7 +63,6 @@ func CollectorMiddleware(c *gin.Context) {
 }
 
 func (s *HttpServer) handleAdminStatz(c *gin.Context) {
-	c.Writer.Header().Set("Content-Type", "text/html")
 	q := c.Request.URL.Query()
 	name := q.Get("n")
 	idx := 0
@@ -79,24 +78,21 @@ func (s *HttpServer) handleAdminStatz(c *gin.Context) {
 			}
 		}
 	}
-	var err error
 	var data = Data{}
-	metricNames := []string{
-		"metrics:ps:cpu_percent",
-		"metrics:ps:mem_percent",
-		"metrics:runtime:goroutines",
-		"metrics:runtime:heap_inuse",
-		"metrics:http:requests",
-		"metrics:http:latency",
-		"metrics:http:status_1xx",
-		"metrics:http:status_2xx",
-		"metrics:http:status_3xx",
-		"metrics:http:status_4xx",
-		"metrics:http:status_5xx",
-	}
-
 	if name == "" {
-		data.MetricNames = metricNames
+		data.MetricNames = []string{
+			"metrics:ps:cpu_percent",
+			"metrics:ps:mem_percent",
+			"metrics:runtime:goroutines",
+			"metrics:runtime:heap_inuse",
+			"metrics:http:requests",
+			"metrics:http:latency",
+			"metrics:http:status_1xx",
+			"metrics:http:status_2xx",
+			"metrics:http:status_3xx",
+			"metrics:http:status_4xx",
+			"metrics:http:status_5xx",
+		}
 	} else {
 		data.MetricNames = []string{name}
 		data.Snapshot = getSnapshot(name, idx)
@@ -105,11 +101,7 @@ func (s *HttpServer) handleAdminStatz(c *gin.Context) {
 			return
 		}
 	}
-	err = tmplIndex.Execute(c.Writer, data)
-	if err != nil {
-		c.String(http.StatusInternalServerError, "Error rendering template: "+err.Error())
-		return
-	}
+	c.HTML(http.StatusOK, "statz", data)
 }
 
 func getSnapshot(name string, idx int) *metric.Snapshot {
@@ -136,7 +128,7 @@ var tmplFuncMap = template.FuncMap{
 	"formatTime":         func(t time.Time) string { return t.Format(time.TimeOnly) },
 }
 
-var tmplIndex = template.Must(template.New("index").Funcs(tmplFuncMap).
+var tmplStatz = template.Must(template.New("statz").Funcs(tmplFuncMap).
 	Parse(`<!DOCTYPE html>
 <html lang="en">
 <head>
