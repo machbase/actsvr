@@ -88,6 +88,8 @@ func (s *HttpServer) handleAdminStatz(c *gin.Context) {
 			"metrics:packet_data:insert_latency",
 			"metrics:packet_data:insert_error",
 			"metrics:packet_data:parse_error",
+			"metrics:packet_err:insert_latency",
+			"metrics:packet_err:insert_error",
 			"metrics:pars_data:insert_latency",
 			"metrics:pars_data:insert_error",
 			"metrics:rdb_packet_data:insert_latency",

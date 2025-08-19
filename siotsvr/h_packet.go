@@ -113,6 +113,9 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 
 	// insert packet data into database
 	s.rawPacketCh <- &data
+	if data.RecptnResultCode != ApiReceiveSuccess.ResultStats.ResultCode {
+		s.errPacketCh <- &data
+	}
 	c.JSON(http.StatusOK, ret)
 }
 

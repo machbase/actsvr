@@ -29,6 +29,7 @@ type HttpServer struct {
 	router     *gin.Engine
 
 	rawPacketCh  chan *RawPacketData
+	errPacketCh  chan *RawPacketData
 	parsPacketCh chan *ParsedPacketData
 
 	replicaAlive bool
@@ -41,6 +42,7 @@ func NewHttpServer() *HttpServer {
 		Port:         8888,
 		DataDir:      "/tmp",
 		rawPacketCh:  make(chan *RawPacketData),
+		errPacketCh:  make(chan *RawPacketData),
 		parsPacketCh: make(chan *ParsedPacketData),
 		replicaAlive: true,
 	}
@@ -70,6 +72,7 @@ func (s *HttpServer) Start(ctx context.Context) error {
 		return err
 	}
 	go s.loopRawPacket()
+	go s.loopErrPacket()
 	go s.loopParsPacket()
 	go s.loopReplicaRawPacket()
 	go s.loopReplicaParsPacket()

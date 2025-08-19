@@ -194,6 +194,56 @@ func (s *HttpServer) loopRawPacket() {
 	}
 }
 
+func (s *HttpServer) loopErrPacket() {
+	ctx := context.Background()
+	conn, err := s.openConn(ctx)
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+
+	sqlText := strings.Join([]string{
+		"INSERT INTO NTB_ERR_LOG(",
+		"PACKET_SEQ,",
+		"TRNSMIT_SERVER_NO,",
+		"DATA_NO,",
+		"PK_SEQ,",
+		"MODL_SERIAL,",
+		"PACKET,",
+		"RECPTN_RESULT_CODE,",
+		"RECPTN_RESULT_MSSAGE,",
+		"REGIST_DE,",
+		"REGIST_DT",
+		") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+	}, "")
+	for data := range s.errPacketCh {
+		if data == nil {
+			break
+		}
+		tick := nowFunc()
+		result := conn.Exec(ctx, sqlText,
+			data.PacketSeq, data.TrnsmitServerNo, data.DataNo,
+			data.PkSeq, data.ModlSerial, data.Packet,
+			data.RecptnResultCode, data.RecptnResultMssage,
+			data.RegistDe, data.RegistDt)
+		var insertErr = result.Err()
+		insertLatency := time.Since(tick)
+
+		if insertErr != nil {
+			s.log.Errorf("%d Failed to insert NTB_ERR_LOG: %v, data: %#v", data.PacketSeq, insertErr, data)
+		}
+		if collector != nil {
+			measure := metric.Measurement{Name: "packet_err"}
+			if insertErr == nil {
+				measure.AddField(metric.Field{Name: "insert_latency", Value: float64(insertLatency.Microseconds()), Unit: metric.UnitDuration, Type: metric.FieldTypeHistogram(100, 0.5, 0.9, 0.99)})
+			} else {
+				measure.AddField(metric.Field{Name: "insert_error", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+			}
+			collector.SendEvent(measure)
+		}
+	}
+}
+
 func (s *HttpServer) loopParsPacket() {
 	ctx := context.Background()
 	conn, err := s.openConn(ctx)

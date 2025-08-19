@@ -141,3 +141,29 @@ on TB_PACKET_PARS_DATA(PACKET_SEQ);
 -- create index TB_PACKET_PARS_DATA_AREA_CODE
 -- on TB_PACKET_PARS_DATA(AREA_CODE);
 
+
+---------------------------------------
+-- NTB_ERR_LOG
+---------------------------------------
+
+CREATE TABLE IF NOT EXISTS NTB_ERR_LOG (
+    PACKET_SEQ             long,
+    TRNSMIT_SERVER_NO      int,
+    DATA_NO                int,
+    PK_SEQ                 long,
+    MODL_SERIAL            varchar(20),
+    PACKET                 varchar(1000),
+    RECPTN_RESULT_CODE     varchar(10),
+    RECPTN_RESULT_MSSAGE   varchar(200),
+    REGIST_DE              varchar(8),
+    REGIST_DT              datetime
+);
+
+create index IDX_NTB_ERR_LOG_01 
+on NTB_ERR_LOG(TRNSMIT_SERVER_NO);
+
+create index IDX_NTB_ERR_LOG_02 
+on NTB_ERR_LOG(PACKET_SEQ);
+
+create index IDX_NTB_ERR_LOG_03
+on NTB_ERR_LOG(REGIST_DT);
