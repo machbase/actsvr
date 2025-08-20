@@ -83,14 +83,14 @@ func (s *HttpServer) handleData(c *gin.Context) {
 	var startTime time.Time
 	var endTime time.Time
 	if start != "" {
-		startTime, err = time.Parse("20060102150405", start)
+		startTime, err = time.ParseInLocation("20060102150405", start, time.Local)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, ApiErrorInvalidParameters)
 			return
 		}
 	}
 	if end != "" {
-		endTime, err = time.Parse("20060102150405", end)
+		endTime, err = time.ParseInLocation("20060102150405", end, time.Local)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, ApiErrorInvalidParameters)
 			return
