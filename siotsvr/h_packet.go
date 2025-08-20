@@ -14,13 +14,18 @@ import (
 func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	tick := time.Now()
 	packetSeq := int64(-1)
+	var packetErr string
 	defer func() {
 		// Request의 패킷 정보를 로깅
 		req := c.Request.URL.Path
 		if c.Request.URL.RawQuery != "" {
 			req += "?" + c.Request.URL.RawQuery
 		}
-		defaultLog.Info(packetSeq, " ", c.Writer.Status(), " ", time.Since(tick), " ", req)
+		if packetSeq != -1 {
+			defaultLog.Info(packetSeq, " ", c.Writer.Status(), " ", time.Since(tick), " ", req)
+		} else {
+			defaultLog.Warn(packetErr, " ", c.Writer.Status(), " ", time.Since(tick), " ", req)
+		}
 	}()
 	// Path params
 	certkey := c.Param("certkey")        // string e.g. a2a3a4a5testauthkey9
@@ -33,12 +38,14 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 
 	// Validate required parameters
 	if certkey == "" || pkSeqStr == "" || modelSerial == "" || packet == "" {
+		packetErr = "empty_params"
 		c.JSON(http.StatusOK, ApiErrorInvalidParameters)
 		return
 	}
 	// pkSeq should be a valid integer
 	pkSeq, err := strconv.ParseInt(pkSeqStr, 10, 64)
 	if err != nil {
+		packetErr = "invalid_pk_seq"
 		c.JSON(http.StatusOK, ApiErrorInvalidParameters)
 		return
 	}
@@ -46,6 +53,7 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	// find transmit server number from certificate key
 	tsn, err := s.VerifyCertkey(certkey)
 	if err != nil {
+		packetErr = "wrong_certkey"
 		c.JSON(http.StatusOK, ApiErrorInvalidCertkey)
 		return
 	}
@@ -53,6 +61,7 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	// find packet definition
 	definition := getPacketDefinition(tsn, dataNo)
 	if definition == nil {
+		packetErr = "no_modl_detail"
 		defaultLog.Errorf("No packet definition found for transmit server number: %d", tsn)
 		c.JSON(http.StatusOK, ApiErrorServer)
 		return
