@@ -146,41 +146,32 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 		return
 	}
 	sb := &strings.Builder{}
-	sb.WriteString(`select
-			PACKET_PARS_SEQ,
-			MODL_SERIAL,
-			REGIST_DT,
-			AREA_CODE`)
-
+	sb.WriteString(`SELECT PACKET_PARS_SEQ, MODL_SERIAL, REGIST_DT, AREA_CODE`)
 	for i := range definition.Fields {
 		sb.WriteString(fmt.Sprintf(", COLUMN%d", i))
 	}
-	sb.WriteString(`
-		from
-			TB_PACKET_PARS_DATA 
-		where
-			REGIST_DT >= ? and REGIST_DT <= ?
-	`)
+	sb.WriteString(` FROM TB_PACKET_PARS_DATA`)
+	sb.WriteString(` WHERE REGIST_DT >= ? AND REGIST_DT <= ?`)
 	args := []any{
 		startTime.UnixNano(),
 		endTime.UnixNano(),
 	}
 	if modelSerial != "" {
-		sb.WriteString(` and MODL_SERIAL = ?`)
+		sb.WriteString(` AND MODL_SERIAL = ?`)
 		args = append(args, modelSerial)
 	} else {
-		sb.WriteString(` and TRNSMIT_SERVER_NO = ?`)
+		sb.WriteString(` AND TRNSMIT_SERVER_NO = ?`)
 		args = append(args, tsn)
-		sb.WriteString(` and DATA_NO = ?`)
+		sb.WriteString(` AND DATA_NO = ?`)
 		args = append(args, dataNo)
 	}
 	if areaCode != "" {
-		sb.WriteString(` and AREA_CODE = ?`)
+		sb.WriteString(` AND AREA_CODE = ?`)
 		args = append(args, areaCode)
 	}
 
 	if defaultLog.DebugEnabled() {
-		defaultLog.Debugf("Query: %s, Args: %v", sb.String(), args)
+		defaultLog.Debugf("SQL: %s, Args: %v", sb.String(), args)
 	}
 	rows, err := conn.Query(c, sb.String(), args...)
 	if err != nil {
@@ -240,19 +231,11 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 
 func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTime time.Time, endTime time.Time, modelSerial string, areaCode string) (nrow int, cancel bool) {
 	sb := &strings.Builder{}
-	sb.WriteString(`select
-			PACKET_SEQ,
-			MODL_SERIAL,
-			REGIST_DT,
-			AREA_CODE,
-			PACKET
-		from
-			TB_RECPTN_PACKET_DATA 
-		where
-			REGIST_DT >= ? and REGIST_DT <= ?
-		and TRNSMIT_SERVER_NO = ?
-		and DATA_NO = ? 
-	`)
+	sb.WriteString(`SELECT PACKET_SEQ, MODL_SERIAL, REGIST_DT, AREA_CODE, PACKET`)
+	sb.WriteString(` FROM TB_RECPTN_PACKET_DATA`)
+	sb.WriteString(` WHERE REGIST_DT >= ? AND REGIST_DT <= ?`)
+	sb.WriteString(` AND TRNSMIT_SERVER_NO = ?`)
+	sb.WriteString(` AND DATA_NO = ?`)
 	args := []any{
 		startTime.UnixNano(),
 		endTime.UnixNano(),
@@ -260,16 +243,16 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 		dataNo,
 	}
 	if modelSerial != "" {
-		sb.WriteString(` and MODL_SERIAL = ?`)
+		sb.WriteString(` AND MODL_SERIAL = ?`)
 		args = append(args, modelSerial)
 	}
 	if areaCode != "" {
-		sb.WriteString(` and AREA_CODE = ?`)
+		sb.WriteString(` AND AREA_CODE = ?`)
 		args = append(args, areaCode)
 	}
 
 	if defaultLog.DebugEnabled() {
-		defaultLog.Debugf("Query: %s, Args: %v", sb.String(), args)
+		defaultLog.Debugf("SQL: %s, Args: %v", sb.String(), args)
 	}
 
 	rows, err := conn.Query(c, sb.String(), args...)
