@@ -5,6 +5,7 @@ import (
 	"expvar"
 	"fmt"
 	"html/template"
+	"io"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -35,12 +36,7 @@ func Collector(dataDir string) *metric.Collector {
 	return collector
 }
 
-func onProduct(tb metric.TimeBin, meta any) {
-	field, ok := meta.(metric.FieldInfo)
-	if !ok {
-		return
-	}
-
+func onProduct(tb metric.TimeBin, field metric.FieldInfo) {
 	m := map[string]any{
 		"NAME": fmt.Sprintf("metrics:%s:%s", field.Measure, field.Name),
 		"TIME": tb.Time.UnixNano(),
@@ -77,12 +73,12 @@ func onProduct(tb metric.TimeBin, meta any) {
 		}
 		m["COUNT"] = p.Count
 	default:
-		defaultLog.Warnf("Unknown metrics type: %T\n", p)
+		defaultLog.Warnf("metrics unknown type: %T", p)
 		return
 	}
 	n, err := json.Marshal(m)
 	if err != nil {
-		defaultLog.Warnf("Error marshaling metrics: %v\n", err)
+		defaultLog.Warnf("metrics marshaling: %v", err)
 		return
 	}
 	rsp, err := http.DefaultClient.Post(
@@ -90,12 +86,13 @@ func onProduct(tb metric.TimeBin, meta any) {
 		"application/x-ndjson",
 		strings.NewReader(string(n)))
 	if err != nil {
-		defaultLog.Warnf("Error sending metrics: %v\n", err)
+		defaultLog.Warnf("metrics sending: %v", err)
 		return
 	}
 	defer rsp.Body.Close()
 	if rsp.StatusCode != http.StatusOK {
-		defaultLog.Warnf("Error writing metrics: %s\n", rsp.Status)
+		msg, _ := io.ReadAll(rsp.Body)
+		defaultLog.Warnf("metrics writing: %s", msg)
 		return
 	}
 }
