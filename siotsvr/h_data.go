@@ -211,7 +211,7 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 			c.Writer.WriteString(",")
 		}
 		fmt.Fprintf(c.Writer, `{"seq":%d,"serial":"%s","date":"%s","areaCode":"%s","pars":[`,
-			seq, modelSerial, date.Format("2006-01-02 15:04:05"), areaCode)
+			seq, modelSerial, date.In(time.Local).Format("2006-01-02 15:04:05"), areaCode)
 		for i, value := range values {
 			if i > 0 {
 				c.Writer.WriteString(",")
@@ -291,7 +291,7 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 			c.Writer.WriteString(",")
 		}
 		fmt.Fprintf(c.Writer, `{"seq":%d,"serial":"%s","date":"%s","areaCode":"%s","packet":"%s"}`,
-			seq, modelSerial, date.Format("2006-01-02 15:04:05"), areaCode, packet)
+			seq, modelSerial, date.In(time.Local).Format("2006-01-02 15:04:05"), areaCode, packet)
 		nrow++
 	}
 	c.Writer.WriteString(`]}`)
