@@ -1,6 +1,7 @@
 package siotsvr
 
 import (
+	"encoding/json"
 	"expvar"
 	"fmt"
 	"html/template"
@@ -21,7 +22,7 @@ var collector *metric.Collector
 func Collector(dataDir string) *metric.Collector {
 	if collector == nil {
 		collector = metric.NewCollector(1*time.Second,
-			metric.WithSeries("30m", 10*time.Second, 180),
+			metric.WithSeriesListener("30m", 10*time.Second, 180, onProduct),
 			metric.WithSeries("10h", 5*time.Minute, 120),
 			metric.WithSeries("8d", 1*time.Hour, 192),
 			metric.WithExpvarPrefix("metrics"),
@@ -32,6 +33,71 @@ func Collector(dataDir string) *metric.Collector {
 		collector.AddInputFunc(metric_runtime.Collect)
 	}
 	return collector
+}
+
+func onProduct(tb metric.TimeBin, meta any) {
+	field, ok := meta.(metric.FieldInfo)
+	if !ok {
+		return
+	}
+
+	m := map[string]any{
+		"NAME": fmt.Sprintf("metrics:%s:%s", field.Measure, field.Name),
+		"TIME": tb.Time.UnixNano(),
+	}
+	switch p := tb.Value.(type) {
+	case *metric.CounterProduct:
+		m["VALUE"] = p.Value
+		m["COUNT"] = p.Count
+	case *metric.GaugeProduct:
+		m["VALUE"] = p.Value
+		m["COUNT"] = p.Count
+		m["SUM"] = p.Sum
+	case *metric.MeterProduct:
+		if p.Count > 0 {
+			m["VALUE"] = p.Sum / float64(p.Count)
+		} else {
+			m["VALUE"] = 0
+		}
+		m["COUNT"] = p.Count
+		m["SUM"] = p.Sum
+		m["LAST"] = p.Last
+		m["FIRST"] = p.First
+		m["MIN"] = p.Min
+		m["MAX"] = p.Max
+	case *metric.HistogramProduct:
+		for i, x := range p.P {
+			if x == 0.5 {
+				m["VALUE"] = p.Values[i]
+			}
+			m[fmt.Sprintf("P%d", int(x*100))] = p.Values[i]
+		}
+		if _, exist := m["VALUE"]; !exist {
+			m["VALUE"] = 0
+		}
+		m["COUNT"] = p.Count
+	default:
+		defaultLog.Warnf("Unknown metrics type: %T\n", p)
+		return
+	}
+	n, err := json.Marshal(m)
+	if err != nil {
+		defaultLog.Warnf("Error marshaling metrics: %v\n", err)
+		return
+	}
+	rsp, err := http.DefaultClient.Post(
+		fmt.Sprintf("http://%s:5654/db/write/TAG", machConfig.dbHost),
+		"application/x-ndjson",
+		strings.NewReader(string(n)))
+	if err != nil {
+		defaultLog.Warnf("Error sending metrics: %v\n", err)
+		return
+	}
+	defer rsp.Body.Close()
+	if rsp.StatusCode != http.StatusOK {
+		defaultLog.Warnf("Error writing metrics: %s\n", rsp.Status)
+		return
+	}
 }
 
 func CollectorMiddleware(c *gin.Context) {
@@ -119,7 +185,7 @@ func (s *HttpServer) handleAdminStatz(c *gin.Context) {
 
 func getSnapshot(name string, idx int) *metric.Snapshot {
 	if g := expvar.Get(name); g != nil {
-		mts := g.(metric.MetricTimeSeries)
+		mts := g.(metric.MultiTimeSeries)
 		if len(mts) > 0 {
 			return mts[idx].Snapshot()
 		}
@@ -225,7 +291,7 @@ func MiniGraph(ss *metric.Snapshot) template.HTML {
 func SnapshotAll(name string) []*metric.Snapshot {
 	ret := make([]*metric.Snapshot, 0)
 	if g := expvar.Get(name); g != nil {
-		mts := g.(metric.MetricTimeSeries)
+		mts := g.(metric.MultiTimeSeries)
 		for _, ts := range mts {
 			snapshot := ts.Snapshot()
 			if snapshot != nil {
