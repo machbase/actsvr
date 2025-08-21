@@ -13,6 +13,7 @@ import (
 
 func (s *HttpServer) handleData(c *gin.Context) {
 	tick := time.Now()
+	var requestErr string
 	nrow := 0
 	cancel := false
 	defer func() {
@@ -25,11 +26,11 @@ func (s *HttpServer) handleData(c *gin.Context) {
 		if cancel {
 			reply += " (canceled)"
 		}
-		defaultLog.Info(
-			c.Writer.Status(), " ",
-			time.Since(tick), " ",
-			reply, " ",
-			req)
+		if requestErr == "" {
+			defaultLog.Info(c.Writer.Status(), " ", time.Since(tick), " ", reply, " ", req)
+		} else {
+			defaultLog.Warn(c.Writer.Status(), " ", time.Since(tick), " ", requestErr, " ", req)
+		}
 	}()
 	// Path params
 	tsnStr := c.Param("tsn")
@@ -50,23 +51,29 @@ func (s *HttpServer) handleData(c *gin.Context) {
 	var tsn int64
 	var now = nowFunc().In(DefaultLocation)
 	if no, err := strconv.ParseInt(tsnStr, 10, 64); err != nil {
+		requestErr = "invalid_tsn"
 		c.JSON(http.StatusBadRequest, ApiErrorInvalidParameters)
+		return
 	} else {
 		tsn = no
 	}
 	if key, err := getCertKey(certkey); err != nil {
+		requestErr = "wrong_certkey"
 		c.JSON(http.StatusForbidden, ApiErrorInvalidCertkey)
 		return
 	} else {
 		if !key.TrnsmitServerNo.Valid {
+			requestErr = "certkey_tsn_invalid"
 			c.JSON(http.StatusForbidden, ApiErrorInvalidCertkey)
 			return
 		}
 		if key.TrnsmitServerNo.Int64 != tsn {
+			requestErr = "certkey_tsn_mismatch"
 			c.JSON(http.StatusForbidden, ApiErrorWrongCertkey)
 			return
 		}
 		if key.BeginValidDe.After(now) || key.EndValidDe.Before(now) {
+			requestErr = "certkey_expired"
 			c.JSON(http.StatusForbidden, ApiErrorExpiredCertkey)
 			return
 		}
@@ -74,6 +81,7 @@ func (s *HttpServer) handleData(c *gin.Context) {
 
 	var dataNo int
 	if no, err := strconv.Atoi(dataNoStr); err != nil {
+		requestErr = "invalid_data_no"
 		c.JSON(http.StatusBadRequest, ApiErrorInvalidParameters)
 		return
 	} else {
@@ -85,6 +93,7 @@ func (s *HttpServer) handleData(c *gin.Context) {
 	if start != "" {
 		startTime, err = time.ParseInLocation("20060102150405", start, time.Local)
 		if err != nil {
+			requestErr = "invalid_start_time"
 			c.JSON(http.StatusBadRequest, ApiErrorInvalidParameters)
 			return
 		}
@@ -92,6 +101,7 @@ func (s *HttpServer) handleData(c *gin.Context) {
 	if end != "" {
 		endTime, err = time.ParseInLocation("20060102150405", end, time.Local)
 		if err != nil {
+			requestErr = "invalid_end_time"
 			c.JSON(http.StatusBadRequest, ApiErrorInvalidParameters)
 			return
 		}
@@ -169,6 +179,9 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 		args = append(args, areaCode)
 	}
 
+	if defaultLog.DebugEnabled() {
+		defaultLog.Debugf("Query: %s, Args: %v", sb.String(), args)
+	}
 	rows, err := conn.Query(c, sb.String(), args...)
 	if err != nil {
 		defaultLog.Errorf("Failed to query database: %v", err)
@@ -182,8 +195,8 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 	fmt.Fprintf(c.Writer, `"dataNo":"%d",`, dataNo)
 	fmt.Fprintf(c.Writer, `"datasetNo":"%d",`, tsn)
 	fmt.Fprintf(c.Writer, `"resultCode":"SUCC-000","resultMsg":"전송 완료",`)
-	fmt.Fprintf(c.Writer, `"startDateTime":"%s",`, startTime.Format("20060102150405"))
-	fmt.Fprintf(c.Writer, `"endDateTime":"%s",`, endTime.Format("20060102150405"))
+	fmt.Fprintf(c.Writer, `"startDateTime":"%s",`, startTime.In(time.Local).Format("20060102150405"))
+	fmt.Fprintf(c.Writer, `"endDateTime":"%s",`, endTime.In(time.Local).Format("20060102150405"))
 	fmt.Fprintf(c.Writer, `"resultdata":[`)
 
 	go func() {
@@ -254,6 +267,11 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 		sb.WriteString(` and AREA_CODE = ?`)
 		args = append(args, areaCode)
 	}
+
+	if defaultLog.DebugEnabled() {
+		defaultLog.Debugf("Query: %s, Args: %v", sb.String(), args)
+	}
+
 	rows, err := conn.Query(c, sb.String(), args...)
 	if err != nil {
 		defaultLog.Errorf("Failed to query database: %v", err)
@@ -267,8 +285,8 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 	fmt.Fprintf(c.Writer, `"dataNo":"%d",`, dataNo)
 	fmt.Fprintf(c.Writer, `"datasetNo":"%d",`, tsn)
 	fmt.Fprintf(c.Writer, `"resultCode":"SUCC-000","resultMsg":"전송 완료",`)
-	fmt.Fprintf(c.Writer, `"startDateTime":"%s",`, startTime.Format("20060102150405"))
-	fmt.Fprintf(c.Writer, `"endDateTime":"%s",`, endTime.Format("20060102150405"))
+	fmt.Fprintf(c.Writer, `"startDateTime":"%s",`, startTime.In(time.Local).Format("20060102150405"))
+	fmt.Fprintf(c.Writer, `"endDateTime":"%s",`, endTime.In(time.Local).Format("20060102150405"))
 	fmt.Fprintf(c.Writer, `"resultdata":[`)
 
 	go func() {
