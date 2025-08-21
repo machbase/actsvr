@@ -85,6 +85,8 @@ func (s *HttpServer) handleAdminStatz(c *gin.Context) {
 			"metrics:ps:mem_percent",
 			"metrics:runtime:goroutines",
 			"metrics:runtime:heap_inuse",
+			"metrics:query:latency",
+			"metrics:query:error",
 			"metrics:packet_data:insert_latency",
 			"metrics:packet_data:insert_error",
 			"metrics:packet_data:parse_error",

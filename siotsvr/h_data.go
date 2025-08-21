@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OutOfBedlam/metric"
 	"github.com/gin-gonic/gin"
 	"github.com/machbase/neo-server/v8/api"
 )
@@ -26,10 +27,21 @@ func (s *HttpServer) handleData(c *gin.Context) {
 		if cancel {
 			reply += " (canceled)"
 		}
+		latency := time.Since(tick)
 		if requestErr == "" {
-			defaultLog.Info(c.Writer.Status(), " ", time.Since(tick), " ", reply, " ", req)
+			defaultLog.Info(c.Writer.Status(), " ", latency, " ", reply, " ", req)
 		} else {
-			defaultLog.Warn(c.Writer.Status(), " ", time.Since(tick), " ", requestErr, " ", req)
+			defaultLog.Warn(c.Writer.Status(), " ", latency, " ", requestErr, " ", req)
+		}
+
+		if collector != nil {
+			measure := metric.Measurement{Name: "query"}
+			if requestErr == "" {
+				measure.AddField(metric.Field{Name: "latency", Value: float64(latency.Microseconds()), Unit: metric.UnitDuration, Type: metric.FieldTypeHistogram(100, 0.5, 0.9, 0.99)})
+			} else {
+				measure.AddField(metric.Field{Name: "error", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+			}
+			collector.SendEvent(measure)
 		}
 	}()
 	// Path params
