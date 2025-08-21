@@ -183,7 +183,7 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 	}
 
 	if defaultLog.DebugEnabled() {
-		defaultLog.Debugf("SQL: %s, Args: %v", sb.String(), args)
+		defaultLog.Debugf("SQL: %s; %v", sb.String(), args)
 	}
 	rows, err := conn.Query(c, sb.String(), args...)
 	if err != nil {
@@ -264,7 +264,7 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 	}
 
 	if defaultLog.DebugEnabled() {
-		defaultLog.Debugf("SQL: %s, Args: %v", sb.String(), args)
+		defaultLog.Debugf("SQL: %s; %v", sb.String(), args)
 	}
 
 	rows, err := conn.Query(c, sb.String(), args...)
