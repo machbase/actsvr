@@ -1,6 +1,7 @@
 package siotsvr
 
 import (
+	"bytes"
 	"encoding/json"
 	"expvar"
 	"fmt"
@@ -37,54 +38,80 @@ func Collector(dataDir string) *metric.Collector {
 }
 
 func onProduct(tb metric.TimeBin, field metric.FieldInfo) {
-	m := map[string]any{
-		"NAME": fmt.Sprintf("metrics:%s:%s", field.Measure, field.Name),
-		"TIME": tb.Time.UnixNano(),
-	}
+	var result []any
 	switch p := tb.Value.(type) {
 	case *metric.CounterProduct:
-		m["VALUE"] = p.Value
-		m["COUNT"] = p.Count
+		if p.Count == 0 {
+			return // Skip zero counters
+		}
+		result = []any{
+			map[string]any{
+				"NAME":  fmt.Sprintf("metrics:%s:%s", field.Measure, field.Name),
+				"TIME":  tb.Time.UnixNano(),
+				"VALUE": p.Value,
+			},
+		}
 	case *metric.GaugeProduct:
-		m["VALUE"] = p.Value
-		m["COUNT"] = p.Count
-		m["SUM"] = p.Sum
+		if p.Count == 0 {
+			return // Skip zero gauges
+		}
+		result = []any{
+			map[string]any{
+				"NAME":  fmt.Sprintf("metrics:%s:%s", field.Measure, field.Name),
+				"TIME":  tb.Time.UnixNano(),
+				"VALUE": p.Value,
+			},
+		}
 	case *metric.MeterProduct:
-		if p.Count > 0 {
-			m["VALUE"] = p.Sum / float64(p.Count)
-		} else {
-			m["VALUE"] = 0
+		if p.Count == 0 {
+			return // Skip zero meters
 		}
-		m["COUNT"] = p.Count
-		m["SUM"] = p.Sum
-		m["LAST"] = p.Last
-		m["FIRST"] = p.First
-		m["MIN"] = p.Min
-		m["MAX"] = p.Max
+		result = []any{
+			map[string]any{
+				"NAME":  fmt.Sprintf("metrics:%s:%s:max", field.Measure, field.Name),
+				"TIME":  tb.Time.UnixNano(),
+				"VALUE": p.Max,
+			},
+			map[string]any{
+				"NAME":  fmt.Sprintf("metrics:%s:%s:avg", field.Measure, field.Name),
+				"TIME":  tb.Time.UnixNano(),
+				"VALUE": p.Sum / float64(p.Count),
+			},
+		}
 	case *metric.HistogramProduct:
+		if p.Count == 0 {
+			return // Skip zero meters
+		}
 		for i, x := range p.P {
-			if x == 0.5 {
-				m["VALUE"] = p.Values[i]
+			pct := fmt.Sprintf("%d", int(x*1000))
+			if pct[len(pct)-1] == '0' {
+				pct = pct[:len(pct)-1]
 			}
-			m[fmt.Sprintf("P%d", int(x*100))] = p.Values[i]
+			result = append(result, map[string]any{
+				"NAME":  fmt.Sprintf("metrics:%s:%s:p%s", field.Measure, field.Name, pct),
+				"TIME":  tb.Time.UnixNano(),
+				"VALUE": p.Values[i],
+			})
 		}
-		if _, exist := m["VALUE"]; !exist {
-			m["VALUE"] = 0
-		}
-		m["COUNT"] = p.Count
 	default:
 		defaultLog.Warnf("metrics unknown type: %T", p)
 		return
 	}
-	n, err := json.Marshal(m)
-	if err != nil {
-		defaultLog.Warnf("metrics marshaling: %v", err)
-		return
+	out := &bytes.Buffer{}
+	for _, m := range result {
+		b, err := json.Marshal(m)
+		if err != nil {
+			defaultLog.Warnf("metrics marshaling: %v", err)
+			return
+		}
+		out.Write(b)
+		out.Write([]byte("\n"))
 	}
+	out.Write([]byte("\n"))
+
 	rsp, err := http.DefaultClient.Post(
 		fmt.Sprintf("http://%s:5654/db/write/TAG", machConfig.dbHost),
-		"application/x-ndjson",
-		strings.NewReader(string(n)))
+		"application/x-ndjson", out)
 	if err != nil {
 		defaultLog.Warnf("metrics sending: %v", err)
 		return
