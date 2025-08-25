@@ -71,7 +71,7 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	definition := getPacketDefinition(tsn, dataNo)
 	if definition == nil {
 		requestErr = "no_modl_detail"
-		defaultLog.Errorf("No packet definition found for transmit server number: %d", tsn)
+		defaultLog.Errorf("No packet definition found for tsn: %d, data_no:%d", tsn, dataNo)
 		c.JSON(http.StatusOK, ApiErrorServer)
 		return
 	}
@@ -196,7 +196,9 @@ func removeLeadingZeros(s string) string {
 }
 
 func (s *HttpServer) parseRawPacket(data *RawPacketData) (*ParsedPacketData, error) {
-	definition := getPacketDefinition(data.TrnsmitServerNo, data.DataNo)
+	// Get packet definition by data_no = 1 instead of data.DataNo
+	searchDataNo := 1
+	definition := getPacketDefinition(data.TrnsmitServerNo, searchDataNo)
 	if definition == nil {
 		return nil, fmt.Errorf("no packet definition found for transmit server number: %d", data.TrnsmitServerNo)
 	}
