@@ -72,7 +72,7 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	definition := getPacketDefinition(tsn, searchDataNo)
 	if definition == nil {
 		requestErr = "no_modl_detail"
-		defaultLog.Errorf("No packet definition found for tsn: %d, data_no:%d", tsn, dataNo)
+		defaultLog.Errorf("No packet definition found for tsn: %d, data_no:%d", tsn, searchDataNo)
 		c.JSON(http.StatusOK, ApiErrorServer)
 		return
 	}
@@ -106,8 +106,8 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	}
 
 	// find AreaCode of the model by serial number
-	if code, err := getModelAreaCode(modelSerial, tsn, dataNo); err != nil {
-		defaultLog.Errorf("%d Failed to get area code for model_serial:%s, tsn:%d, dataNo:%d", packetSeq, modelSerial, tsn, dataNo)
+	if code, err := getModelAreaCode(modelSerial, tsn, searchDataNo); err != nil {
+		defaultLog.Errorf("%d Failed to get area code for model_serial:%s, tsn:%d, dataNo:%d", packetSeq, modelSerial, tsn, searchDataNo)
 	} else {
 		data.AreaCode = code
 	}
