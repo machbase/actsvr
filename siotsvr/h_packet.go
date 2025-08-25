@@ -68,7 +68,8 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	}
 
 	// find packet definition
-	definition := getPacketDefinition(tsn, dataNo)
+	searchDataNo := 1 // always use data_no = 1 for model data
+	definition := getPacketDefinition(tsn, searchDataNo)
 	if definition == nil {
 		requestErr = "no_modl_detail"
 		defaultLog.Errorf("No packet definition found for tsn: %d, data_no:%d", tsn, dataNo)
