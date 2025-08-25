@@ -143,7 +143,7 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 	r.Use(CollectorMiddleware)
 	r.GET("/db/poi/nearby", s.handlePoiNearby)
 	r.GET("/n/api/serverstat/:certkey", s.handleServerStat)
-	r.GET("/n/api/send/:certkey/1/:pk_seq/:serial_num/:packet", s.handleSendPacket)
+	r.GET("/n/api/send/:certkey/:data_no/:pk_seq/:serial_num/:packet", s.handleSendPacket)
 	r.GET("/n/api/servers/:tsn/data/:data_no", s.handleData)
 	r.NoRoute(func(c *gin.Context) {
 		c.String(http.StatusNotFound, "404 Not Found")

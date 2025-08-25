@@ -16,8 +16,8 @@ func (s *HttpServer) handlePoiNearby(c *gin.Context) {
 	defer func() {
 		cachePoiMutex.RUnlock()
 		if e := recover(); e != nil {
+			defaultLog.Error("handlePoiNearby panic: ", e)
 			c.String(http.StatusInternalServerError, "Internal server error: %v", e)
-			return
 		}
 	}()
 

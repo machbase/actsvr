@@ -193,9 +193,16 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 	}
 	defer rows.Close()
 
+	dataNoOut := dataNo
+	switch dataNoOut {
+	case 3:
+		dataNoOut = 2
+	case 2:
+		dataNoOut = 1
+	}
 	c.Header("Content-Type", "application/json")
 	c.Writer.WriteString(`{`)
-	fmt.Fprintf(c.Writer, `"dataNo":"%d",`, dataNo)
+	fmt.Fprintf(c.Writer, `"dataNo":"%d",`, dataNoOut)
 	fmt.Fprintf(c.Writer, `"datasetNo":"%d",`, tsn)
 	fmt.Fprintf(c.Writer, `"resultCode":"SUCC-000","resultMsg":"전송 완료",`)
 	fmt.Fprintf(c.Writer, `"startDateTime":"%s",`, startTime.In(time.Local).Format("20060102150405"))

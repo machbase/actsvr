@@ -28,19 +28,28 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 		}
 	}()
 	// Path params
-	certkey := c.Param("certkey")        // string e.g. a2a3a4a5testauthkey9
+	certkey := c.Param("certkey") // string e.g. a2a3a4a5testauthkey9
+	dataNoStr := c.Param("data_no")
 	pkSeqStr := c.Param("pk_seq")        // integer e.g. 202008030000000301
 	modelSerial := c.Param("serial_num") // string e.g. 3A4A50D
 	packet := c.Param("packet")          // string data
 	// Query params
 	dqmcrrOpStr := c.Query("DQMCRR_OP") // 100 | 200
-	dataNo := 1
 
 	// Validate required parameters
-	if certkey == "" || pkSeqStr == "" || modelSerial == "" || packet == "" {
+	if certkey == "" || pkSeqStr == "" || modelSerial == "" || packet == "" || dataNoStr == "" {
 		requestErr = "empty_params"
 		c.JSON(http.StatusOK, ApiErrorInvalidParameters)
 		return
+	}
+	// data_no should be a valid integer
+	var dataNo int
+	if no, err := strconv.Atoi(dataNoStr); err != nil {
+		requestErr = "invalid_data_no"
+		c.JSON(http.StatusOK, ApiErrorInvalidParameters)
+		return
+	} else {
+		dataNo = no
 	}
 	// pkSeq should be a valid integer
 	pkSeq, err := strconv.ParseInt(pkSeqStr, 10, 64)

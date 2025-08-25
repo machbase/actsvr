@@ -175,14 +175,5 @@ on NTB_ERR_LOG(REGIST_DT);
 CREATE TAG TABLE IF NOT EXISTS TAG (
     NAME    varchar(100) primary key,
     TIME    datetime basetime,
-    VALUE   double,
-    COUNT   double,
-    SUM     double,
-    LAST    double,
-    FIRST   double,
-    MIN     double,
-    MAX     double,
-    P50     double,
-    P90     double,
-    P99     double
+    VALUE   double
 );
