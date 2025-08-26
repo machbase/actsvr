@@ -1,6 +1,7 @@
 package siotsvr
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -300,10 +301,12 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 	fmt.Fprintf(c.Writer, `"endDateTime":"%s",`, endTime.In(time.Local).Format("20060102150405"))
 	fmt.Fprintf(c.Writer, `"resultdata":[`)
 
-	go func() {
-		<-c.Done()
-		cancel = true
-	}()
+	if ctx := c.Request.Context(); ctx != nil {
+		go func(ctx context.Context) {
+			<-ctx.Done()
+			cancel = true
+		}(ctx)
+	}
 	for rows.Next() && !cancel {
 		var seq int64
 		var modelSerial string
