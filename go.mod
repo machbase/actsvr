@@ -4,7 +4,7 @@ go 1.24.5
 
 require (
 	fortio.org/progressbar v1.1.0
-	github.com/OutOfBedlam/metric v0.0.0-20250827015141-0400b3d84861
+	github.com/OutOfBedlam/metric v0.0.0-20250827061549-1f2627431794
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/google/uuid v1.6.0

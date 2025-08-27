@@ -49,17 +49,17 @@ func Collector() *metric.Collector {
 	return collector
 }
 
-func onProduct(tb metric.TimeBin, field metric.FieldInfo) {
+func onProduct(pd metric.ProducedData) {
 	var result []any
-	switch p := tb.Value.(type) {
+	switch p := pd.Value.(type) {
 	case *metric.CounterProduct:
 		if p.Samples == 0 {
 			return // Skip zero counters
 		}
 		result = []any{
 			map[string]any{
-				"NAME":  fmt.Sprintf("metrics:%s:%s", field.Measure, field.Name),
-				"TIME":  tb.Time.UnixNano(),
+				"NAME":  fmt.Sprintf("metrics:%s:%s", pd.Measure, pd.Field),
+				"TIME":  pd.Time.UnixNano(),
 				"VALUE": p.Value,
 			},
 		}
@@ -69,8 +69,8 @@ func onProduct(tb metric.TimeBin, field metric.FieldInfo) {
 		}
 		result = []any{
 			map[string]any{
-				"NAME":  fmt.Sprintf("metrics:%s:%s", field.Measure, field.Name),
-				"TIME":  tb.Time.UnixNano(),
+				"NAME":  fmt.Sprintf("metrics:%s:%s", pd.Measure, pd.Field),
+				"TIME":  pd.Time.UnixNano(),
 				"VALUE": p.Value,
 			},
 		}
@@ -80,18 +80,18 @@ func onProduct(tb metric.TimeBin, field metric.FieldInfo) {
 		}
 		result = []any{
 			map[string]any{
-				"NAME":  fmt.Sprintf("metrics:%s:%s:max", field.Measure, field.Name),
-				"TIME":  tb.Time.UnixNano(),
+				"NAME":  fmt.Sprintf("metrics:%s:%s:max", pd.Measure, pd.Field),
+				"TIME":  pd.Time.UnixNano(),
 				"VALUE": p.Max,
 			},
 			map[string]any{
-				"NAME":  fmt.Sprintf("metrics:%s:%s:avg", field.Measure, field.Name),
-				"TIME":  tb.Time.UnixNano(),
+				"NAME":  fmt.Sprintf("metrics:%s:%s:avg", pd.Measure, pd.Field),
+				"TIME":  pd.Time.UnixNano(),
 				"VALUE": p.Sum / float64(p.Samples),
 			},
 		}
 	case *metric.HistogramProduct:
-		if p.Count == 0 {
+		if p.Samples == 0 {
 			return // Skip zero meters
 		}
 		for i, x := range p.P {
@@ -100,8 +100,8 @@ func onProduct(tb metric.TimeBin, field metric.FieldInfo) {
 				pct = pct[:len(pct)-1]
 			}
 			result = append(result, map[string]any{
-				"NAME":  fmt.Sprintf("metrics:%s:%s:p%s", field.Measure, field.Name, pct),
-				"TIME":  tb.Time.UnixNano(),
+				"NAME":  fmt.Sprintf("metrics:%s:%s:p%s", pd.Measure, pd.Field, pct),
+				"TIME":  pd.Time.UnixNano(),
 				"VALUE": p.Values[i],
 			})
 		}
