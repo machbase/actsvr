@@ -33,14 +33,12 @@ func Collector() *metric.Collector {
 				{
 					Name:  "heap_inuse",
 					Value: float64(memStats.HeapInuse),
-					Unit:  metric.UnitBytes,
-					Type:  metric.FieldTypeGauge,
+					Type:  metric.GaugeType(metric.UnitBytes),
 				},
 				{
 					Name:  "goroutines",
 					Value: float64(gorutine),
-					Unit:  metric.UnitShort,
-					Type:  metric.FieldTypeMeter,
+					Type:  metric.MeterType(metric.UnitShort),
 				},
 			}
 			return m, nil
@@ -145,8 +143,16 @@ func CollectorMiddleware(c *gin.Context) {
 	}
 	latency := time.Since(tick)
 	measure := metric.Measurement{Name: "http"}
-	measure.AddField(metric.Field{Name: "requests", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
-	measure.AddField(metric.Field{Name: "latency", Value: float64(latency.Nanoseconds()), Unit: metric.UnitDuration, Type: metric.FieldTypeHistogram(100, 0.5, 0.9, 0.99)})
+	measure.AddField(metric.Field{
+		Name:  "requests",
+		Value: 1,
+		Type:  metric.CounterType(metric.UnitShort),
+	})
+	measure.AddField(metric.Field{
+		Name:  "latency",
+		Value: float64(latency.Nanoseconds()),
+		Type:  metric.HistogramType(metric.UnitDuration, 100, 0.5, 0.9, 0.99),
+	})
 	statusCat := ""
 	switch sc := c.Writer.Status(); {
 	case sc >= 100 && sc < 200:
@@ -160,6 +166,6 @@ func CollectorMiddleware(c *gin.Context) {
 	case sc >= 500:
 		statusCat = "status_5xx"
 	}
-	measure.AddField(metric.Field{Name: statusCat, Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+	measure.AddField(metric.Field{Name: statusCat, Value: 1, Type: metric.CounterType(metric.UnitShort)})
 	collector.SendEvent(measure)
 }

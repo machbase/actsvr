@@ -182,12 +182,24 @@ func (s *HttpServer) loopRawPacket() {
 		if collector != nil {
 			measure := metric.Measurement{Name: "packet_data"}
 			if insertErr == nil {
-				measure.AddField(metric.Field{Name: "insert_latency", Value: float64(insertLatency.Microseconds()), Unit: metric.UnitDuration, Type: metric.FieldTypeHistogram(100, 0.5, 0.9, 0.99)})
+				measure.AddField(metric.Field{
+					Name:  "insert_latency",
+					Value: float64(insertLatency.Microseconds()),
+					Type:  metric.HistogramType(metric.UnitDuration, 100, 0.5, 0.9, 0.99),
+				})
 			} else {
-				measure.AddField(metric.Field{Name: "insert_error", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+				measure.AddField(metric.Field{
+					Name:  "insert_error",
+					Value: 1,
+					Type:  metric.CounterType(metric.UnitShort),
+				})
 			}
 			if parseErr != nil {
-				measure.AddField(metric.Field{Name: "parse_error", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+				measure.AddField(metric.Field{
+					Name:  "parse_error",
+					Value: 1,
+					Type:  metric.CounterType(metric.UnitShort),
+				})
 			}
 			collector.SendEvent(measure)
 		}
@@ -235,9 +247,17 @@ func (s *HttpServer) loopErrPacket() {
 		if collector != nil {
 			measure := metric.Measurement{Name: "packet_err"}
 			if insertErr == nil {
-				measure.AddField(metric.Field{Name: "insert_latency", Value: float64(insertLatency.Microseconds()), Unit: metric.UnitDuration, Type: metric.FieldTypeHistogram(100, 0.5, 0.9, 0.99)})
+				measure.AddField(metric.Field{
+					Name:  "insert_latency",
+					Value: float64(insertLatency.Microseconds()),
+					Type:  metric.HistogramType(metric.UnitDuration, 100, 0.5, 0.9, 0.99),
+				})
 			} else {
-				measure.AddField(metric.Field{Name: "insert_error", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+				measure.AddField(metric.Field{
+					Name:  "insert_error",
+					Value: 1,
+					Type:  metric.CounterType(metric.UnitShort),
+				})
 			}
 			collector.SendEvent(measure)
 		}
@@ -303,9 +323,17 @@ func (s *HttpServer) loopParsPacket() {
 			latency := time.Since(tick)
 			measure := metric.Measurement{Name: "pars_data"}
 			if insertErr == nil {
-				measure.AddField(metric.Field{Name: "insert_latency", Value: float64(latency.Microseconds()), Unit: metric.UnitDuration, Type: metric.FieldTypeHistogram(100, 0.5, 0.9, 0.99)})
+				measure.AddField(metric.Field{
+					Name:  "insert_latency",
+					Value: float64(latency.Microseconds()),
+					Type:  metric.HistogramType(metric.UnitDuration, 100, 0.5, 0.9, 0.99),
+				})
 			} else {
-				measure.AddField(metric.Field{Name: "insert_error", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+				measure.AddField(metric.Field{
+					Name:  "insert_error",
+					Value: 1,
+					Type:  metric.CounterType(metric.UnitShort),
+				})
 			}
 			collector.SendEvent(measure)
 		}
@@ -402,9 +430,17 @@ func (s *HttpServer) loopReplicaRawPacket() {
 				latency := time.Since(tick)
 				measure := metric.Measurement{Name: "rdb_packet_data"}
 				if insertErr == nil {
-					measure.AddField(metric.Field{Name: "insert_latency", Value: float64(latency.Microseconds()), Unit: metric.UnitDuration, Type: metric.FieldTypeHistogram(100, 0.5, 0.9, 0.99)})
+					measure.AddField(metric.Field{
+						Name:  "insert_latency",
+						Value: float64(latency.Microseconds()),
+						Type:  metric.HistogramType(metric.UnitDuration, 100, 0.5, 0.9, 0.99),
+					})
 				} else {
-					measure.AddField(metric.Field{Name: "insert_error", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+					measure.AddField(metric.Field{
+						Name:  "insert_error",
+						Value: 1,
+						Type:  metric.CounterType(metric.UnitShort),
+					})
 				}
 				collector.SendEvent(measure)
 			}
@@ -559,9 +595,17 @@ func (s *HttpServer) loopReplicaParsPacket() {
 				latency := time.Since(tick)
 				measure := metric.Measurement{Name: "rdb_pars_data"}
 				if insertErr == nil {
-					measure.AddField(metric.Field{Name: "insert_latency", Value: float64(latency.Microseconds()), Unit: metric.UnitDuration, Type: metric.FieldTypeHistogram(100, 0.5, 0.9, 0.99)})
+					measure.AddField(metric.Field{
+						Name:  "insert_latency",
+						Value: float64(latency.Microseconds()),
+						Type:  metric.HistogramType(metric.UnitDuration, 100, 0.5, 0.9, 0.99),
+					})
 				} else {
-					measure.AddField(metric.Field{Name: "insert_error", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+					measure.AddField(metric.Field{
+						Name:  "insert_error",
+						Value: 1,
+						Type:  metric.CounterType(metric.UnitShort),
+					})
 				}
 				collector.SendEvent(measure)
 			}

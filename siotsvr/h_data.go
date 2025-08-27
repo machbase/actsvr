@@ -38,9 +38,17 @@ func (s *HttpServer) handleData(c *gin.Context) {
 		if collector != nil {
 			measure := metric.Measurement{Name: "query"}
 			if requestErr == "" {
-				measure.AddField(metric.Field{Name: "latency", Value: float64(latency.Microseconds()), Unit: metric.UnitDuration, Type: metric.FieldTypeHistogram(100, 0.5, 0.9, 0.99)})
+				measure.AddField(metric.Field{
+					Name:  "latency",
+					Value: float64(latency.Microseconds()),
+					Type:  metric.HistogramType(metric.UnitDuration, 100, 0.5, 0.9, 0.99),
+				})
 			} else {
-				measure.AddField(metric.Field{Name: "error", Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
+				measure.AddField(metric.Field{
+					Name:  "error",
+					Value: 1,
+					Type:  metric.CounterType(metric.UnitShort),
+				})
 			}
 			collector.SendEvent(measure)
 		}
