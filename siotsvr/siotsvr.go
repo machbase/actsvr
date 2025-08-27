@@ -9,6 +9,8 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -17,6 +19,10 @@ var DefaultLocation = time.Local
 var pid string = "./siotsvr.pid"
 var defaultLog *util.Log
 var nowFunc = time.Now
+var packetDataArrivalTime = &LastArrivalTime{Name: "last_packet"}
+var parsDataArrivalTime = &LastArrivalTime{Name: "last_pars"}
+var arrivalTimeDir string = "."
+var arrivalQueryLimit int = 1000
 
 var machConfig = MachConfig{
 	dbHost: "127.0.0.1",
@@ -43,6 +49,8 @@ func Main() int {
 	flag.IntVar(&machConfig.dbPort, "db-port", machConfig.dbPort, "Database port")
 	flag.StringVar(&machConfig.dbUser, "db-user", machConfig.dbUser, "Database user")
 	flag.StringVar(&machConfig.dbPass, "db-pass", machConfig.dbPass, "Database password")
+	flag.StringVar(&arrivalTimeDir, "last-dir", arrivalTimeDir, "the directory to store arrival time files")
+	flag.IntVar(&arrivalQueryLimit, "last-limit", arrivalQueryLimit, "the maximum number of rows to query for arrival time update")
 
 	// RDB configuration
 	flag.StringVar(&rdbConfig.host, "rdb-host", rdbConfig.host, "RDB host")
@@ -141,4 +149,27 @@ func (c RDBConfig) Connect() (*sql.DB, error) {
 		return nil, err
 	}
 	return rdb, nil
+}
+
+type LastArrivalTime struct {
+	sync.Mutex
+	Name string
+	Time time.Time
+}
+
+func (lat *LastArrivalTime) Load() {
+	path := filepath.Join(arrivalTimeDir, fmt.Sprintf("%s.txt", lat.Name))
+	if b, err := os.ReadFile(path); err == nil {
+		if t, err := time.ParseInLocation("2006-01-02 15:04:05.000000000", string(b), time.Local); err == nil {
+			lat.Time = t
+		}
+	}
+}
+
+func (lat *LastArrivalTime) Save() {
+	path := filepath.Join(arrivalTimeDir, fmt.Sprintf("%s.txt", lat.Name))
+	content := []byte(lat.Time.In(time.Local).Format("2006-01-02 15:04:05.000000000"))
+	if err := os.WriteFile(path, content, 0644); err != nil {
+		log.Printf("Failed to save arrival time for %s: %v", lat.Name, err)
+	}
 }

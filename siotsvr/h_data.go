@@ -93,7 +93,7 @@ func (s *HttpServer) handleData(c *gin.Context) {
 	}
 
 	var dataNo int
-	if no, err := strconv.Atoi(dataNoStr); err != nil {
+	if no, err := strconv.Atoi(dataNoStr); err != nil || no < 1 || no > 3 {
 		requestErr = "invalid_data_no"
 		c.JSON(http.StatusBadRequest, ApiErrorInvalidParameters)
 		return
@@ -160,28 +160,50 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 		return
 	}
 	sb := &strings.Builder{}
-	sb.WriteString(`SELECT PACKET_PARS_SEQ, MODL_SERIAL, REGIST_DT, AREA_CODE`)
+	args := []any{}
+	var arrivalTime time.Time
+
+	sb.WriteString(`SELECT _ARRIVAL_TIME, PACKET_PARS_SEQ, MODL_SERIAL, REGIST_DT, AREA_CODE`)
 	for i := range definition.Fields {
 		sb.WriteString(fmt.Sprintf(", COLUMN%d", i))
 	}
 	sb.WriteString(` FROM TB_PACKET_PARS_DATA`)
-	sb.WriteString(` WHERE REGIST_DT >= ? AND REGIST_DT <= ?`)
-	args := []any{
-		startTime.UnixNano(),
-		endTime.UnixNano(),
-	}
-	if modelSerial != "" {
-		sb.WriteString(` AND MODL_SERIAL = ?`)
-		args = append(args, modelSerial)
+	if dataNo == 1 {
+		sb.WriteString(` WHERE REGIST_DT >= ? AND REGIST_DT <= ?`)
+		args = append(args, startTime.UnixNano(), endTime.UnixNano())
+		if modelSerial != "" {
+			sb.WriteString(` AND MODL_SERIAL = ?`)
+			args = append(args, modelSerial)
+		} else {
+			sb.WriteString(` AND TRNSMIT_SERVER_NO = ?`)
+			args = append(args, tsn)
+			sb.WriteString(` AND DATA_NO = ?`)
+			args = append(args, dataNo)
+		}
+		if areaCode != "" {
+			sb.WriteString(` AND AREA_CODE = ?`)
+			args = append(args, areaCode)
+		}
 	} else {
-		sb.WriteString(` AND TRNSMIT_SERVER_NO = ?`)
-		args = append(args, tsn)
+		sb.WriteString(` WHERE _ARRIVAL_TIME > ?`)
+		args = append(args, packetDataArrivalTime.Time)
 		sb.WriteString(` AND DATA_NO = ?`)
 		args = append(args, dataNo)
-	}
-	if areaCode != "" {
-		sb.WriteString(` AND AREA_CODE = ?`)
-		args = append(args, areaCode)
+		if arrivalQueryLimit > 0 {
+			sb.WriteString(` LIMIT ?`)
+			args = append(args, arrivalQueryLimit)
+		}
+		sb.WriteString(` ORDER BY _ARRIVAL_TIME`)
+
+		defer func() {
+			if packetDataArrivalTime.Time.After(arrivalTime) {
+				return
+			}
+			packetDataArrivalTime.Lock()
+			packetDataArrivalTime.Time = arrivalTime
+			packetDataArrivalTime.Save()
+			packetDataArrivalTime.Unlock()
+		}()
 	}
 
 	if defaultLog.DebugEnabled() {
@@ -223,7 +245,7 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 		var areaCode string
 		values := make([]string, len(definition.Fields))
 
-		buff := []any{&seq, &modelSerial, &date, &areaCode}
+		buff := []any{&arrivalTime, &seq, &modelSerial, &date, &areaCode}
 		for i := range values {
 			buff = append(buff, &values[i])
 		}
@@ -252,24 +274,49 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 
 func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTime time.Time, endTime time.Time, modelSerial string, areaCode string) (nrow int, cancel bool) {
 	sb := &strings.Builder{}
-	sb.WriteString(`SELECT PACKET_SEQ, MODL_SERIAL, REGIST_DT, AREA_CODE, PACKET`)
+	args := []any{}
+	var arrivalTime time.Time
+
+	sb.WriteString(`SELECT _ARRIVAL_TIME, PACKET_SEQ, MODL_SERIAL, REGIST_DT, AREA_CODE, PACKET`)
 	sb.WriteString(` FROM TB_RECPTN_PACKET_DATA`)
-	sb.WriteString(` WHERE REGIST_DT >= ? AND REGIST_DT <= ?`)
-	sb.WriteString(` AND TRNSMIT_SERVER_NO = ?`)
-	sb.WriteString(` AND DATA_NO = ?`)
-	args := []any{
-		startTime.UnixNano(),
-		endTime.UnixNano(),
-		tsn,
-		dataNo,
-	}
-	if modelSerial != "" {
-		sb.WriteString(` AND MODL_SERIAL = ?`)
-		args = append(args, modelSerial)
-	}
-	if areaCode != "" {
-		sb.WriteString(` AND AREA_CODE = ?`)
-		args = append(args, areaCode)
+	if dataNo == 1 {
+		sb.WriteString(` WHERE REGIST_DT >= ? AND REGIST_DT <= ?`)
+		sb.WriteString(` AND TRNSMIT_SERVER_NO = ?`)
+		sb.WriteString(` AND DATA_NO = ?`)
+		args = append(args,
+			startTime.UnixNano(),
+			endTime.UnixNano(),
+			tsn,
+			dataNo,
+		)
+		if modelSerial != "" {
+			sb.WriteString(` AND MODL_SERIAL = ?`)
+			args = append(args, modelSerial)
+		}
+		if areaCode != "" {
+			sb.WriteString(` AND AREA_CODE = ?`)
+			args = append(args, areaCode)
+		}
+	} else {
+		sb.WriteString(` WHERE _ARRIVAL_TIME > ?`)
+		args = append(args, parsDataArrivalTime.Time)
+		sb.WriteString(` AND DATA_NO = ?`)
+		args = append(args, dataNo)
+		if arrivalQueryLimit > 0 {
+			sb.WriteString(` LIMIT ?`)
+			args = append(args, arrivalQueryLimit)
+		}
+		sb.WriteString(` ORDER BY _ARRIVAL_TIME`)
+
+		defer func() {
+			if parsDataArrivalTime.Time.After(arrivalTime) {
+				return
+			}
+			parsDataArrivalTime.Lock()
+			parsDataArrivalTime.Time = arrivalTime
+			parsDataArrivalTime.Save()
+			parsDataArrivalTime.Unlock()
+		}()
 	}
 
 	if defaultLog.DebugEnabled() {
@@ -314,7 +361,7 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 		var areaCode string
 		var packet string
 
-		if err := rows.Scan(&seq, &modelSerial, &date, &areaCode, &packet); err != nil {
+		if err := rows.Scan(&arrivalTime, &seq, &modelSerial, &date, &areaCode, &packet); err != nil {
 			defaultLog.Errorf("Failed to scan row: %v", err)
 			c.JSON(http.StatusInternalServerError, ApiErrorServer)
 			return
