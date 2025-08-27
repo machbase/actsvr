@@ -200,11 +200,11 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 		args = append(args, parsDataArrivalTime.Time)
 		sb.WriteString(` AND DATA_NO = ?`)
 		args = append(args, dataNo)
+		sb.WriteString(` ORDER BY _ARRIVAL_TIME`)
 		if arrivalQueryLimit > 0 {
 			sb.WriteString(` LIMIT ?`)
 			args = append(args, arrivalQueryLimit)
 		}
-		sb.WriteString(` ORDER BY _ARRIVAL_TIME`)
 
 		defer func() {
 			if parsDataArrivalTime.Time.After(arrivalTime) {
@@ -317,11 +317,11 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 		args = append(args, packetDataArrivalTime.Time)
 		sb.WriteString(` AND DATA_NO = ?`)
 		args = append(args, dataNo)
+		sb.WriteString(` ORDER BY _ARRIVAL_TIME`)
 		if arrivalQueryLimit > 0 {
 			sb.WriteString(` LIMIT ?`)
 			args = append(args, arrivalQueryLimit)
 		}
-		sb.WriteString(` ORDER BY _ARRIVAL_TIME`)
 
 		defer func() {
 			if packetDataArrivalTime.Time.After(arrivalTime) {
