@@ -133,11 +133,9 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.New()
-	r.SetHTMLTemplate(tmplStatz)
 	r.Use(gin.Recovery())
 	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusFound, "/static/") })
 	r.GET("/static/", gin.WrapF(http.FileServerFS(htmlFS).ServeHTTP))
-	r.GET("/db/admin/statz", s.handleAdminStatz)
 	r.GET("/db/admin/log", s.handleAdminLog)
 	r.GET("/db/admin/reload", s.handleAdminReload)
 	r.GET("/db/admin/replica", s.handleAdminReplica)

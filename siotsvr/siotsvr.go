@@ -97,7 +97,10 @@ func Main() int {
 		}()
 	}
 
-	collector := Collector(httpSvr.DataDir)
+	packetDataArrivalTime.Load()
+	parsDataArrivalTime.Load()
+
+	collector := Collector()
 	collector.Start()
 
 	ctx, ctxCancel := context.WithCancel(context.Background())

@@ -3,34 +3,48 @@ package siotsvr
 import (
 	"bytes"
 	"encoding/json"
-	"expvar"
 	"fmt"
-	"html/template"
 	"io"
 	"net/http"
-	"strings"
+	"runtime"
 	"time"
 
 	"github.com/OutOfBedlam/metric"
-	metric_ps "github.com/OutOfBedlam/metrical/input/ps"
-	metric_runtime "github.com/OutOfBedlam/metrical/input/runtime"
-	"github.com/OutOfBedlam/metrical/output/svg"
 	"github.com/gin-gonic/gin"
 )
 
 var collector *metric.Collector
 
-func Collector(dataDir string) *metric.Collector {
+func Collector() *metric.Collector {
 	if collector == nil {
-		collector = metric.NewCollector(1*time.Second,
+		collector = metric.NewCollector(
+			metric.WithCollectInterval(1*time.Second),
 			metric.WithSeriesListener("30m", 10*time.Second, 180, onProduct),
-			metric.WithSeries("10h", 5*time.Minute, 120),
-			metric.WithSeries("8d", 1*time.Hour, 192),
 			metric.WithExpvarPrefix("metrics"),
 			metric.WithReceiverSize(100),
 		)
-		collector.AddInputFunc(metric_ps.Collect)
-		collector.AddInputFunc(metric_runtime.Collect)
+		collector.AddInputFunc(func() (metric.Measurement, error) {
+			m := metric.Measurement{Name: "runtime"}
+
+			memStats := runtime.MemStats{}
+			runtime.ReadMemStats(&memStats)
+			gorutine := runtime.NumGoroutine()
+			m.Fields = []metric.Field{
+				{
+					Name:  "heap_inuse",
+					Value: float64(memStats.HeapInuse),
+					Unit:  metric.UnitBytes,
+					Type:  metric.FieldTypeGauge,
+				},
+				{
+					Name:  "goroutines",
+					Value: float64(gorutine),
+					Unit:  metric.UnitShort,
+					Type:  metric.FieldTypeMeter,
+				},
+			}
+			return m, nil
+		})
 	}
 	return collector
 }
@@ -39,7 +53,7 @@ func onProduct(tb metric.TimeBin, field metric.FieldInfo) {
 	var result []any
 	switch p := tb.Value.(type) {
 	case *metric.CounterProduct:
-		if p.Count == 0 {
+		if p.Samples == 0 {
 			return // Skip zero counters
 		}
 		result = []any{
@@ -50,7 +64,7 @@ func onProduct(tb metric.TimeBin, field metric.FieldInfo) {
 			},
 		}
 	case *metric.GaugeProduct:
-		if p.Count == 0 {
+		if p.Samples == 0 {
 			return // Skip zero gauges
 		}
 		result = []any{
@@ -61,7 +75,7 @@ func onProduct(tb metric.TimeBin, field metric.FieldInfo) {
 			},
 		}
 	case *metric.MeterProduct:
-		if p.Count == 0 {
+		if p.Samples == 0 {
 			return // Skip zero meters
 		}
 		result = []any{
@@ -73,7 +87,7 @@ func onProduct(tb metric.TimeBin, field metric.FieldInfo) {
 			map[string]any{
 				"NAME":  fmt.Sprintf("metrics:%s:%s:avg", field.Measure, field.Name),
 				"TIME":  tb.Time.UnixNano(),
-				"VALUE": p.Sum / float64(p.Count),
+				"VALUE": p.Sum / float64(p.Samples),
 			},
 		}
 	case *metric.HistogramProduct:
@@ -148,227 +162,4 @@ func CollectorMiddleware(c *gin.Context) {
 	}
 	measure.AddField(metric.Field{Name: statusCat, Value: 1, Unit: metric.UnitShort, Type: metric.FieldTypeCounter})
 	collector.SendEvent(measure)
-}
-
-func (s *HttpServer) handleAdminStatz(c *gin.Context) {
-	q := c.Request.URL.Query()
-	name := q.Get("n")
-	idx := 0
-	if name != "" {
-		if str := q.Get("i"); str != "" {
-			fmt.Sscanf(str, "%d", &idx)
-		}
-	}
-	if str := q.Get("r"); str != "" {
-		if refresh, err := fmt.Sscanf(str, "%d", &idx); err == nil {
-			if refresh > 0 {
-				c.Writer.Header().Set("Refresh", fmt.Sprintf("%d", refresh))
-			}
-		}
-	}
-	var data = Data{}
-	if name == "" {
-		data.MetricNames = []string{
-			"metrics:ps:cpu_percent",
-			"metrics:ps:mem_percent",
-			"metrics:runtime:goroutines",
-			"metrics:runtime:heap_inuse",
-			"metrics:query:latency",
-			"metrics:query:error",
-			"metrics:packet_data:insert_latency",
-			"metrics:packet_data:insert_error",
-			"metrics:packet_data:parse_error",
-			"metrics:packet_err:insert_latency",
-			"metrics:packet_err:insert_error",
-			"metrics:pars_data:insert_latency",
-			"metrics:pars_data:insert_error",
-			"metrics:rdb_packet_data:insert_latency",
-			"metrics:rdb_packet_data:insert_error",
-			"metrics:rdb_pars_data:insert_latency",
-			"metrics:rdb_pars_data:insert_error",
-			"metrics:http:requests",
-			"metrics:http:latency",
-			"metrics:http:status_1xx",
-			"metrics:http:status_2xx",
-			"metrics:http:status_3xx",
-			"metrics:http:status_4xx",
-			"metrics:http:status_5xx",
-		}
-	} else {
-		data.MetricNames = []string{name}
-		data.Snapshot = getSnapshot(name, idx)
-		if data.Snapshot == nil {
-			c.String(http.StatusNotFound, "Metric not found")
-			return
-		}
-	}
-	c.HTML(http.StatusOK, "statz", data)
-}
-
-func getSnapshot(name string, idx int) *metric.Snapshot {
-	if g := expvar.Get(name); g != nil {
-		mts := g.(metric.MultiTimeSeries)
-		if len(mts) > 0 {
-			return mts[idx].Snapshot()
-		}
-	}
-	return nil
-}
-
-type Data struct {
-	MetricNames []string
-	Snapshot    *metric.Snapshot
-}
-
-var tmplFuncMap = template.FuncMap{
-	"snapshotAll":        SnapshotAll,
-	"snapshotField":      SnapshotField,
-	"productValueString": ProductValueString,
-	"productKind":        ProductKind,
-	"miniGraph":          MiniGraph,
-	"formatTime":         func(t time.Time) string { return t.Format(time.TimeOnly) },
-}
-
-var tmplStatz = template.Must(template.New("statz").Funcs(tmplFuncMap).
-	Parse(`<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate">
-	<meta http-equiv="cache-control" content="max-age=0">
-	<meta http-equiv="pragma" content="no-cache">
-	<meta http-equiv="expires" content="0">
-	<title>Metrics</title>
-	<style>
-		body { font-family: Arial, sans-serif; }
-		table { width: 100%; border-collapse: collapse; }
-		th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-		th { background-color: #f2f2f2; }
-		tr:hover { background-color: #f1f1f1; }
-		.graphRow {
-			display: flex;
-			justify-content: flex-start;
-			flex-direction: row;
-			flex-wrap: wrap;
-		}
-		.graph {
-			flex: 0;
-			margin-left: 10px;
-			margin-right: 20px;
-		}
-	</style>
-</head>
-<body>
-<h1>Metrics</h1>
-{{ if .Snapshot }}
-	{{ template "doDetail" . }}
-{{ else }}
-	{{ template "doMiniGraph" . }}
-{{end}}
-</body>
-</html>
-
-{{ define "doMiniGraph" }}
- 	{{range $n, $name := .MetricNames}}
-		<h2>{{$name}}</h2>
-		<div class="graphRow">
-		{{ range $idx, $ss := snapshotAll $name }}
-		 <div class="graph">
-			<a href="?n={{ $name }}&i={{ $idx }}">{{ $ss | miniGraph }}</a>
-		</div>
-		{{ end }}
-		 </div>
-	{{end}}
-{{ end }}
-
-{{ define "doDetail" }}
- 	{{ $ss := .Snapshot }}
-	{{ $field := snapshotField $ss }}
-	<h2>{{ $field.Name }} ({{ $ss | productKind }})</h2>
-	<table>
-		<tr>
-			<th>Time</th>
-			<th>Value</th>
-			<th>JSON</th>
-		</tr>
-		{{ range $idx, $val := $ss.Values }}
-		<tr>
-		<td>{{ index $ss.Times $idx | formatTime }}</td>
-		<td>{{ productValueString $val $field.Unit }}</td>
-		<td>{{ $val }}</td>
-		</tr>
-		{{end}}
-	</table>
-{{ end }}
-`))
-
-func MiniGraph(ss *metric.Snapshot) template.HTML {
-	canvas := svg.CanvasWithSnapshot(ss)
-	buff := &strings.Builder{}
-	canvas.Export(buff)
-	return template.HTML(buff.String())
-}
-
-func SnapshotAll(name string) []*metric.Snapshot {
-	ret := make([]*metric.Snapshot, 0)
-	if g := expvar.Get(name); g != nil {
-		mts := g.(metric.MultiTimeSeries)
-		for _, ts := range mts {
-			snapshot := ts.Snapshot()
-			if snapshot != nil {
-				ret = append(ret, snapshot)
-			}
-		}
-	}
-	return ret
-}
-
-func SnapshotField(ss *metric.Snapshot) metric.FieldInfo {
-	f, _ := ss.Field()
-	return f
-}
-
-func ProductValueString(p metric.Product, unit metric.Unit) string {
-	if p == nil {
-		return "null"
-	}
-	return unit.Format(ProductValue(p), 2)
-}
-
-func ProductValue(p metric.Product) float64 {
-	switch v := p.(type) {
-	case *metric.CounterProduct:
-		return v.Value
-	case *metric.GaugeProduct:
-		return v.Value
-	case *metric.MeterProduct:
-		if v.Count > 0 {
-			return v.Sum / float64(v.Count)
-		}
-		return 0
-	case *metric.HistogramProduct:
-		if len(v.Values) > 0 {
-			return v.Values[len(v.Values)/2]
-		}
-		return 0
-	default:
-		return 0
-	}
-}
-
-func ProductKind(ss *metric.Snapshot) string {
-	p := ss.Values[0]
-	switch p.(type) {
-	case *metric.CounterProduct:
-		return "Counter"
-	case *metric.GaugeProduct:
-		return "Gauge"
-	case *metric.MeterProduct:
-		return "Meter"
-	case *metric.HistogramProduct:
-		return "Histogram"
-	default:
-		return "Unknown"
-	}
 }

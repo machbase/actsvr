@@ -185,8 +185,11 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 			args = append(args, areaCode)
 		}
 	} else {
+		parsDataArrivalTime.Lock()
+		defer parsDataArrivalTime.Unlock()
+
 		sb.WriteString(` WHERE _ARRIVAL_TIME > ?`)
-		args = append(args, packetDataArrivalTime.Time)
+		args = append(args, parsDataArrivalTime.Time)
 		sb.WriteString(` AND DATA_NO = ?`)
 		args = append(args, dataNo)
 		if arrivalQueryLimit > 0 {
@@ -196,13 +199,15 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 		sb.WriteString(` ORDER BY _ARRIVAL_TIME`)
 
 		defer func() {
-			if packetDataArrivalTime.Time.After(arrivalTime) {
+			if parsDataArrivalTime.Time.After(arrivalTime) {
 				return
 			}
-			packetDataArrivalTime.Lock()
-			packetDataArrivalTime.Time = arrivalTime
-			packetDataArrivalTime.Save()
-			packetDataArrivalTime.Unlock()
+			parsDataArrivalTime.Time = arrivalTime
+			parsDataArrivalTime.Save()
+			if log := DefaultLog(); log != nil && log.InfoEnabled() {
+				log.Infof("last arrival time for pars data: %s",
+					parsDataArrivalTime.Time.In(time.Local).Format("2006-01-02 15:04:05.000000000"))
+			}
 		}()
 	}
 
@@ -298,8 +303,10 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 			args = append(args, areaCode)
 		}
 	} else {
+		packetDataArrivalTime.Lock()
+		defer packetDataArrivalTime.Unlock()
 		sb.WriteString(` WHERE _ARRIVAL_TIME > ?`)
-		args = append(args, parsDataArrivalTime.Time)
+		args = append(args, packetDataArrivalTime.Time)
 		sb.WriteString(` AND DATA_NO = ?`)
 		args = append(args, dataNo)
 		if arrivalQueryLimit > 0 {
@@ -309,13 +316,15 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 		sb.WriteString(` ORDER BY _ARRIVAL_TIME`)
 
 		defer func() {
-			if parsDataArrivalTime.Time.After(arrivalTime) {
+			if packetDataArrivalTime.Time.After(arrivalTime) {
 				return
 			}
-			parsDataArrivalTime.Lock()
-			parsDataArrivalTime.Time = arrivalTime
-			parsDataArrivalTime.Save()
-			parsDataArrivalTime.Unlock()
+			packetDataArrivalTime.Time = arrivalTime
+			packetDataArrivalTime.Save()
+			if log := DefaultLog(); log != nil && log.InfoEnabled() {
+				log.Infof("last arrival time for packet data: %s",
+					packetDataArrivalTime.Time.In(time.Local).Format("2006-01-02 15:04:05.000000000"))
+			}
 		}()
 	}
 
