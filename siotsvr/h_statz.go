@@ -8,7 +8,6 @@ import (
 	"html/template"
 	"io"
 	"net/http"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -29,7 +28,6 @@ func Collector(dataDir string) *metric.Collector {
 			metric.WithSeries("8d", 1*time.Hour, 192),
 			metric.WithExpvarPrefix("metrics"),
 			metric.WithReceiverSize(100),
-			metric.WithStorage(metric.NewFileStorage(filepath.Join(dataDir, "metrics"))),
 		)
 		collector.AddInputFunc(metric_ps.Collect)
 		collector.AddInputFunc(metric_runtime.Collect)
