@@ -9,8 +9,8 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/OutOfBedlam/metric"
 	"github.com/gin-gonic/gin"
+	"github.com/machbase/neo-server/v8/mods/util/metric"
 )
 
 var collector *metric.Collector

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OutOfBedlam/metric"
 	"github.com/gin-gonic/gin"
 	"github.com/machbase/neo-server/v8/api"
+	"github.com/machbase/neo-server/v8/mods/util/metric"
 )
 
 func (s *HttpServer) handleData(c *gin.Context) {

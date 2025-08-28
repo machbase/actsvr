@@ -8,9 +8,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/OutOfBedlam/metric"
 	"github.com/machbase/neo-server/v8/api"
 	"github.com/machbase/neo-server/v8/api/machcli"
+	"github.com/machbase/neo-server/v8/mods/util/metric"
 )
 
 func (s *HttpServer) openDatabase() error {

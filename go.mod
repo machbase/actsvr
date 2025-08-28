@@ -4,11 +4,10 @@ go 1.24.5
 
 require (
 	fortio.org/progressbar v1.1.0
-	github.com/OutOfBedlam/metric v0.0.0-20250827074720-0b95216c8876
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/google/uuid v1.6.0
-	github.com/machbase/neo-server/v8 v8.0.56-0.20250803235306-c3325a7c8710
+	github.com/machbase/neo-server/v8 v8.0.59-0.20250828030510-f61f095b7693
 	github.com/magefile/mage v1.15.0
 	github.com/stretchr/testify v1.10.0
 	github.com/tidwall/buntdb v1.3.2
