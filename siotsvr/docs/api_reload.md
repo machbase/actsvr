@@ -44,3 +44,13 @@ SELECT MAX(PACKET_PARS_SEQ) FROM TB_PACKET_PARS_DATA
 ```http
 GET http://127.0.0.1:5680/db/admin/reload?target=packet_parse_seq
 ```
+
+### LAST ARRIVAL TIME
+
+```http
+GET http://127.0.0.1:5680/db/admin/reload?target=last_pars
+```
+
+```http
+GET http://127.0.0.1:5680/db/admin/reload?target=last_packet
+```
