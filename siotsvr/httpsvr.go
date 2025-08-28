@@ -197,11 +197,27 @@ func (s *HttpServer) handleAdminReload(c *gin.Context) {
 		err = s.reloadPacketParseSeq()
 	case "last_packet":
 		packetDataArrivalTime.Lock()
-		packetDataArrivalTime.Load()
+		newVal := c.Query("new_value")
+		if newVal == "" {
+			packetDataArrivalTime.Load()
+		} else if ts, err2 := time.ParseInLocation("2006-01-02 15:04:05.000000000", newVal, time.Local); err2 == nil {
+			packetDataArrivalTime.Time = ts
+			packetDataArrivalTime.Save()
+		} else {
+			err = err2
+		}
 		packetDataArrivalTime.Unlock()
 	case "last_pars":
 		parsDataArrivalTime.Lock()
-		parsDataArrivalTime.Load()
+		newVal := c.Query("new_value")
+		if newVal == "" {
+			parsDataArrivalTime.Load()
+		} else if ts, err2 := time.ParseInLocation("2006-01-02 15:04:05.000000000", newVal, time.Local); err2 == nil {
+			parsDataArrivalTime.Time = ts
+			parsDataArrivalTime.Save()
+		} else {
+			err = err2
+		}
 		parsDataArrivalTime.Unlock()
 	default:
 		c.String(http.StatusNotFound, "Unknown reload target: %s", target)

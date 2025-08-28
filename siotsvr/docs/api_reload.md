@@ -47,10 +47,22 @@ GET http://127.0.0.1:5680/db/admin/reload?target=packet_parse_seq
 
 ### LAST ARRIVAL TIME
 
+**reload**
+
 ```http
 GET http://127.0.0.1:5680/db/admin/reload?target=last_pars
 ```
 
 ```http
 GET http://127.0.0.1:5680/db/admin/reload?target=last_packet
+```
+
+**reset with new_value**
+
+```http
+GET http://127.0.0.1:5680/db/admin/reload?target=last_pars&new_value=2006-01-02+15:04:05.000000000
+```
+
+```http
+GET http://127.0.0.1:5680/db/admin/reload?target=last_packet&new_value=2006-01-02+15:04:05.000000000
 ```
