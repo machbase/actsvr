@@ -195,6 +195,14 @@ func (s *HttpServer) handleAdminReload(c *gin.Context) {
 		err = s.reloadPacketSeq()
 	case "packet_parse_seq":
 		err = s.reloadPacketParseSeq()
+	case "last_packet":
+		packetDataArrivalTime.Lock()
+		packetDataArrivalTime.Load()
+		packetDataArrivalTime.Unlock()
+	case "last_pars":
+		parsDataArrivalTime.Lock()
+		parsDataArrivalTime.Load()
+		parsDataArrivalTime.Unlock()
 	default:
 		c.String(http.StatusNotFound, "Unknown reload target: %s", target)
 	}
