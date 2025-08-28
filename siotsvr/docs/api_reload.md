@@ -59,10 +59,13 @@ GET http://127.0.0.1:5680/db/admin/reload?target=last_packet
 
 **reset with new_value**
 
+> 주의: 예시의 "2006-01-02 15:04:05.000000000"에 해당하는
+> `new_value` 파마니터의 값은 공백문자등의 URL escaping이 필요함
+
 ```http
-GET http://127.0.0.1:5680/db/admin/reload?target=last_pars&new_value=2006-01-02+15:04:05.000000000
+GET http://127.0.0.1:5680/db/admin/reload?target=last_pars&new_value=2006-01-02 15:04:05.000000000
 ```
 
 ```http
-GET http://127.0.0.1:5680/db/admin/reload?target=last_packet&new_value=2006-01-02+15:04:05.000000000
+GET http://127.0.0.1:5680/db/admin/reload?target=last_packet&new_value=2006-01-02 15:04:05.000000000
 ```
