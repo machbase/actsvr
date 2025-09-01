@@ -15,7 +15,6 @@ import (
 	"time"
 )
 
-var DefaultLocation = time.Local
 var pid string = "./siotsvr.pid"
 var defaultLog *util.Log
 var nowFunc = time.Now
@@ -23,6 +22,7 @@ var packetDataArrivalTime = &LastArrivalTime{Name: "last_packet"}
 var parsDataArrivalTime = &LastArrivalTime{Name: "last_pars"}
 var arrivalTimeDir string = "."
 var arrivalQueryLimit int = 1000
+var DefaultTZ, _ = time.LoadLocation("Asia/Seoul")
 
 var machConfig = MachConfig{
 	dbHost: "127.0.0.1",
@@ -163,7 +163,7 @@ type LastArrivalTime struct {
 func (lat *LastArrivalTime) Load() {
 	path := filepath.Join(arrivalTimeDir, fmt.Sprintf("%s.txt", lat.Name))
 	if b, err := os.ReadFile(path); err == nil {
-		if t, err := time.ParseInLocation("2006-01-02 15:04:05.000000000", string(b), time.Local); err == nil {
+		if t, err := time.ParseInLocation("2006-01-02 15:04:05.000000000", string(b), DefaultTZ); err == nil {
 			lat.Time = t
 		}
 	}
@@ -171,7 +171,7 @@ func (lat *LastArrivalTime) Load() {
 
 func (lat *LastArrivalTime) Save() {
 	path := filepath.Join(arrivalTimeDir, fmt.Sprintf("%s.txt", lat.Name))
-	content := []byte(lat.Time.In(time.Local).Format("2006-01-02 15:04:05.000000000"))
+	content := []byte(lat.Time.In(DefaultTZ).Format("2006-01-02 15:04:05.000000000"))
 	if err := os.WriteFile(path, content, 0644); err != nil {
 		log.Printf("Failed to save arrival time for %s: %v", lat.Name, err)
 	}

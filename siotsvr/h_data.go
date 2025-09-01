@@ -70,7 +70,7 @@ func (s *HttpServer) handleData(c *gin.Context) {
 	var isPars = isParsStr == "Y" || isParsStr == "y"
 
 	var tsn int64
-	var now = nowFunc().In(DefaultLocation)
+	var now = nowFunc().In(DefaultTZ)
 	if no, err := strconv.ParseInt(tsnStr, 10, 64); err != nil {
 		requestErr = "invalid_tsn"
 		c.JSON(http.StatusBadRequest, ApiErrorInvalidParameters)
@@ -112,7 +112,7 @@ func (s *HttpServer) handleData(c *gin.Context) {
 	var startTime time.Time
 	var endTime time.Time
 	if start != "" {
-		startTime, err = time.ParseInLocation("20060102150405", start, time.Local)
+		startTime, err = time.ParseInLocation("20060102150405", start, DefaultTZ)
 		if err != nil {
 			requestErr = "invalid_start_time"
 			c.JSON(http.StatusBadRequest, ApiErrorInvalidParameters)
@@ -120,7 +120,7 @@ func (s *HttpServer) handleData(c *gin.Context) {
 		}
 	}
 	if end != "" {
-		endTime, err = time.ParseInLocation("20060102150405", end, time.Local)
+		endTime, err = time.ParseInLocation("20060102150405", end, DefaultTZ)
 		if err != nil {
 			requestErr = "invalid_end_time"
 			c.JSON(http.StatusBadRequest, ApiErrorInvalidParameters)
@@ -217,7 +217,7 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 			parsDataArrivalTime.Save()
 			if log := DefaultLog(); log != nil && log.InfoEnabled() {
 				log.Infof("last arrival time for pars data: %s",
-					parsDataArrivalTime.Time.In(time.Local).Format("2006-01-02 15:04:05.000000000"))
+					parsDataArrivalTime.Time.In(DefaultTZ).Format("2006-01-02 15:04:05.000000000"))
 			}
 		}()
 	}
@@ -245,8 +245,8 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 	fmt.Fprintf(c.Writer, `"dataNo":"%d",`, dataNoOut)
 	fmt.Fprintf(c.Writer, `"datasetNo":"%d",`, tsn)
 	fmt.Fprintf(c.Writer, `"resultCode":"SUCC-000","resultMsg":"전송 완료",`)
-	fmt.Fprintf(c.Writer, `"startDateTime":"%s",`, startTime.In(time.Local).Format("20060102150405"))
-	fmt.Fprintf(c.Writer, `"endDateTime":"%s",`, endTime.In(time.Local).Format("20060102150405"))
+	fmt.Fprintf(c.Writer, `"startDateTime":"%s",`, startTime.In(DefaultTZ).Format("20060102150405"))
+	fmt.Fprintf(c.Writer, `"endDateTime":"%s",`, endTime.In(DefaultTZ).Format("20060102150405"))
 	fmt.Fprintf(c.Writer, `"resultdata":[`)
 
 	go func() {
@@ -274,7 +274,7 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 			c.Writer.WriteString(",")
 		}
 		fmt.Fprintf(c.Writer, `{"seq":%d,"serial":"%s","date":"%s","areaCode":"%s","pars":[`,
-			seq, modelSerial, date.In(time.Local).Format("2006-01-02 15:04:05"), areaCode)
+			seq, modelSerial, date.In(DefaultTZ).Format("2006-01-02 15:04:05"), areaCode)
 		for i, value := range values {
 			if i > 0 {
 				c.Writer.WriteString(",")
@@ -337,7 +337,7 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 			packetDataArrivalTime.Save()
 			if log := DefaultLog(); log != nil && log.InfoEnabled() {
 				log.Infof("last arrival time for packet data: %s",
-					packetDataArrivalTime.Time.In(time.Local).Format("2006-01-02 15:04:05.000000000"))
+					packetDataArrivalTime.Time.In(DefaultTZ).Format("2006-01-02 15:04:05.000000000"))
 			}
 		}()
 	}
@@ -367,8 +367,8 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 	fmt.Fprintf(c.Writer, `"dataNo":"%d",`, dataNoOut)
 	fmt.Fprintf(c.Writer, `"datasetNo":"%d",`, tsn)
 	fmt.Fprintf(c.Writer, `"resultCode":"SUCC-000","resultMsg":"전송 완료",`)
-	fmt.Fprintf(c.Writer, `"startDateTime":"%s",`, startTime.In(time.Local).Format("20060102150405"))
-	fmt.Fprintf(c.Writer, `"endDateTime":"%s",`, endTime.In(time.Local).Format("20060102150405"))
+	fmt.Fprintf(c.Writer, `"startDateTime":"%s",`, startTime.In(DefaultTZ).Format("20060102150405"))
+	fmt.Fprintf(c.Writer, `"endDateTime":"%s",`, endTime.In(DefaultTZ).Format("20060102150405"))
 	fmt.Fprintf(c.Writer, `"resultdata":[`)
 
 	if ctx := c.Request.Context(); ctx != nil {
@@ -393,7 +393,7 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 			c.Writer.WriteString(",")
 		}
 		fmt.Fprintf(c.Writer, `{"seq":%d,"serial":"%s","date":"%s","areaCode":"%s","packet":"%s"}`,
-			seq, modelSerial, date.In(time.Local).Format("2006-01-02 15:04:05"), areaCode, packet)
+			seq, modelSerial, date.In(DefaultTZ).Format("2006-01-02 15:04:05"), areaCode, packet)
 		nrow++
 	}
 	c.Writer.WriteString(`]}`)

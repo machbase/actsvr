@@ -78,7 +78,7 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	}
 
 	// get current time
-	now := nowFunc().In(DefaultLocation)
+	now := nowFunc().In(DefaultTZ)
 
 	// Build RawPacketData
 	packetSeq = nextPacketSeq()
