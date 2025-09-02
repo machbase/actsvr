@@ -50,7 +50,7 @@ func (s *HttpServer) handleData(c *gin.Context) {
 					Type:  metric.CounterType(metric.UnitShort),
 				})
 			}
-			collector.SendEvent(measure)
+			collector.Send(measure)
 		}
 	}()
 	// Path params

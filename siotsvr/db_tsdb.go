@@ -203,7 +203,7 @@ func (s *HttpServer) loopRawPacket() {
 					Type:  metric.CounterType(metric.UnitShort),
 				})
 			}
-			collector.SendEvent(measure)
+			collector.Send(measure)
 		}
 	}
 }
@@ -261,7 +261,7 @@ func (s *HttpServer) loopErrPacket() {
 					Type:  metric.CounterType(metric.UnitShort),
 				})
 			}
-			collector.SendEvent(measure)
+			collector.Send(measure)
 		}
 	}
 }
@@ -337,7 +337,7 @@ func (s *HttpServer) loopParsPacket() {
 					Type:  metric.CounterType(metric.UnitShort),
 				})
 			}
-			collector.SendEvent(measure)
+			collector.Send(measure)
 		}
 	}
 }
@@ -444,7 +444,7 @@ func (s *HttpServer) loopReplicaRawPacket() {
 						Type:  metric.CounterType(metric.UnitShort),
 					})
 				}
-				collector.SendEvent(measure)
+				collector.Send(measure)
 			}
 		}
 		rows.Close()
@@ -609,7 +609,7 @@ func (s *HttpServer) loopReplicaParsPacket() {
 						Type:  metric.CounterType(metric.UnitShort),
 					})
 				}
-				collector.SendEvent(measure)
+				collector.Send(measure)
 			}
 		}
 		rows.Close()

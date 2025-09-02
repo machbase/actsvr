@@ -47,7 +47,7 @@ func Collector() *metric.Collector {
 	return collector
 }
 
-func onProduct(pd metric.ProducedData) {
+func onProduct(pd metric.ProductData) {
 	var result []any
 	switch p := pd.Value.(type) {
 	case *metric.CounterProduct:
@@ -167,5 +167,5 @@ func CollectorMiddleware(c *gin.Context) {
 		statusCat = "status_5xx"
 	}
 	measure.AddField(metric.Field{Name: statusCat, Value: 1, Type: metric.CounterType(metric.UnitShort)})
-	collector.SendEvent(measure)
+	collector.Send(measure)
 }
