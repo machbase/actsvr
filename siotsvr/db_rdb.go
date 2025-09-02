@@ -15,7 +15,7 @@ type ModelPacketMaster struct {
 	PacketSize      sql.NullInt64  `sql:"packet_size"`
 	HderSize        sql.NullInt64  `sql:"hder_size"`
 	DataSize        sql.NullInt64  `sql:"data_size"`
-	Masking         sql.NullString `sql:"masking_yn"`
+	Masking         sql.NullString `sql:"maskng_yn"`
 	Public          sql.NullString `sql:"public_yn"`
 	RegisterNo      sql.NullString `sql:"register_no"`
 	RegistDt        sql.NullTime   `sql:"regist_dt"`
@@ -31,7 +31,7 @@ func SelectModelPacketMaster(db *sql.DB, callback func(*ModelPacketMaster) bool)
 		PACKET_SIZE,
 		HDER_SIZE,
 		DATA_SIZE,
-		MASKING_YN,
+		MASKNG_YN,
 		PUBLIC_YN,
 		REGISTER_NO,
 		REGIST_DT,
