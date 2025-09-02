@@ -280,14 +280,17 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 		}
 		fmt.Fprintf(c.Writer, `{"seq":%d,"serial":"%s","date":"%s","areaCode":"%s","pars":[`,
 			seq, modelSerial, date.In(DefaultTZ).Format("2006-01-02 15:04:05"), areaCode)
+		cntField := 0
 		for i, value := range values {
-			if i > 0 {
+			if cntField > 0 {
 				c.Writer.WriteString(",")
 			}
 			if fd := definition.Fields[i]; fd.Public {
+				if definition.Masking {
+					value = MaskingStrValue
+				}
 				fmt.Fprintf(c.Writer, `%q`, value)
-			} else {
-				fmt.Fprintf(c.Writer, `%q`, MaskingStrValue)
+				cntField++
 			}
 		}
 		c.Writer.WriteString(`]}`)
