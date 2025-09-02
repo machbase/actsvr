@@ -37,7 +37,7 @@ GET http://127.0.0.1:5680/db/admin/reload?target=packet_seq
 
 It re-read max value from machbase table.
 
-``sql
+```sql
 SELECT MAX(PACKET_PARS_SEQ) FROM TB_PACKET_PARS_DATA
 ```
 
