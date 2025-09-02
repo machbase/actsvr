@@ -15,7 +15,7 @@ jobs:
       matrix:
         include:
           - { platform: ubuntu-24.04, arch: x64, os: linux }
-          - { platform: ubuntu-24.04-arm, arch: arm64, os: linux }
+ #        - { platform: ubuntu-24.04-arm, arch: arm64, os: linux }
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout

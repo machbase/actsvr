@@ -22,7 +22,7 @@ var packetDataArrivalTime = &LastArrivalTime{Name: "last_packet"}
 var parsDataArrivalTime = &LastArrivalTime{Name: "last_pars"}
 var arrivalTimeDir string = "."
 var arrivalQueryLimit int = 1000
-var DefaultTZ, _ = time.LoadLocation("Asia/Seoul")
+var DefaultTZ *time.Location
 
 const MaskingStrValue = "***"
 
@@ -42,10 +42,14 @@ var rdbConfig = RDBConfig{
 }
 
 func Main() int {
+	if tz, err := time.LoadLocation("Asia/Seoul"); err != nil {
+		panic(fmt.Sprintf("failed to load timezone: %v", err))
+	} else {
+		DefaultTZ = tz
+	}
+
 	httpSvr := NewHttpServer()
-
 	flag.StringVar(&pid, "pid", pid, "the file to store the process ID")
-
 	// Machbase configuration
 	flag.StringVar(&machConfig.dbHost, "db-host", machConfig.dbHost, "Database host")
 	flag.IntVar(&machConfig.dbPort, "db-port", machConfig.dbPort, "Database port")
