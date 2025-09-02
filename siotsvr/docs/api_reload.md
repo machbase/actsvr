@@ -25,7 +25,7 @@ GET http://127.0.0.1:5680/db/admin/reload?target=model_areacode
 
 It re-read max value from machbase table.
 
-``sql
+```sql
 SELECT MAX(PACKET_PARS_SEQ) FROM TB_RECPTN_PACKET_DATA
 ```
 
