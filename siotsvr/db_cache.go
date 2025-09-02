@@ -75,6 +75,8 @@ type PacketDefinition struct {
 	HeaderSize      int                     `json:"headerSize"`
 	DataSize        int                     `json:"dataSize"`
 	Fields          []PacketFieldDefinition `json:"fields"`
+	Public          bool                    `json:"public"`
+	Masking         bool                    `json:"masking"`
 }
 
 type PacketFieldDefinition struct {
@@ -90,6 +92,8 @@ type PacketFieldDefinition struct {
 	ArrValue        string
 	Category        string
 	DC              string
+	Public          bool
+	Dqm             bool
 }
 
 func reloadCertkey() error {
@@ -191,6 +195,12 @@ func reloadPacketDefinition() error {
 			if detail.DC.Valid {
 				field.DC = detail.DC.String
 			}
+			if detail.PublicYn.Valid {
+				field.Public = detail.PublicYn.String == "Y"
+			}
+			if detail.DqmYn.Valid {
+				field.Dqm = detail.DqmYn.String == "Y"
+			}
 			fields = append(fields, field)
 			return true
 		})
@@ -205,6 +215,8 @@ func reloadPacketDefinition() error {
 			PacketSize:      int(master.PacketSize.Int64),
 			HeaderSize:      int(master.HderSize.Int64),
 			DataSize:        int(master.DataSize.Int64),
+			Public:          master.Public.Valid && master.Public.String == "Y",
+			Masking:         master.Masking.Valid && master.Masking.String == "Y",
 			Fields:          fields,
 		}
 	}

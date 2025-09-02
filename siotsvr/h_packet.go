@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -196,6 +197,21 @@ func removeLeadingZeros(s string) string {
 	return sign + trimmed
 }
 
+type ValidateError struct {
+	TransmitServerNo int64
+	FieldName        string
+	RuleType         string
+	Rule             string
+	FailedValue      string
+}
+
+func (pe *ValidateError) Error() string {
+	return fmt.Sprintf("packet validation error, tsn:%d, field:%s, value:%s, rule:%s(%s)",
+		pe.TransmitServerNo, pe.FieldName, pe.FailedValue, pe.RuleType, pe.Rule)
+}
+
+var _ error = (*ValidateError)(nil)
+
 func (s *HttpServer) parseRawPacket(data *RawPacketData) (*ParsedPacketData, error) {
 	// Get packet definition by data_no = 1 instead of data.DataNo
 	searchDataNo := 1
@@ -209,7 +225,42 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) (*ParsedPacketData, err
 	for i, field := range definition.Fields {
 		val := strings.TrimSpace(packet[0:field.PacketByte])
 		// remove padding
-		values[i] = removeLeadingZeros(val)
+		val = removeLeadingZeros(val)
+		// validation
+		switch field.RuleType {
+		case "VAL_ITV":
+			v, err := strconv.ParseFloat(val, 64) // just check if it's numeric
+			if err != nil {
+				return nil, &ValidateError{
+					TransmitServerNo: data.TrnsmitServerNo,
+					FieldName:        field.PacketName,
+					RuleType:         field.RuleType,
+					Rule:             "not a numeric value",
+					FailedValue:      val,
+				}
+			}
+			if v < field.MinValue || v > field.MaxValue {
+				return nil, &ValidateError{
+					TransmitServerNo: data.TrnsmitServerNo,
+					FieldName:        field.PacketName,
+					RuleType:         field.RuleType,
+					Rule:             fmt.Sprintf("%f~%f", field.MinValue, field.MaxValue),
+					FailedValue:      val,
+				}
+			}
+		case "VAL_ARR":
+			arr := strings.Split(field.ArrValue, ",")
+			if !slices.Contains(arr, val) {
+				return nil, &ValidateError{
+					TransmitServerNo: data.TrnsmitServerNo,
+					FieldName:        field.PacketName,
+					RuleType:         field.RuleType,
+					Rule:             field.ArrValue,
+					FailedValue:      val,
+				}
+			}
+		}
+		values[i] = val
 		packet = packet[field.PacketByte:]
 	}
 

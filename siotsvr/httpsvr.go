@@ -297,6 +297,12 @@ var (
 			ResultMsg:  "패킷 데이터의 범주가 정의서와 다릅니다.",
 		},
 	}
+	ApiErrorNonPublic = ApiResult{
+		ResultStats: ApiResultStats{
+			ResultCode: "ERROR-403",
+			ResultMsg:  "비공개 데이터입니다.",
+		},
+	}
 	ApiErrorServer = ApiResult{
 		ResultStats: ApiResultStats{
 			ResultCode: "ERROR-500",

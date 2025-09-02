@@ -163,8 +163,13 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 	searchDataNo := 1 // always use data_no = 1 for model data
 	definition := getPacketDefinition(tsn, searchDataNo)
 	if definition == nil {
-		defaultLog.Errorf("No packet definition found for tsn: %d and data_no: %d", tsn, searchDataNo)
+		defaultLog.Errorf("No packet definition found for tsn: %d and data_no: %d", tsn, dataNo)
 		c.JSON(http.StatusNotFound, ApiErrorServer)
+		return
+	}
+	if !definition.Public {
+		defaultLog.Errorf("Packet definition is not public for tsn: %d and data_no: %d", tsn, dataNo)
+		c.JSON(http.StatusForbidden, ApiErrorNonPublic)
 		return
 	}
 	sb := &strings.Builder{}
@@ -279,7 +284,11 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 			if i > 0 {
 				c.Writer.WriteString(",")
 			}
-			fmt.Fprintf(c.Writer, `%q`, value)
+			if fd := definition.Fields[i]; fd.Public {
+				fmt.Fprintf(c.Writer, `%q`, value)
+			} else {
+				fmt.Fprintf(c.Writer, `%q`, MaskingStrValue)
+			}
 		}
 		c.Writer.WriteString(`]}`)
 		nrow++

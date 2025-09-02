@@ -177,6 +177,8 @@ func (s *HttpServer) loopRawPacket() {
 			s.log.Errorf("%d Failed to insert RecptnPacketData: %v, data: %#v", data.PacketSeq, insertErr, data)
 		}
 		if parseErr != nil {
+			// if err is *ValidateError, it means validation error
+			// otherwise packet length error
 			s.log.Errorf("%d %v", data.PacketSeq, parseErr)
 		}
 		if collector != nil {

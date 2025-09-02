@@ -24,6 +24,8 @@ var arrivalTimeDir string = "."
 var arrivalQueryLimit int = 1000
 var DefaultTZ, _ = time.LoadLocation("Asia/Seoul")
 
+const MaskingStrValue = "***"
+
 var machConfig = MachConfig{
 	dbHost: "127.0.0.1",
 	dbPort: 5656,

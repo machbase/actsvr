@@ -15,6 +15,8 @@ type ModelPacketMaster struct {
 	PacketSize      sql.NullInt64  `sql:"packet_size"`
 	HderSize        sql.NullInt64  `sql:"hder_size"`
 	DataSize        sql.NullInt64  `sql:"data_size"`
+	Masking         sql.NullString `sql:"masking_yn"`
+	Public          sql.NullString `sql:"public_yn"`
 	RegisterNo      sql.NullString `sql:"register_no"`
 	RegistDt        sql.NullTime   `sql:"regist_dt"`
 	UpdusrNo        sql.NullString `sql:"updusr_no"`
@@ -29,6 +31,8 @@ func SelectModelPacketMaster(db *sql.DB, callback func(*ModelPacketMaster) bool)
 		PACKET_SIZE,
 		HDER_SIZE,
 		DATA_SIZE,
+		MASKING_YN,
+		PUBLIC_YN,
 		REGISTER_NO,
 		REGIST_DT,
 		UPDUSR_NO,
@@ -48,6 +52,8 @@ func SelectModelPacketMaster(db *sql.DB, callback func(*ModelPacketMaster) bool)
 			&mp.PacketSize,
 			&mp.HderSize,
 			&mp.DataSize,
+			&mp.Masking,
+			&mp.Public,
 			&mp.RegisterNo,
 			&mp.RegistDt,
 			&mp.UpdusrNo,
@@ -77,6 +83,7 @@ type ModelPacketDetail struct {
 	PacketCtgry     sql.NullString  `sql:"packet_ctgry"`
 	DC              sql.NullString  `sql:"dc"`
 	PublicYn        sql.NullString  `sql:"public_yn"`
+	DqmYn           sql.NullString  `sql:"dqm_yn"`
 	GraphYn         sql.NullString  `sql:"graph_yn"`
 	LimitValue      sql.NullString  `sql:"limit_value"`
 	CeckPttrn       sql.NullString  `sql:"ceck_pttrn"`
@@ -103,6 +110,7 @@ func SelectModelPacketDetail(db *sql.DB, masterSeq int64, callback func(*ModelPa
 		PACKET_CTGRY,
 		DC,
 		PUBLIC_YN,
+		DQM_YN,
 		GRAPH_YN,
 		LIMIT_VALUE,
 		CECK_PTTRN,
@@ -140,6 +148,7 @@ func SelectModelPacketDetail(db *sql.DB, masterSeq int64, callback func(*ModelPa
 			&mpd.PacketCtgry,
 			&mpd.DC,
 			&mpd.PublicYn,
+			&mpd.DqmYn,
 			&mpd.GraphYn,
 			&mpd.LimitValue,
 			&mpd.CeckPttrn,
