@@ -244,7 +244,7 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) (*ParsedPacketData, err
 					TransmitServerNo: data.TrnsmitServerNo,
 					FieldName:        field.PacketName,
 					RuleType:         field.RuleType,
-					Rule:             fmt.Sprintf("%f~%f", field.MinValue, field.MaxValue),
+					Rule:             fmt.Sprintf("%v~%v", field.MinValue, field.MaxValue),
 					FailedValue:      val,
 				}
 			}

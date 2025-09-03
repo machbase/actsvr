@@ -29,10 +29,25 @@ func (s *HttpServer) handleData(c *gin.Context) {
 			reply += " (canceled)"
 		}
 		latency := time.Since(tick)
+		msgs := []any{
+			c.Writer.Status(),
+			" ", latency,
+		}
 		if requestErr == "" {
-			defaultLog.Info(c.Writer.Status(), " ", latency, " ", reply, " ", req)
+			msgs = append(msgs, " ", reply)
 		} else {
-			defaultLog.Warn(c.Writer.Status(), " ", latency, " ", requestErr, " ", req)
+			msgs = append(msgs, " ", requestErr)
+		}
+		msgs = append(msgs, " ", req)
+		if defaultLog.DebugEnabled() { // only with verbose log level
+			if sqlText := c.GetString("SQL"); sqlText != "" {
+				msgs = append(msgs, " ", sqlText)
+			}
+		}
+		if requestErr == "" {
+			defaultLog.Info(msgs...)
+		} else {
+			defaultLog.Warn(msgs...)
 		}
 
 		if collector != nil {
@@ -40,8 +55,8 @@ func (s *HttpServer) handleData(c *gin.Context) {
 			if requestErr == "" {
 				measure.AddField(metric.Field{
 					Name:  "latency",
-					Value: float64(latency.Microseconds()),
-					Type:  metric.HistogramType(metric.UnitDuration, 100, 0.5, 0.9, 0.99),
+					Value: float64(latency.Nanoseconds()),
+					Type:  metric.HistogramType(metric.UnitDuration),
 				})
 			} else {
 				measure.AddField(metric.Field{
@@ -227,10 +242,13 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 		}()
 	}
 
-	if defaultLog.DebugEnabled() {
-		defaultLog.Debugf("SQL: %s; %v", sb.String(), args)
-	}
-	rows, err := conn.Query(c, sb.String(), args...)
+	sqlText := sb.String()
+
+	// set SQL on the context for logging
+	c.Set("SQL", fmt.Sprintf("%s; %v", sqlText, args))
+
+	// execute the SQL
+	rows, err := conn.Query(c, sqlText, args...)
 	if err != nil {
 		defaultLog.Errorf("Failed to query database: %v", err)
 		c.JSON(http.StatusInternalServerError, ApiErrorServer)
@@ -354,11 +372,13 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 		}()
 	}
 
-	if defaultLog.DebugEnabled() {
-		defaultLog.Debugf("SQL: %s; %v", sb.String(), args)
-	}
+	sqlText := sb.String()
 
-	rows, err := conn.Query(c, sb.String(), args...)
+	// set SQL on the context for logging
+	c.Set("SQL", fmt.Sprintf("%s; %v", sqlText, args))
+
+	// execute the SQL
+	rows, err := conn.Query(c, sqlText, args...)
 	if err != nil {
 		defaultLog.Errorf("Failed to query database: %v", err)
 		c.JSON(http.StatusInternalServerError, ApiErrorServer)

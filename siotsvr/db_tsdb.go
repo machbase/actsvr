@@ -186,8 +186,8 @@ func (s *HttpServer) loopRawPacket() {
 			if insertErr == nil {
 				measure.AddField(metric.Field{
 					Name:  "insert_latency",
-					Value: float64(insertLatency.Microseconds()),
-					Type:  metric.HistogramType(metric.UnitDuration, 100, 0.5, 0.9, 0.99),
+					Value: float64(insertLatency.Nanoseconds()),
+					Type:  metric.HistogramType(metric.UnitDuration),
 				})
 			} else {
 				measure.AddField(metric.Field{
@@ -251,8 +251,8 @@ func (s *HttpServer) loopErrPacket() {
 			if insertErr == nil {
 				measure.AddField(metric.Field{
 					Name:  "insert_latency",
-					Value: float64(insertLatency.Microseconds()),
-					Type:  metric.HistogramType(metric.UnitDuration, 100, 0.5, 0.9, 0.99),
+					Value: float64(insertLatency.Nanoseconds()),
+					Type:  metric.HistogramType(metric.UnitDuration),
 				})
 			} else {
 				measure.AddField(metric.Field{
@@ -327,8 +327,8 @@ func (s *HttpServer) loopParsPacket() {
 			if insertErr == nil {
 				measure.AddField(metric.Field{
 					Name:  "insert_latency",
-					Value: float64(latency.Microseconds()),
-					Type:  metric.HistogramType(metric.UnitDuration, 100, 0.5, 0.9, 0.99),
+					Value: float64(latency.Nanoseconds()),
+					Type:  metric.HistogramType(metric.UnitDuration),
 				})
 			} else {
 				measure.AddField(metric.Field{
@@ -434,8 +434,8 @@ func (s *HttpServer) loopReplicaRawPacket() {
 				if insertErr == nil {
 					measure.AddField(metric.Field{
 						Name:  "insert_latency",
-						Value: float64(latency.Microseconds()),
-						Type:  metric.HistogramType(metric.UnitDuration, 100, 0.5, 0.9, 0.99),
+						Value: float64(latency.Nanoseconds()),
+						Type:  metric.HistogramType(metric.UnitDuration),
 					})
 				} else {
 					measure.AddField(metric.Field{
@@ -599,8 +599,8 @@ func (s *HttpServer) loopReplicaParsPacket() {
 				if insertErr == nil {
 					measure.AddField(metric.Field{
 						Name:  "insert_latency",
-						Value: float64(latency.Microseconds()),
-						Type:  metric.HistogramType(metric.UnitDuration, 100, 0.5, 0.9, 0.99),
+						Value: float64(latency.Nanoseconds()),
+						Type:  metric.HistogramType(metric.UnitDuration),
 					})
 				} else {
 					measure.AddField(metric.Field{

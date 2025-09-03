@@ -18,11 +18,12 @@ var collector *metric.Collector
 func Collector() *metric.Collector {
 	if collector == nil {
 		collector = metric.NewCollector(
-			metric.WithCollectInterval(1*time.Second),
-			metric.WithSeriesListener("30m", 10*time.Second, 180, onProduct),
-			metric.WithExpvarPrefix("metrics"),
-			metric.WithReceiverSize(100),
+			metric.WithInterval(1*time.Second),
+			metric.WithSeries("30m", 10*time.Second, 180),
+			metric.WithPrefix("metrics"),
+			metric.WithInputBuffer(100),
 		)
+		collector.AddOutputFunc(onProduct)
 		collector.AddInputFunc(func() (metric.Measurement, error) {
 			m := metric.Measurement{Name: "runtime"}
 
@@ -47,10 +48,10 @@ func Collector() *metric.Collector {
 	return collector
 }
 
-func onProduct(pd metric.ProductData) {
+func onProduct(pd metric.Product) {
 	var result []any
 	switch p := pd.Value.(type) {
-	case *metric.CounterProduct:
+	case *metric.CounterValue:
 		if p.Samples == 0 {
 			return // Skip zero counters
 		}
@@ -61,7 +62,7 @@ func onProduct(pd metric.ProductData) {
 				"VALUE": p.Value,
 			},
 		}
-	case *metric.GaugeProduct:
+	case *metric.GaugeValue:
 		if p.Samples == 0 {
 			return // Skip zero gauges
 		}
@@ -72,23 +73,49 @@ func onProduct(pd metric.ProductData) {
 				"VALUE": p.Value,
 			},
 		}
-	case *metric.MeterProduct:
+	case *metric.MeterValue:
 		if p.Samples == 0 {
 			return // Skip zero meters
 		}
 		result = []any{
+			map[string]any{
+				"NAME":  fmt.Sprintf("metrics:%s:%s:avg", pd.Measure, pd.Field),
+				"TIME":  pd.Time.UnixNano(),
+				"VALUE": p.Sum / float64(p.Samples),
+			},
 			map[string]any{
 				"NAME":  fmt.Sprintf("metrics:%s:%s:max", pd.Measure, pd.Field),
 				"TIME":  pd.Time.UnixNano(),
 				"VALUE": p.Max,
 			},
 			map[string]any{
-				"NAME":  fmt.Sprintf("metrics:%s:%s:avg", pd.Measure, pd.Field),
+				"NAME":  fmt.Sprintf("metrics:%s:%s:min", pd.Measure, pd.Field),
 				"TIME":  pd.Time.UnixNano(),
-				"VALUE": p.Sum / float64(p.Samples),
+				"VALUE": p.Min,
 			},
 		}
-	case *metric.HistogramProduct:
+	case *metric.TimerValue:
+		if p.Samples == 0 {
+			return // Skip zero timers
+		}
+		result = []any{
+			map[string]any{
+				"NAME":  fmt.Sprintf("metrics:%s:%s:avg", pd.Measure, pd.Field),
+				"TIME":  pd.Time.UnixNano(),
+				"VALUE": int64(p.SumDuration) / p.Samples,
+			},
+			map[string]any{
+				"NAME":  fmt.Sprintf("metrics:%s:%s:max", pd.Measure, pd.Field),
+				"TIME":  pd.Time.UnixNano(),
+				"VALUE": p.MaxDuration,
+			},
+			map[string]any{
+				"NAME":  fmt.Sprintf("metrics:%s:%s:min", pd.Measure, pd.Field),
+				"TIME":  pd.Time.UnixNano(),
+				"VALUE": p.MinDuration,
+			},
+		}
+	case *metric.HistogramValue:
 		if p.Samples == 0 {
 			return // Skip zero meters
 		}
@@ -151,21 +178,12 @@ func CollectorMiddleware(c *gin.Context) {
 	measure.AddField(metric.Field{
 		Name:  "latency",
 		Value: float64(latency.Nanoseconds()),
-		Type:  metric.HistogramType(metric.UnitDuration, 100, 0.5, 0.9, 0.99),
+		Type:  metric.HistogramType(metric.UnitDuration),
 	})
-	statusCat := ""
-	switch sc := c.Writer.Status(); {
-	case sc >= 100 && sc < 200:
-		statusCat = "status_1xx"
-	case sc >= 200 && sc < 300:
-		statusCat = "status_2xx"
-	case sc >= 300 && sc < 400:
-		statusCat = "status_3xx"
-	case sc >= 400 && sc < 500:
-		statusCat = "status_4xx"
-	case sc >= 500:
-		statusCat = "status_5xx"
-	}
-	measure.AddField(metric.Field{Name: statusCat, Value: 1, Type: metric.CounterType(metric.UnitShort)})
+	measure.AddField(metric.Field{
+		Name:  fmt.Sprintf("status_%dxx", c.Writer.Status()/100),
+		Value: 1,
+		Type:  metric.CounterType(metric.UnitShort),
+	})
 	collector.Send(measure)
 }
