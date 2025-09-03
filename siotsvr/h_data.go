@@ -360,10 +360,11 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 			if packetDataArrivalTime.Time.After(arrivalTime) {
 				return
 			}
-			// TODO: 시험을 위해 time을 update 하지 않음
-			// 실제 운영시에는 주석 해제 필요
-			//
-			// packetDataArrivalTime.Time = arrivalTime
+			if disableUpdateArrivalTime {
+				// 시험을 위해 time을 update 하지 않음
+			} else {
+				packetDataArrivalTime.Time = arrivalTime
+			}
 			packetDataArrivalTime.Save()
 			if log := DefaultLog(); log != nil && log.InfoEnabled() {
 				log.Infof("last arrival time for packet data: %s",

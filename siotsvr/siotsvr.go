@@ -24,6 +24,7 @@ var arrivalTimeDir string = "."
 var arrivalQueryLimit int = 1000
 var DefaultTZ *time.Location
 var statTagTable string = "TAG"
+var disableUpdateArrivalTime = false
 
 const MaskingStrValue = "***"
 
@@ -58,6 +59,7 @@ func Main() int {
 	flag.StringVar(&machConfig.dbPass, "db-pass", machConfig.dbPass, "Database password")
 	flag.StringVar(&arrivalTimeDir, "last-dir", arrivalTimeDir, "the directory to store arrival time files")
 	flag.IntVar(&arrivalQueryLimit, "last-limit", arrivalQueryLimit, "the maximum number of rows to query for arrival time update")
+	flag.BoolVar(&disableUpdateArrivalTime, "last-no-update", disableUpdateArrivalTime, "disable updating arrival time files")
 
 	// RDB configuration
 	flag.StringVar(&rdbConfig.host, "rdb-host", rdbConfig.host, "RDB host")
