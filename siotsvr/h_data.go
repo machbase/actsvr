@@ -230,11 +230,12 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 			if parsDataArrivalTime.Time.After(arrivalTime) {
 				return
 			}
-			// TODO: 시험을 위해 time을 update 하지 않음
-			// 실제 운영시에는 주석 해제 필요
-			//
-			//parsDataArrivalTime.Time = arrivalTime
-			parsDataArrivalTime.Save()
+			if disableUpdateArrivalTime {
+				// 시험을 위해 time을 update 하지 않음
+			} else {
+				parsDataArrivalTime.Time = arrivalTime
+				parsDataArrivalTime.Save()
+			}
 			if log := DefaultLog(); log != nil && log.InfoEnabled() {
 				log.Infof("last arrival time for pars data: %s",
 					parsDataArrivalTime.Time.In(DefaultTZ).Format("2006-01-02 15:04:05.000000000"))
@@ -364,8 +365,8 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 				// 시험을 위해 time을 update 하지 않음
 			} else {
 				packetDataArrivalTime.Time = arrivalTime
+				packetDataArrivalTime.Save()
 			}
-			packetDataArrivalTime.Save()
 			if log := DefaultLog(); log != nil && log.InfoEnabled() {
 				log.Infof("last arrival time for packet data: %s",
 					packetDataArrivalTime.Time.In(DefaultTZ).Format("2006-01-02 15:04:05.000000000"))

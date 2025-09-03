@@ -32,6 +32,7 @@ exec /data/app/machbase/siotsvr \
 - `-rdb-host`, `-rdb-port`, `-rdb-user`, `-rdb-pass`, `-rdb-db` maria db 연결 정보
 - `-last-dir` 마지막 arrival time을 기록하는 파일을 저장할 디렉터리 경로
 - `-last-limit` arrival time 기준으로 조회할 때 query limit (0일 경우 무제한, 디폴트 1000)
+- `-last-no-update` 이 옵션을 사용하면 마지막 arrival time을 갱신하지 않는다 (시험하는 동안 update하지 않도록 만든다)
 - `-log-max-backups` 로그파일 rotation limit
 - `-log-verbose` 0: 디폴트 (warning, error 만 기록)  1: info 이상 기록, 2: 모든 로그 기록
 - `-log-filename` 로그 경로와 파일명

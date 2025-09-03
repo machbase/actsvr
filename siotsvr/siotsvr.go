@@ -57,6 +57,8 @@ func Main() int {
 	flag.IntVar(&machConfig.dbPort, "db-port", machConfig.dbPort, "Database port")
 	flag.StringVar(&machConfig.dbUser, "db-user", machConfig.dbUser, "Database user")
 	flag.StringVar(&machConfig.dbPass, "db-pass", machConfig.dbPass, "Database password")
+
+	// Arrival time configuration
 	flag.StringVar(&arrivalTimeDir, "last-dir", arrivalTimeDir, "the directory to store arrival time files")
 	flag.IntVar(&arrivalQueryLimit, "last-limit", arrivalQueryLimit, "the maximum number of rows to query for arrival time update")
 	flag.BoolVar(&disableUpdateArrivalTime, "last-no-update", disableUpdateArrivalTime, "disable updating arrival time files")
