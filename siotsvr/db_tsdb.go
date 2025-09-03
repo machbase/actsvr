@@ -737,7 +737,7 @@ func (s *HttpServer) loopStatData() {
 		if data == nil {
 			break
 		}
-		name := fmt.Sprintf("stat:%d:%d:nrow", data.orgId, data.tsn)
+		name := fmt.Sprintf("stat:nrow:%d:%d", data.orgId, data.tsn)
 		ts := time.Now()
 		value := data.nrow
 		result := conn.Exec(ctx, sqlText, name, ts, value)

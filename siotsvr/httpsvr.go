@@ -262,7 +262,7 @@ func (s *HttpServer) loadStatNames(ctx context.Context) ([]string, error) {
 	}
 	defer conn.Close()
 
-	rows, err := conn.Query(ctx, fmt.Sprintf("SELECT NAME FROM _%s_META WHERE NAME LIKE 'stat:%%'", statTagTable))
+	rows, err := conn.Query(ctx, fmt.Sprintf("SELECT NAME FROM _%s_META WHERE NAME LIKE 'stat:nrow:%%'", statTagTable))
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +321,7 @@ FROM (
 GROUP BY DATE`, statTagTable)
 
 	c.Header("Content-Type", "text/csv")
-	c.Writer.WriteString("name,date,count,records\n")
+	c.Writer.WriteString("org,tsn,date,count,records\n")
 	for _, name := range names {
 		result := conn.QueryRow(c, sqlText, beginTime.UnixNano(), endTime.UnixNano(), name)
 		if err := result.Err(); err != nil {
@@ -338,8 +338,12 @@ GROUP BY DATE`, statTagTable)
 			c.String(http.StatusInternalServerError, "Failed to scan row: %v", err)
 			return
 		}
-
-		c.Writer.WriteString(fmt.Sprintf("%s,%s,%d,%s\n", name, date, count, value))
+		parts := strings.SplitN(strings.TrimPrefix(name, "stat:nrow:"), ":", 2)
+		if len(parts) == 2 {
+			c.Writer.WriteString(fmt.Sprintf("%s,%s,%s,%d,%s\n", parts[0], parts[1], date, count, value))
+		} else {
+			defaultLog.Warnf("Invalid stat name format: %s", name)
+		}
 	}
 	c.Writer.WriteString("\n")
 }
