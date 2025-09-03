@@ -145,6 +145,7 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 	r.GET("/static/", gin.WrapF(http.FileServerFS(htmlFS).ServeHTTP))
 	r.GET("/db/admin/log", s.handleAdminLog)
 	r.GET("/db/admin/reload", s.handleAdminReload)
+	r.GET("/db/admin/stat/:begin_date/:end_date", s.handleAdminStat)
 	r.GET("/db/admin/replica", s.handleAdminReplica)
 	r.Any("/debug/pprof/*path", gin.WrapF(pprof.Index))
 	r.Use(CollectorMiddleware)
@@ -252,6 +253,94 @@ func (s *HttpServer) handleAdminReplica(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"rows": replicaRowsPerRun,
 	})
+}
+
+func (s *HttpServer) loadStatNames(ctx context.Context) ([]string, error) {
+	conn, err := s.openConn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	rows, err := conn.Query(ctx, fmt.Sprintf("SELECT NAME FROM _%s_META WHERE NAME LIKE 'stat:%%'", statTagTable))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var names []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		names = append(names, name)
+	}
+	return names, nil
+}
+
+func (s *HttpServer) handleAdminStat(c *gin.Context) {
+	beginDateStr := c.Query("begin_date")
+	endDateStr := c.Query("end_date")
+
+	beginTime, err := time.ParseInLocation("20060102", beginDateStr, DefaultTZ)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ApiErrorInvalidParameters)
+		return
+	}
+	endTime, err := time.ParseInLocation("20060102", endDateStr, DefaultTZ)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ApiErrorInvalidParameters)
+		return
+	}
+
+	names, err := s.loadStatNames(c)
+	if err != nil {
+		defaultLog.Errorf("Failed to load stat names: %v", err)
+		c.String(http.StatusInternalServerError, "Failed to load stat names: %v", err)
+		return
+	}
+	conn, err := s.openConn(c)
+	if err != nil {
+		defaultLog.Errorf("Failed to open DB connection: %v", err)
+		c.String(http.StatusInternalServerError, "Failed to open DB connection: %v", err)
+		return
+	}
+	defer conn.Close()
+
+	sqlText := fmt.Sprintf(`SELECT DATE_TRUNC('day', TIME, 1) TIME, COUNT(*) CNT, SUM(VALUE) VALUE
+FROM (
+    SELECT
+        TIME, VALUE
+    FROM
+        %s
+    WHERE TIME >= ? AND TIME <= ? AND NAME = ?
+)
+GROUP BY TIME`, statTagTable)
+
+	c.Header("Content-Type", "text/csv")
+	c.Writer.WriteString("name,date,count,value\n")
+	for _, name := range names {
+		result := conn.QueryRow(c, sqlText, beginTime.UnixNano(), endTime.UnixNano(), name)
+		if err := result.Err(); err != nil {
+			defaultLog.Errorf("Failed to execute query: %v", err)
+			c.String(http.StatusInternalServerError, "Failed to execute query: %v", err)
+			return
+		}
+
+		var time time.Time
+		var count int64
+		var value string
+		if err := result.Scan(&time, &count, &value); err != nil {
+			defaultLog.Errorf("Failed to scan row: %v", err)
+			c.String(http.StatusInternalServerError, "Failed to scan row: %v", err)
+			return
+		}
+
+		name = strings.TrimPrefix(name, "stat:")
+		c.Writer.WriteString(fmt.Sprintf("%s,%s,%d,%s\n", name, time.Format("20060102"), count, value))
+	}
+	c.Writer.WriteString("\n")
 }
 
 type ApiResult struct {

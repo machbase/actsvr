@@ -31,7 +31,7 @@ func (s *HttpServer) handleData(c *gin.Context) {
 		if c.Request.URL.RawQuery != "" {
 			req += "?" + c.Request.URL.RawQuery
 		}
-		reply := fmt.Sprintf("%s org:%d tsn:%d nrow:%d", orgName, orgId, tsn, nrow)
+		reply := fmt.Sprintf("%q org:%d tsn:%d nrow:%d", orgName, orgId, tsn, nrow)
 		if requestErr != "" {
 			reply = requestErr
 		}

@@ -223,13 +223,18 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) (*ParsedPacketData, err
 	// split packet into values
 	values := make([]string, len(definition.Fields))
 	for i, field := range definition.Fields {
+		// debug packet parsing
+		if defaultLog.DebugEnabled() {
+			defaultLog.Debugf("%d %d[%d] %s %s: %d %q => %s",
+				data.PacketSeq, definition.PacketMasterSeq, i, field.PacketSeCode, field.PacketName, field.PacketByte, packet[0:field.PacketByte], packet)
+		}
+
 		val := strings.TrimSpace(packet[0:field.PacketByte])
-		// remove padding
-		val = removeLeadingZeros(val)
+		packet = packet[field.PacketByte:]
 		// validation
 		switch field.RuleType {
 		case "VAL_ITV":
-			v, err := strconv.ParseFloat(val, 64) // just check if it's numeric
+			v, err := strconv.ParseFloat(removeLeadingZeros(val), 64) // just check if it's numeric
 			if err != nil {
 				return nil, &ValidateError{
 					TransmitServerNo: data.TrnsmitServerNo,
@@ -261,7 +266,6 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) (*ParsedPacketData, err
 			}
 		}
 		values[i] = val
-		packet = packet[field.PacketByte:]
 	}
 
 	// log packet parsing
