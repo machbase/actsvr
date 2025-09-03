@@ -158,9 +158,13 @@ func removeLeadingZeros(s string) string {
 		trimmed := s
 		switch s[0] {
 		case 'x':
-			trimmed = strings.TrimPrefix(s, "x")
+			for len(trimmed) > 0 && trimmed[0] == 'x' {
+				trimmed = strings.TrimPrefix(trimmed, "x")
+			}
 		case 'X':
-			trimmed = strings.TrimPrefix(s, "X")
+			for len(trimmed) > 0 && trimmed[0] == 'X' {
+				trimmed = strings.TrimPrefix(trimmed, "X")
+			}
 		}
 		if trimmed == "" {
 			return ""
@@ -169,7 +173,11 @@ func removeLeadingZeros(s string) string {
 
 	// If the string is not numeric, return it as is
 	if !numericRegex.MatchString(s) {
-		return strings.TrimPrefix(s, "0")
+		trimmed := s
+		for len(trimmed) > 0 && trimmed[0] == '0' {
+			trimmed = strings.TrimPrefix(trimmed, "0")
+		}
+		return trimmed
 	}
 
 	// Separate sign (for handling negative/positive numbers)
@@ -230,10 +238,10 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) (*ParsedPacketData, err
 	values := make([]string, len(definition.Fields))
 	for i, field := range definition.Fields {
 		// debug packet parsing
-		if defaultLog.DebugEnabled() {
-			defaultLog.Debugf("%d %d[%d] %s %s: %d %q => %s",
-				data.PacketSeq, definition.PacketMasterSeq, i, field.PacketSeCode, field.PacketName, field.PacketByte, packet[0:field.PacketByte], packet)
-		}
+		// if defaultLog.DebugEnabled() {
+		// 	defaultLog.Debugf("%d %d[%d] %s %s: %d %q => %s",
+		// 		data.PacketSeq, definition.PacketMasterSeq, i, field.PacketSeCode, field.PacketName, field.PacketByte, packet[0:field.PacketByte], packet)
+		// }
 
 		val := strings.TrimSpace(packet[0:field.PacketByte])
 		packet = packet[field.PacketByte:]

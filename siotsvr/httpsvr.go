@@ -280,8 +280,8 @@ func (s *HttpServer) loadStatNames(ctx context.Context) ([]string, error) {
 }
 
 func (s *HttpServer) handleAdminStat(c *gin.Context) {
-	beginDateStr := c.Param("begin_date")
-	endDateStr := c.Param("end_date")
+	beginDateStr := c.Param("begin_date") // inclusive
+	endDateStr := c.Param("end_date")     // exclusive
 
 	beginTime, err := time.ParseInLocation("20060102", beginDateStr, DefaultTZ)
 	if err != nil {
@@ -310,18 +310,18 @@ func (s *HttpServer) handleAdminStat(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	sqlText := fmt.Sprintf(`SELECT DATE_TRUNC('day', TIME, 1) TIME, COUNT(*) CNT, SUM(VALUE) VALUE
+	sqlText := fmt.Sprintf(`SELECT TO_CHAR(DATE_TRUNC('day', TIME, 1), 'YYYYMMDD') DATE, COUNT(*) CNT, SUM(VALUE) RECS
 FROM (
     SELECT
         TIME, VALUE
     FROM
         %s
-    WHERE TIME >= ? AND TIME <= ? AND NAME = ?
+    WHERE TIME >= ? AND TIME < ? AND NAME = ?
 )
-GROUP BY TIME`, statTagTable)
+GROUP BY DATE`, statTagTable)
 
 	c.Header("Content-Type", "text/csv")
-	c.Writer.WriteString("name,date,count,value\n")
+	c.Writer.WriteString("name,date,count,records\n")
 	for _, name := range names {
 		result := conn.QueryRow(c, sqlText, beginTime.UnixNano(), endTime.UnixNano(), name)
 		if err := result.Err(); err != nil {
@@ -330,17 +330,16 @@ GROUP BY TIME`, statTagTable)
 			return
 		}
 
-		var time time.Time
+		var date string
 		var count int64
 		var value string
-		if err := result.Scan(&time, &count, &value); err != nil {
+		if err := result.Scan(&date, &count, &value); err != nil {
 			defaultLog.Errorf("Failed to scan row: %v", err)
 			c.String(http.StatusInternalServerError, "Failed to scan row: %v", err)
 			return
 		}
 
-		name = strings.TrimPrefix(name, "stat:")
-		c.Writer.WriteString(fmt.Sprintf("%s,%s,%d,%s\n", name, time.Format("20060102"), count, value))
+		c.Writer.WriteString(fmt.Sprintf("%s,%s,%d,%s\n", name, date, count, value))
 	}
 	c.Writer.WriteString("\n")
 }
