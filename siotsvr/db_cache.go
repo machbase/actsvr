@@ -5,8 +5,12 @@ import (
 	"sync"
 )
 
-var cacheCertKeys map[string]*Certkey // key: crtfc_key
+const KEY_STATUS_OK = "10"
+
+var cacheCertKeys map[string]*CertKey // key: crtfc_key
 var cacheCertKeysMutex sync.RWMutex
+var cacheOrgKeys map[string]*OrgKey // key: crtfc_key
+var cacheOrgKeysMutex sync.RWMutex
 var cachePacketDefinition map[string]*PacketDefinition // key: trnsmit_server_no
 var cachePacketDefinitionMutex sync.RWMutex
 var cacheModelAreaCode map[string]string // key: {{model_serial}}_{{tsn}}_{{data_no}}, value: area_code
@@ -96,7 +100,7 @@ type PacketFieldDefinition struct {
 	Dqm             bool
 }
 
-func reloadCertkey() error {
+func reloadCertKey() error {
 	rdb, err := rdbConfig.Connect()
 	if err != nil {
 		return fmt.Errorf("failed to open RDB connection: %w", err)
@@ -105,15 +109,18 @@ func reloadCertkey() error {
 	if err := rdb.Ping(); err != nil {
 		return fmt.Errorf("failed to ping RDB: %w", err)
 	}
-	lst := map[string]*Certkey{}
-	err = SelectCertkey(rdb, func(certkey *Certkey) bool {
+	lst := map[string]*CertKey{}
+	err = SelectCertKey(rdb, func(certkey *CertKey) bool {
+		if !certkey.SttusCode.Valid || certkey.SttusCode.String != KEY_STATUS_OK {
+			return true
+		}
 		if certkey.CrtfcKey.Valid {
 			lst[certkey.CrtfcKey.String] = certkey
 		}
 		return true // Continue processing other records
 	})
 	if err != nil {
-		return fmt.Errorf("failed to initialize Certkey: %w", err)
+		return fmt.Errorf("failed to initialize CertKey: %w", err)
 	}
 	cacheCertKeysMutex.Lock()
 	cacheCertKeys = lst
@@ -122,7 +129,7 @@ func reloadCertkey() error {
 	return nil
 }
 
-func getCertKey(certkey string) (*Certkey, error) {
+func getCertKey(certkey string) (*CertKey, error) {
 	cacheCertKeysMutex.RLock()
 	defer cacheCertKeysMutex.RUnlock()
 	if cacheCertKeys == nil {
@@ -131,6 +138,48 @@ func getCertKey(certkey string) (*Certkey, error) {
 	key, exists := cacheCertKeys[certkey]
 	if !exists {
 		return nil, fmt.Errorf("unknown certificate key: %q", certkey)
+	}
+	return key, nil
+}
+
+func reloadOrgKey() error {
+	rdb, err := rdbConfig.Connect()
+	if err != nil {
+		return fmt.Errorf("failed to open RDB connection: %w", err)
+	}
+	defer rdb.Close()
+	if err := rdb.Ping(); err != nil {
+		return fmt.Errorf("failed to ping RDB: %w", err)
+	}
+	lst := map[string]*OrgKey{}
+	err = SelectOrgKey(rdb, func(orgkey *OrgKey) bool {
+		if !orgkey.SttusCode.Valid || orgkey.SttusCode.String != KEY_STATUS_OK {
+			return true
+		}
+		if orgkey.CrtfcKey.Valid {
+			lst[orgkey.CrtfcKey.String] = orgkey
+		}
+		return true // Continue processing other records
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize OrgKey: %w", err)
+	}
+	cacheOrgKeysMutex.Lock()
+	cacheOrgKeys = lst
+	defaultLog.Infof("Loaded %d org keys", len(lst))
+	cacheOrgKeysMutex.Unlock()
+	return nil
+}
+
+func getOrgKey(certkey string) (*OrgKey, error) {
+	cacheOrgKeysMutex.RLock()
+	defer cacheOrgKeysMutex.RUnlock()
+	if cacheOrgKeys == nil {
+		return nil, fmt.Errorf("org keys not loaded")
+	}
+	key, exists := cacheOrgKeys[certkey]
+	if !exists {
+		return nil, fmt.Errorf("unknown org key: %q", certkey)
 	}
 	return key, nil
 }

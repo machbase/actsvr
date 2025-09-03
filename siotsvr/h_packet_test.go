@@ -18,7 +18,7 @@ func TestPacketSend(t *testing.T) {
 	nowFunc = func() time.Time {
 		return time.Unix(0, 1755129018971253000)
 	}
-	if err := reloadCertkey(); err != nil {
+	if err := reloadCertKey(); err != nil {
 		t.Fatalf("Failed to reload cert key: %v", err)
 	}
 	if err := reloadPacketDefinition(); err != nil {
@@ -102,7 +102,7 @@ func TestPacketSend(t *testing.T) {
 func TestPacketSendCases(t *testing.T) {
 	defaultLog = DefaultLog()
 	defaultLog.SetVerbose(2)
-	if err := reloadCertkey(); err != nil {
+	if err := reloadCertKey(); err != nil {
 		t.Fatalf("Failed to reload cert key: %v", err)
 	}
 	if err := reloadPacketDefinition(); err != nil {

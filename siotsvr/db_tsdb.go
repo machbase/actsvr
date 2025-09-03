@@ -717,3 +717,34 @@ type ReplicaParsPacketData struct {
 	Column62        string
 	Column63        string
 }
+
+type StatDatum struct {
+	orgId int64
+	tsn   int64
+	nrow  int
+}
+
+func (s *HttpServer) loopStatData() {
+	ctx := context.Background()
+	conn, err := s.openConn(ctx)
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+
+	sqlText := fmt.Sprintf("INSERT INTO %s (NAME, TIME, VALUE) VALUES (?, ?, ?)", statTagTable)
+	for data := range s.statCh {
+		if data == nil {
+			break
+		}
+		name := fmt.Sprintf("stat:%d:%d:nrow", data.orgId, data.tsn)
+		ts := time.Now()
+		value := data.nrow
+		result := conn.Exec(ctx, sqlText, name, ts, value)
+		insertErr := result.Err()
+		if insertErr != nil {
+			s.log.Error("Failed to insert StatData:", insertErr)
+			continue
+		}
+	}
+}

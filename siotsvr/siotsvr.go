@@ -23,6 +23,7 @@ var parsDataArrivalTime = &LastArrivalTime{Name: "last_pars"}
 var arrivalTimeDir string = "."
 var arrivalQueryLimit int = 1000
 var DefaultTZ *time.Location
+var statTagTable string = "TAG"
 
 const MaskingStrValue = "***"
 

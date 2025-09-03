@@ -32,6 +32,7 @@ type HttpServer struct {
 	rawPacketCh  chan *RawPacketData
 	errPacketCh  chan *RawPacketData
 	parsPacketCh chan *ParsedPacketData
+	statCh       chan *StatDatum
 
 	replicaAlive bool
 	replicaWg    sync.WaitGroup
@@ -45,6 +46,7 @@ func NewHttpServer() *HttpServer {
 		rawPacketCh:  make(chan *RawPacketData),
 		errPacketCh:  make(chan *RawPacketData),
 		parsPacketCh: make(chan *ParsedPacketData),
+		statCh:       make(chan *StatDatum),
 		replicaAlive: true,
 	}
 }
@@ -54,7 +56,10 @@ func (s *HttpServer) Start(ctx context.Context) error {
 	if err := reloadPoiData(); err != nil {
 		return err
 	}
-	if err := reloadCertkey(); err != nil {
+	if err := reloadCertKey(); err != nil {
+		return err
+	}
+	if err := reloadOrgKey(); err != nil {
 		return err
 	}
 	if err := reloadPacketDefinition(); err != nil {
@@ -75,6 +80,7 @@ func (s *HttpServer) Start(ctx context.Context) error {
 	go s.loopRawPacket()
 	go s.loopErrPacket()
 	go s.loopParsPacket()
+	go s.loopStatData()
 	go s.loopReplicaRawPacket()
 	go s.loopReplicaParsPacket()
 
@@ -100,6 +106,7 @@ func (s *HttpServer) Stop(ctx context.Context) (err error) {
 	s.closeDatabase()
 	close(s.parsPacketCh)
 	close(s.rawPacketCh)
+	close(s.statCh)
 	s.log.Infof("Stopping HTTP server on %s:%d", s.Host, s.Port)
 	return
 }
@@ -186,7 +193,9 @@ func (s *HttpServer) handleAdminReload(c *gin.Context) {
 	case "poi":
 		err = reloadPoiData()
 	case "certkey":
-		err = reloadCertkey()
+		err = reloadCertKey()
+	case "orgkey":
+		err = reloadOrgKey()
 	case "model":
 		err = reloadPacketDefinition()
 	case "model_areacode":

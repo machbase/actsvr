@@ -169,7 +169,7 @@ func SelectModelPacketDetail(db *sql.DB, masterSeq int64, callback func(*ModelPa
 	return nil
 }
 
-type Certkey struct {
+type CertKey struct {
 	CertkeySeq      int64          `sql:"certkey_seq"` // primary key
 	TrnsmitServerNo sql.NullInt64  `sql:"trnsmit_server_no"`
 	CrtfcKey        sql.NullString `sql:"crtfc_key"`
@@ -182,7 +182,7 @@ type Certkey struct {
 	UpdtDt          sql.NullTime   `sql:"updt_dt"`
 }
 
-func SelectCertkey(db *sql.DB, callback func(*Certkey) bool) error {
+func SelectCertKey(db *sql.DB, callback func(*CertKey) bool) error {
 	rows, err := db.Query(`SELECT
 		CERTKEY_SEQ,
 		TRNSMIT_SERVER_NO,
@@ -201,13 +201,86 @@ func SelectCertkey(db *sql.DB, callback func(*Certkey) bool) error {
 	defer rows.Close()
 
 	for rows.Next() {
-		var ck Certkey
+		var ck CertKey
 		var BeginValidDe sql.NullString
 		var EndValidDe sql.NullString
 		err := rows.Scan(
 			&ck.CertkeySeq,
 			&ck.TrnsmitServerNo,
 			&ck.CrtfcKey,
+			&BeginValidDe,
+			&EndValidDe,
+			&ck.SttusCode,
+			&ck.RegisterNo,
+			&ck.RegistDt,
+			&ck.UpdusrNo,
+			&ck.UpdtDt)
+		if err != nil {
+			return err
+		}
+		if !BeginValidDe.Valid || !EndValidDe.Valid {
+			defaultLog.Warnf("CERTKEY invalid date range for CertkeySeq %d: BeginValidDe %v, EndValidDe %v", ck.CertkeySeq, BeginValidDe, EndValidDe)
+			continue
+		}
+		ck.BeginValidDe, err = stringToDate(BeginValidDe.String)
+		if err != nil {
+			defaultLog.Warnf("CERTKEY invalid BeginValidDe: %q, for CertkeySeq %d", BeginValidDe.String, ck.CertkeySeq)
+			continue
+		}
+		ck.EndValidDe, err = stringToDate(EndValidDe.String)
+		if err != nil {
+			defaultLog.Warnf("CERTKEY invalid EndValidDe: %q, for CertkeySeq %d", EndValidDe.String, ck.CertkeySeq)
+			continue
+		}
+		if !callback(&ck) {
+			break
+		}
+	}
+	return nil
+}
+
+type OrgKey struct {
+	CertkeySeq   int64          `sql:"certkey_seq"` // primary key
+	CrtfcKey     sql.NullString `sql:"crtfc_key"`
+	OrganName    string         `sql:"organ_nm"`
+	OrganCName   string         `sql:"organ_cn"`
+	BeginValidDe time.Time      `sql:"begin_valid_de"`
+	EndValidDe   time.Time      `sql:"end_valid_de"`
+	SttusCode    sql.NullString `sql:"sttus_code"`
+	RegisterNo   sql.NullString `sql:"register_no"`
+	RegistDt     sql.NullTime   `sql:"regist_dt"`
+	UpdusrNo     sql.NullString `sql:"updusr_no"`
+	UpdtDt       sql.NullTime   `sql:"updt_dt"`
+}
+
+func SelectOrgKey(db *sql.DB, callback func(*OrgKey) bool) error {
+	rows, err := db.Query(`SELECT
+		CERTKEY_SEQ,
+		CRTFC_KEY,
+		ORGAN_NM,
+		ORGAN_CN,
+		BEGIN_VALID_DE,
+		END_VALID_DE,
+		STTUS_CODE,
+		REGISTER_NO,
+		REGIST_DT,
+		UPDUSR_NO,
+		UPDT_DT
+	FROM TB_CERTKEY_INTEGRATION`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var ck OrgKey
+		var BeginValidDe sql.NullString
+		var EndValidDe sql.NullString
+		err := rows.Scan(
+			&ck.CertkeySeq,
+			&ck.CrtfcKey,
+			&ck.OrganName,
+			&ck.OrganCName,
 			&BeginValidDe,
 			&EndValidDe,
 			&ck.SttusCode,

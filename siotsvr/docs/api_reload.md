@@ -9,6 +9,12 @@ Reload Cache data from RDBMS
 GET http://127.0.0.1:5680/db/admin/reload?target=certkey
 ```
 
+### TB_CERTKEY_INTEGRATION
+
+```http
+GET http://127.0.0.1:5680/db/admin/reload?target=orgkey
+```
+
 ### TB_MODL_PACKET_MASTR and TB_MODL_PACKET_DETAIL
 
 ```http

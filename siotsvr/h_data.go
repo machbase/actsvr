@@ -16,15 +16,25 @@ import (
 func (s *HttpServer) handleData(c *gin.Context) {
 	tick := time.Now()
 	var requestErr string
-	nrow := 0
 	cancel := false
+	var nrow int = 0
+	var orgId int64 = -1
+	var orgName string = ""
+	var tsn int64 = -1
 	defer func() {
+		// Stat
+		if orgId > 0 && tsn > 0 && nrow > 0 {
+			s.statCh <- &StatDatum{orgId: orgId, tsn: tsn, nrow: nrow}
+		}
 		// Request의 패킷 정보를 로깅
 		req := c.Request.URL.Path
 		if c.Request.URL.RawQuery != "" {
 			req += "?" + c.Request.URL.RawQuery
 		}
-		reply := fmt.Sprintf("%d", nrow)
+		reply := fmt.Sprintf("%s org:%d tsn:%d nrow:%d", orgName, orgId, tsn, nrow)
+		if requestErr != "" {
+			reply = requestErr
+		}
 		if cancel {
 			reply += " (canceled)"
 		}
@@ -32,11 +42,7 @@ func (s *HttpServer) handleData(c *gin.Context) {
 		msgs := []any{
 			c.Writer.Status(),
 			" ", latency,
-		}
-		if requestErr == "" {
-			msgs = append(msgs, " ", reply)
-		} else {
-			msgs = append(msgs, " ", requestErr)
+			" ", reply,
 		}
 		msgs = append(msgs, " ", req)
 		if defaultLog.DebugEnabled() { // only with verbose log level
@@ -84,7 +90,6 @@ func (s *HttpServer) handleData(c *gin.Context) {
 
 	var isPars = isParsStr == "Y" || isParsStr == "y"
 
-	var tsn int64
 	var now = nowFunc().In(DefaultTZ)
 	if no, err := strconv.ParseInt(tsnStr, 10, 64); err != nil {
 		requestErr = "invalid_tsn"
@@ -93,25 +98,20 @@ func (s *HttpServer) handleData(c *gin.Context) {
 	} else {
 		tsn = no
 	}
-	if key, err := getCertKey(certkey); err != nil {
+	if key, err := getOrgKey(certkey); err != nil {
 		requestErr = "wrong_certkey"
 		c.JSON(http.StatusForbidden, ApiErrorInvalidCertkey)
 		return
 	} else {
-		if !key.TrnsmitServerNo.Valid {
-			requestErr = "certkey_tsn_invalid"
-			c.JSON(http.StatusForbidden, ApiErrorInvalidCertkey)
-			return
-		}
-		if key.TrnsmitServerNo.Int64 != tsn {
-			requestErr = "certkey_tsn_mismatch"
-			c.JSON(http.StatusForbidden, ApiErrorWrongCertkey)
-			return
-		}
 		if key.BeginValidDe.After(now) || key.EndValidDe.Before(now) {
 			requestErr = "certkey_expired"
 			c.JSON(http.StatusForbidden, ApiErrorExpiredCertkey)
 			return
+		}
+		orgId = key.CertkeySeq
+		orgName = key.OrganName
+		if key.OrganCName != "" {
+			orgName = orgName + "(" + key.OrganCName + ")"
 		}
 	}
 
