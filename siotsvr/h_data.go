@@ -109,9 +109,9 @@ func (s *HttpServer) handleData(c *gin.Context) {
 			return
 		}
 		orgId = key.CertkeySeq
-		orgName = key.OrganName
-		if key.OrganCName != "" {
-			orgName = orgName + "(" + key.OrganCName + ")"
+		orgName = key.OrgName
+		if key.OrgCName != "" {
+			orgName = orgName + "(" + key.OrgCName + ")"
 		}
 	}
 

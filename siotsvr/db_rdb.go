@@ -242,8 +242,8 @@ func SelectCertKey(db *sql.DB, callback func(*CertKey) bool) error {
 type OrgKey struct {
 	CertkeySeq   int64          `sql:"certkey_seq"` // primary key
 	CrtfcKey     sql.NullString `sql:"crtfc_key"`
-	OrganName    string         `sql:"organ_nm"`
-	OrganCName   string         `sql:"organ_cn"`
+	OrgName      string         `sql:"organ_nm"`
+	OrgCName     string         `sql:"organ_cn"`
 	BeginValidDe time.Time      `sql:"begin_valid_de"`
 	EndValidDe   time.Time      `sql:"end_valid_de"`
 	SttusCode    sql.NullString `sql:"sttus_code"`
@@ -276,11 +276,13 @@ func SelectOrgKey(db *sql.DB, callback func(*OrgKey) bool) error {
 		var ck OrgKey
 		var BeginValidDe sql.NullString
 		var EndValidDe sql.NullString
+		var OrgNm sql.NullString
+		var OrgCn sql.NullString
 		err := rows.Scan(
 			&ck.CertkeySeq,
 			&ck.CrtfcKey,
-			&ck.OrganName,
-			&ck.OrganCName,
+			&OrgNm,
+			&OrgCn,
 			&BeginValidDe,
 			&EndValidDe,
 			&ck.SttusCode,
@@ -304,6 +306,12 @@ func SelectOrgKey(db *sql.DB, callback func(*OrgKey) bool) error {
 		if err != nil {
 			defaultLog.Warnf("CERTKEY invalid EndValidDe: %q, for CertkeySeq %d", EndValidDe.String, ck.CertkeySeq)
 			continue
+		}
+		if OrgNm.Valid {
+			ck.OrgName = strings.TrimSpace(OrgNm.String)
+		}
+		if OrgCn.Valid {
+			ck.OrgCName = strings.TrimSpace(OrgCn.String)
 		}
 		if !callback(&ck) {
 			break
