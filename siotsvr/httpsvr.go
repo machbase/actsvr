@@ -280,16 +280,18 @@ func (s *HttpServer) loadStatNames(ctx context.Context) ([]string, error) {
 }
 
 func (s *HttpServer) handleAdminStat(c *gin.Context) {
-	beginDateStr := c.Query("begin_date")
-	endDateStr := c.Query("end_date")
+	beginDateStr := c.Param("begin_date")
+	endDateStr := c.Param("end_date")
 
 	beginTime, err := time.ParseInLocation("20060102", beginDateStr, DefaultTZ)
 	if err != nil {
+		defaultLog.Errorf("Invalid begin_date parameter: %v", err)
 		c.JSON(http.StatusBadRequest, ApiErrorInvalidParameters)
 		return
 	}
 	endTime, err := time.ParseInLocation("20060102", endDateStr, DefaultTZ)
 	if err != nil {
+		defaultLog.Errorf("Invalid end_date parameter: %v", err)
 		c.JSON(http.StatusBadRequest, ApiErrorInvalidParameters)
 		return
 	}

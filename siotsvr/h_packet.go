@@ -155,7 +155,13 @@ func removeLeadingZeros(s string) string {
 
 	// If the string contains only "x" or "X" (used as padding character)
 	if len(s) > 0 && (s[0] == 'x' || s[0] == 'X') {
-		trimmed := strings.Trim(s, "xX")
+		trimmed := s
+		switch s[0] {
+		case 'x':
+			trimmed = strings.TrimPrefix(s, "x")
+		case 'X':
+			trimmed = strings.TrimPrefix(s, "X")
+		}
 		if trimmed == "" {
 			return ""
 		}
@@ -163,7 +169,7 @@ func removeLeadingZeros(s string) string {
 
 	// If the string is not numeric, return it as is
 	if !numericRegex.MatchString(s) {
-		return s
+		return strings.TrimPrefix(s, "0")
 	}
 
 	// Separate sign (for handling negative/positive numbers)
@@ -231,10 +237,14 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) (*ParsedPacketData, err
 
 		val := strings.TrimSpace(packet[0:field.PacketByte])
 		packet = packet[field.PacketByte:]
+		if field.PacketSeCode != "H" {
+			// do not trim leading zeros if the field is "Header"
+			val = removeLeadingZeros(val)
+		}
 		// validation
 		switch field.RuleType {
 		case "VAL_ITV":
-			v, err := strconv.ParseFloat(removeLeadingZeros(val), 64) // just check if it's numeric
+			v, err := strconv.ParseFloat(val, 64) // just check if it's numeric
 			if err != nil {
 				return nil, &ValidateError{
 					TransmitServerNo: data.TrnsmitServerNo,
