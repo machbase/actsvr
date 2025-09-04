@@ -271,7 +271,8 @@ func (s *HttpServer) loadStatNames(ctx context.Context) ([]string, error) {
 	}
 	defer conn.Close()
 
-	rows, err := conn.Query(ctx, fmt.Sprintf("SELECT NAME FROM _%s_META WHERE NAME LIKE 'stat:nrow:%%'", statTagTable))
+	sqlText := fmt.Sprintf("SELECT NAME FROM _%s_META WHERE NAME LIKE 'stat:nrow:%%' ORDER BY NAME", statTagTable)
+	rows, err := conn.Query(ctx, sqlText)
 	if err != nil {
 		return nil, err
 	}
@@ -304,7 +305,7 @@ func (s *HttpServer) handleAdminStat(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, ApiErrorInvalidParameters)
 		return
 	}
-	endTime = endTime.Add(24 * time.Hour) // Make end date exclusive by adding one day
+	endTime = endTime.Add(24 * time.Hour) // Make end date inclusive by adding one day
 
 	names, err := s.loadStatNames(c)
 	if err != nil {
