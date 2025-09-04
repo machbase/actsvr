@@ -456,7 +456,7 @@ func SelectModelInstallInfo(db *sql.DB, callback func(*ModelInstallInfo, error) 
 		if err != nil {
 			return err
 		}
-
+		mi.ModlSerial = strings.ToUpper(mi.ModlSerial) // use upper cases
 		key := fmt.Sprintf("%s_%d_%d", mi.ModlSerial, mi.TrnsmitServerNo, mi.DataNo)
 		if la.Valid {
 			mi.La, err = strconv.ParseFloat(strings.TrimSpace(la.String), 64)
