@@ -37,10 +37,6 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	// Query params
 	dqmcrrOpStr := c.Query("DQMCRR_OP") // 100 | 200
 
-	// Model Serial of TB_MODL_INSTL_INFO
-	// should be compared in case-insentive ways
-	modelSerial = strings.ToUpper(modelSerial) // use upper cases
-
 	// Validate required parameters
 	if certkey == "" || pkSeqStr == "" || modelSerial == "" || packet == "" || dataNoStr == "" {
 		requestErr = "empty_params"

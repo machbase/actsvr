@@ -2,6 +2,7 @@ package siotsvr
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -44,7 +45,7 @@ func reloadModelAreaCode() error {
 		}
 		if info.AreaSeq.Valid {
 			if code, exists := areaCodes[info.AreaSeq.Int64]; exists {
-				key := fmt.Sprintf("%s_%d_%d", info.ModlSerial, info.TrnsmitServerNo, info.DataNo)
+				key := fmt.Sprintf("%s_%d_%d", strings.ToUpper(info.ModlSerial), info.TrnsmitServerNo, info.DataNo)
 				modelAreaCodes[key] = code
 			}
 		}
@@ -63,6 +64,10 @@ func getModelAreaCode(modlSerial string, tsn int64, dataNo int) (string, error) 
 	if cacheModelAreaCode == nil {
 		return "", fmt.Errorf("model area codes not loaded")
 	}
+	// Model Serial of TB_MODL_INSTL_INFO
+	// should be compared in case-insentive ways
+	modlSerial = strings.ToUpper(modlSerial) // use upper cases
+
 	key := fmt.Sprintf("%s_%d_%d", modlSerial, tsn, dataNo)
 	code, exists := cacheModelAreaCode[key]
 	if !exists {
