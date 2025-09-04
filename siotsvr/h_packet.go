@@ -249,6 +249,10 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) (*ParsedPacketData, err
 			// do not trim leading zeros if the field is "Header"
 			val = removeLeadingZeros(val)
 		}
+		if val == "" {
+			// If the value is empty(=NULL), do not apply validation
+			continue
+		}
 		// validation
 		switch field.RuleType {
 		case "VAL_ITV":

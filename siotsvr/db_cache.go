@@ -245,7 +245,8 @@ func reloadPacketDefinition() error {
 				field.DC = detail.DC.String
 			}
 			if detail.PublicYn.Valid {
-				field.Public = detail.PublicYn.String == "Y"
+				// Table "modl_packet_detail", PUBLIC_YN: E(공개), I(비공개)
+				field.Public = detail.PublicYn.String == "E"
 			}
 			if detail.DqmYn.Valid {
 				field.Dqm = detail.DqmYn.String == "Y"
