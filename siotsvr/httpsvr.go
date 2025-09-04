@@ -15,6 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/machbase/neo-server/v8/api/machcli"
+	"github.com/machbase/neo-server/v8/mods/util/metric"
 	"github.com/tochemey/goakt/v3/log"
 )
 
@@ -36,6 +37,8 @@ type HttpServer struct {
 
 	replicaAlive bool
 	replicaWg    sync.WaitGroup
+
+	collector *metric.Collector
 }
 
 func NewHttpServer() *HttpServer {
@@ -77,6 +80,9 @@ func (s *HttpServer) Start(ctx context.Context) error {
 	if err := s.reloadPacketParseSeq(); err != nil {
 		return err
 	}
+	s.collector = Collector(s.onProduct)
+	s.collector.Start()
+
 	go s.loopRawPacket()
 	go s.loopErrPacket()
 	go s.loopParsPacket()
@@ -101,6 +107,7 @@ func (s *HttpServer) Stop(ctx context.Context) (err error) {
 	if s.httpServer != nil {
 		err = s.httpServer.Shutdown(ctx)
 	}
+	s.collector.Stop()
 	s.replicaAlive = false
 	s.replicaWg.Wait()
 	s.closeDatabase()

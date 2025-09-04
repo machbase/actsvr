@@ -111,9 +111,6 @@ func Main() int {
 	packetDataArrivalTime.Load()
 	parsDataArrivalTime.Load()
 
-	collector := Collector()
-	collector.Start()
-
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	if err := httpSvr.Start(ctx); err != nil {
 		log.Printf("Failed to start HttpServer: %v", err)
@@ -128,7 +125,6 @@ func Main() int {
 	if err := httpSvr.Stop(ctx); err != nil {
 		log.Printf("Error stopping HttpServer: %v", err)
 	}
-	collector.Stop()
 	ctxCancel()
 	return 0
 }
