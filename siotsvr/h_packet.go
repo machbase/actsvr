@@ -31,9 +31,10 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	// Path params
 	certkey := c.Param("certkey") // string e.g. a2a3a4a5testauthkey9
 	dataNoStr := c.Param("data_no")
-	pkSeqStr := c.Param("pk_seq")        // integer e.g. 202008030000000301
-	modelSerial := c.Param("serial_num") // string e.g. 3A4A50D
-	packet := c.Param("packet")          // string data
+	pkSeqStr := c.Param("pk_seq")              // integer e.g. 202008030000000301
+	modelSerial := c.Param("serial_num")       // string e.g. 3A4A50D
+	modelSerial = strings.ToUpper(modelSerial) // use upper cases
+	packet := c.Param("packet")                // string data
 	// Query params
 	dqmcrrOpStr := c.Query("DQMCRR_OP") // 100 | 200
 
@@ -108,7 +109,7 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 
 	// find AreaCode of the model by serial number
 	if code, err := getModelAreaCode(modelSerial, tsn, searchDataNo); err != nil {
-		defaultLog.Errorf("%d Failed to get area code for model_serial:%s, tsn:%d, dataNo:%d", packetSeq, modelSerial, tsn, searchDataNo)
+		defaultLog.Errorf("%d area code not found for model_serial:%s, tsn:%d, dataNo:%d", packetSeq, modelSerial, tsn, searchDataNo)
 	} else {
 		data.AreaCode = code
 	}

@@ -461,13 +461,13 @@ func SelectModelInstallInfo(db *sql.DB, callback func(*ModelInstallInfo, error) 
 		if la.Valid {
 			mi.La, err = strconv.ParseFloat(strings.TrimSpace(la.String), 64)
 			if err != nil {
-				if !callback(&mi, fmt.Errorf("invalid latitude: %q, of %s", la.String, key)) {
+				if !callback(&mi, fmt.Errorf("invalid latitude: %q, of modl_serial:%s", la.String, mi.ModlSerial)) {
 					break
 				}
 				continue
 			}
 		} else {
-			if !callback(&mi, fmt.Errorf("latitude is null for %s", key)) {
+			if !callback(&mi, fmt.Errorf("latitude is null, modl_serial:%s", key)) {
 				break
 			}
 			continue
@@ -475,13 +475,13 @@ func SelectModelInstallInfo(db *sql.DB, callback func(*ModelInstallInfo, error) 
 		if lo.Valid {
 			mi.Lo, err = strconv.ParseFloat(strings.TrimSpace(lo.String), 64)
 			if err != nil {
-				if !callback(&mi, fmt.Errorf("invalid longitude: %q, of %s", lo.String, mi.ModlSerial)) {
+				if !callback(&mi, fmt.Errorf("invalid longitude: %q, of modl_serial:%s", lo.String, mi.ModlSerial)) {
 					break
 				}
 				continue
 			}
 		} else {
-			if !callback(&mi, fmt.Errorf("longitude is null for %s", mi.ModlSerial)) {
+			if !callback(&mi, fmt.Errorf("longitude is null, modl_serial:%s", mi.ModlSerial)) {
 				break
 			}
 			continue
