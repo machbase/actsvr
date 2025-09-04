@@ -295,6 +295,7 @@ func (s *HttpServer) handleAdminStat(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, ApiErrorInvalidParameters)
 		return
 	}
+	endTime = endTime.Add(24 * time.Hour) // Make end date exclusive by adding one day
 
 	names, err := s.loadStatNames(c)
 	if err != nil {
@@ -317,11 +318,12 @@ FROM (
     FROM
         %s
     WHERE TIME >= ? AND TIME < ? AND NAME = ?
+	ORDER BY TIME
 )
 GROUP BY DATE`, statTagTable)
 
 	c.Header("Content-Type", "text/csv")
-	c.Writer.WriteString("org,tsn,date,count,records\n")
+	c.Writer.WriteString("DATE,ORG,TSN,COUNT,RECORDS\n")
 	for _, name := range names {
 		result := conn.QueryRow(c, sqlText, beginTime.UnixNano(), endTime.UnixNano(), name)
 		if err := result.Err(); err != nil {
@@ -340,7 +342,7 @@ GROUP BY DATE`, statTagTable)
 		}
 		parts := strings.SplitN(strings.TrimPrefix(name, "stat:nrow:"), ":", 2)
 		if len(parts) == 2 {
-			c.Writer.WriteString(fmt.Sprintf("%s,%s,%s,%d,%s\n", parts[0], parts[1], date, count, value))
+			c.Writer.WriteString(fmt.Sprintf("%s,%s,%s,%d,%s\n", date, parts[0], parts[1], count, value))
 		} else {
 			defaultLog.Warnf("Invalid stat name format: %s", name)
 		}

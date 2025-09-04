@@ -180,6 +180,7 @@ func (s *HttpServer) loopRawPacket() {
 			// if err is *ValidateError, it means validation error
 			// otherwise packet length error
 			s.log.Errorf("%d %v", data.PacketSeq, parseErr)
+			s.errPacketCh <- data
 		}
 		if collector != nil {
 			measure := metric.Measurement{Name: "packet_data"}
