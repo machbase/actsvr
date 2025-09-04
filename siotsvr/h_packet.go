@@ -12,8 +12,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var regexpNumbers = regexp.MustCompile(`^[0-9]+$`)
-
 func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	tick := time.Now()
 	packetSeq := int64(-1)
@@ -39,14 +37,9 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	// Query params
 	dqmcrrOpStr := c.Query("DQMCRR_OP") // 100 | 200
 
-	// Model Serial treatment for TB_MODL_INSTL_INFO
-	// 1. MariaDB does compare the varchar case-insentive ways
+	// Model Serial of TB_MODL_INSTL_INFO
+	// should be compared in case-insentive ways
 	modelSerial = strings.ToUpper(modelSerial) // use upper cases
-	// 2. MariaDB does inplicit type conversion on VARCHAR,
-	// so if modelSerial consists of all digits, it should be trim preceeding zeros
-	if regexpNumbers.MatchString(modelSerial) {
-		modelSerial = strings.TrimLeft(modelSerial, "0")
-	}
 
 	// Validate required parameters
 	if certkey == "" || pkSeqStr == "" || modelSerial == "" || packet == "" || dataNoStr == "" {
