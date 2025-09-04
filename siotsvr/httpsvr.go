@@ -5,6 +5,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/machbase/neo-server/v8/api"
 	"github.com/machbase/neo-server/v8/api/machcli"
 	"github.com/machbase/neo-server/v8/mods/util/metric"
 	"github.com/tochemey/goakt/v3/log"
@@ -318,6 +320,19 @@ func (s *HttpServer) handleAdminStat(c *gin.Context) {
 	}
 	defer conn.Close()
 
+	c.Header("Content-Type", "text/csv")
+	c.Writer.WriteString("DATE,ORG,TSN,COUNT,RECORDS\n")
+	for _, name := range names {
+		if err := fetchStatRows(c, conn, beginTime, endTime, name, c.Writer); err != nil {
+			defaultLog.Errorf("Failed to query stat %q: %v", name, err)
+			c.String(http.StatusInternalServerError, "Failed to execute query: %v", err)
+			return
+		}
+	}
+	c.Writer.WriteString("\n")
+}
+
+func fetchStatRows(ctx context.Context, conn api.Conn, beginTime time.Time, endTime time.Time, name string, w io.Writer) error {
 	sqlText := fmt.Sprintf(`SELECT TO_CHAR(DATE_TRUNC('day', TIME, 1), 'YYYYMMDD') DATE, COUNT(*) CNT, SUM(VALUE) RECS
 FROM (
     SELECT
@@ -329,32 +344,27 @@ FROM (
 )
 GROUP BY DATE`, statTagTable)
 
-	c.Header("Content-Type", "text/csv")
-	c.Writer.WriteString("DATE,ORG,TSN,COUNT,RECORDS\n")
-	for _, name := range names {
-		result := conn.QueryRow(c, sqlText, beginTime.UnixNano(), endTime.UnixNano(), name)
-		if err := result.Err(); err != nil {
-			defaultLog.Errorf("Failed to execute query: %v", err)
-			c.String(http.StatusInternalServerError, "Failed to execute query: %v", err)
-			return
-		}
+	nameParts := strings.SplitN(strings.TrimPrefix(name, "stat:nrow:"), ":", 2)
+	if len(nameParts) != 2 {
+		return fmt.Errorf("invalid stat name format: %s", name)
+	}
 
+	rows, err := conn.Query(ctx, sqlText, beginTime.UnixNano(), endTime.UnixNano(), name)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
 		var date string
 		var count int64
 		var value string
-		if err := result.Scan(&date, &count, &value); err != nil {
-			defaultLog.Errorf("Failed to scan row: %v", err)
-			c.String(http.StatusInternalServerError, "Failed to scan row: %v", err)
-			return
+		if err := rows.Scan(&date, &count, &value); err != nil {
+			return err
 		}
-		parts := strings.SplitN(strings.TrimPrefix(name, "stat:nrow:"), ":", 2)
-		if len(parts) == 2 {
-			c.Writer.WriteString(fmt.Sprintf("%s,%s,%s,%d,%s\n", date, parts[0], parts[1], count, value))
-		} else {
-			defaultLog.Warnf("Invalid stat name format: %s", name)
-		}
+		fmt.Fprintf(w, "%s,%s,%s,%d,%s\n", date, nameParts[0], nameParts[1], count, value)
 	}
-	c.Writer.WriteString("\n")
+	return nil
 }
 
 type ApiResult struct {
