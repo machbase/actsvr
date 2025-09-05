@@ -723,6 +723,8 @@ type StatDatum struct {
 	orgId int64
 	tsn   int64
 	nrow  int
+	url   string
+	ts    time.Time
 }
 
 func (s *HttpServer) loopStatData() {
@@ -733,19 +735,28 @@ func (s *HttpServer) loopStatData() {
 	}
 	defer conn.Close()
 
-	sqlText := fmt.Sprintf("INSERT INTO %s (NAME, TIME, VALUE) VALUES (?, ?, ?)", statTagTable)
+	logSqlText := "INSERT INTO NTB_RESLT_USE_DATA " +
+		"(CERTKEY_SEQ, TRNSMIT_SERVER_NO, RQST_URL, USE_CNT, REGIST_DE, REGIST_DT, RESLT_DT) " +
+		"VALUES (?, ?, ?, ?, ?, ?, ?)"
+	statSqlText := fmt.Sprintf("INSERT INTO %s (NAME, TIME, VALUE) VALUES (?, ?, ?)", statTagTable)
 	for data := range s.statCh {
 		if data == nil {
 			break
 		}
-		name := fmt.Sprintf("stat:nrow:%d:%d", data.orgId, data.tsn)
-		ts := time.Now()
-		value := data.nrow
-		result := conn.Exec(ctx, sqlText, name, ts, value)
-		insertErr := result.Err()
-		if insertErr != nil {
-			s.log.Error("Failed to insert StatData:", insertErr)
-			continue
+		if statTagTable != "" {
+			name := fmt.Sprintf("stat:nrow:%d:%d", data.orgId, data.tsn)
+			ts := time.Now()
+			value := data.nrow
+			result := conn.Exec(ctx, statSqlText, name, ts, value)
+			insertErr := result.Err()
+			if insertErr != nil {
+				s.log.Error("Failed to insert StatData:", insertErr)
+				continue
+			}
 		}
+		registDt := nowFunc()
+		requestDt := data.ts
+		requestDe := requestDt.Format("20060102")
+		conn.Exec(ctx, logSqlText, data.orgId, data.tsn, data.url, data.nrow, requestDe, requestDt.UnixNano(), registDt.UnixNano())
 	}
 }

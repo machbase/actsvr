@@ -24,7 +24,13 @@ func (s *HttpServer) handleData(c *gin.Context) {
 	defer func() {
 		// Stat
 		if orgId > 0 && tsn > 0 && nrow > 0 {
-			s.statCh <- &StatDatum{orgId: orgId, tsn: tsn, nrow: nrow}
+			s.statCh <- &StatDatum{
+				orgId: orgId,
+				tsn:   tsn,
+				nrow:  nrow,
+				ts:    tick,
+				url:   c.Request.URL.Path + "?" + c.Request.URL.RawQuery,
+			}
 		}
 		// Request의 패킷 정보를 로깅
 		req := c.Request.URL.Path
