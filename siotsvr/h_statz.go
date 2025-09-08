@@ -3,6 +3,7 @@ package siotsvr
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"runtime"
 	"time"
 
@@ -15,15 +16,16 @@ var collector *metric.Collector
 func Collector(outputFunc metric.OutputFunc) *metric.Collector {
 	if collector == nil {
 		collector = metric.NewCollector(
-			metric.WithInterval(1*time.Second),
-			metric.WithSeries("30m", 10*time.Second, 180),
+			metric.WithSamplingInterval(10*time.Second),
+			metric.WithSeries("3h/60s", 60*time.Second, 180),
+			metric.WithSeries("3d12h/30m", 30*time.Minute, 168),
 			metric.WithPrefix("metrics"),
-			metric.WithInputBuffer(100),
+			metric.WithInputBuffer(50),
 		)
 		if outputFunc != nil {
 			collector.AddOutputFunc(outputFunc)
 		}
-		collector.AddInputFunc(func() (metric.Measurement, error) {
+		collector.AddInputFunc(func(g metric.Gather) {
 			m := metric.Measurement{Name: "runtime"}
 
 			memStats := runtime.MemStats{}
@@ -41,10 +43,16 @@ func Collector(outputFunc metric.OutputFunc) *metric.Collector {
 					Type:  metric.MeterType(metric.UnitShort),
 				},
 			}
-			return m, nil
+			g.AddMeasurement(m)
 		})
 	}
 	return collector
+}
+
+func CollectorHandler() http.Handler {
+	dash := metric.NewDashboard(collector)
+	dash.ShowRemains = true
+	return dash
 }
 
 type StatRec struct {

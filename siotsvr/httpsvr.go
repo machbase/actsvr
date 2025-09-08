@@ -157,6 +157,7 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 	r.GET("/db/admin/stat/:begin_date/:end_date", s.handleAdminStat)
 	r.GET("/db/admin/replica", s.handleAdminReplica)
 	r.Any("/debug/pprof/*path", gin.WrapF(pprof.Index))
+	r.GET("/debug/dashboard", gin.WrapH(CollectorHandler()))
 	r.Use(CollectorMiddleware)
 	r.GET("/db/poi/nearby", s.handlePoiNearby)
 	r.GET("/n/api/serverstat/:certkey", s.handleServerStat)
