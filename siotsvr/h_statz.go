@@ -40,7 +40,7 @@ func Collector(outputFunc metric.OutputFunc) *metric.Collector {
 				{
 					Name:  "goroutines",
 					Value: float64(gorutine),
-					Type:  metric.MeterType(metric.UnitShort),
+					Type:  metric.GaugeType(metric.UnitShort),
 				},
 			}
 			g.AddMeasurement(m)
