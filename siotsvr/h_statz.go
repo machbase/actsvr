@@ -50,10 +50,23 @@ func Collector(outputFunc metric.OutputFunc) *metric.Collector {
 }
 
 func CollectorHandler() http.Handler {
+	lastOnlyFilter := metric.MustCompile([]string{"*(last)"})
+	httpStatusFilter := metric.MustCompile([]string{"metrics:http:status_[1-5]xx"}, ':')
+
 	dash := metric.NewDashboard(collector)
 	dash.PageTitle = "Seoul IoT Server"
 	dash.ShowRemains = false
 	dash.SetTheme("light")
+	dash.AddChart(metric.Chart{Title: "Go Routines", MetricNames: []string{"metrics:runtime:goroutines"}, ValueSelector: lastOnlyFilter})
+	dash.AddChart(metric.Chart{Title: "Go Heap In Use", MetricNames: []string{"metrics:runtime:heap_inuse"}, ValueSelector: lastOnlyFilter})
+	dash.AddChart(metric.Chart{Title: "HTTP Latency", MetricNames: []string{"metrics:http:latency"}})
+	dash.AddChart(metric.Chart{Title: "HTTP Status", MetricNameFilter: httpStatusFilter, Type: metric.ChartTypeBarStack})
+	dash.AddChart(metric.Chart{Title: "Query Latency", MetricNames: []string{"metrics:query:latency"}})
+	dash.AddChart(metric.Chart{Title: "Query Error", MetricNames: []string{"metrics:query:error"}})
+	dash.AddChart(metric.Chart{Title: "Insert Packet", MetricNames: []string{"metrics:packet_data:insert_latency"}})
+	dash.AddChart(metric.Chart{Title: "Insert Parse", MetricNames: []string{"metrics:parse_data:insert_latency"}})
+	dash.AddChart(metric.Chart{Title: "Insert Packet RDB", MetricNames: []string{"metrics:rdb_packet_data:insert_latency"}})
+	dash.AddChart(metric.Chart{Title: "Insert Parse RDB", MetricNames: []string{"metrics:rdb_parse_data:insert_latency"}})
 	return dash
 }
 
