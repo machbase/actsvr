@@ -17,8 +17,8 @@ func Collector(outputFunc metric.OutputFunc) *metric.Collector {
 	if collector == nil {
 		collector = metric.NewCollector(
 			metric.WithSamplingInterval(10*time.Second),
-			metric.WithSeries("3h/60s", 60*time.Second, 180),
-			metric.WithSeries("3d12h/30m", 30*time.Minute, 168),
+			metric.WithSeries("2h", 60*time.Second, 120),
+			metric.WithSeries("2d12h", 30*time.Minute, 120),
 			metric.WithPrefix("metrics"),
 			metric.WithInputBuffer(50),
 		)
@@ -51,7 +51,9 @@ func Collector(outputFunc metric.OutputFunc) *metric.Collector {
 
 func CollectorHandler() http.Handler {
 	dash := metric.NewDashboard(collector)
-	dash.ShowRemains = true
+	dash.PageTitle = "Seoul IoT Server"
+	dash.ShowRemains = false
+	dash.SetTheme("light")
 	return dash
 }
 
@@ -107,6 +109,11 @@ func (s *HttpServer) onProduct(pd metric.Product) {
 				Val:  p.Values[i],
 			})
 		}
+	case *metric.OdometerValue:
+		if p.Samples == 0 {
+			return // Skip zero odometers
+		}
+		result = []StatRec{{fmt.Sprintf("metrics:%s:%s", pd.Measure, pd.Field), pd.Time, p.Diff()}}
 	default:
 		defaultLog.Warnf("metrics unknown type: %T", p)
 		return
