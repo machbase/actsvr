@@ -51,9 +51,9 @@ func CollectorHandler() http.Handler {
 	dash.AddChart(metric.Chart{Title: "Query Latency", MetricNames: []string{"query:latency"}})
 	dash.AddChart(metric.Chart{Title: "Query Error", MetricNames: []string{"query:error"}})
 	dash.AddChart(metric.Chart{Title: "Insert Packet", MetricNames: []string{"packet_data:insert_latency"}})
-	dash.AddChart(metric.Chart{Title: "Insert Parse", MetricNames: []string{"parse_data:insert_latency"}})
+	dash.AddChart(metric.Chart{Title: "Insert Parse", MetricNames: []string{"pars_data:insert_latency"}})
 	dash.AddChart(metric.Chart{Title: "Insert Packet RDB", MetricNames: []string{"rdb_packet_data:insert_latency"}})
-	dash.AddChart(metric.Chart{Title: "Insert Parse RDB", MetricNames: []string{"rdb_parse_data:insert_latency"}})
+	dash.AddChart(metric.Chart{Title: "Insert Parse RDB", MetricNames: []string{"rdb_pars_data:insert_latency"}})
 	return dash
 }
 
