@@ -63,21 +63,21 @@ func (s *HttpServer) handleData(c *gin.Context) {
 		}
 
 		if collector != nil {
-			measure := metric.Measurement{Name: "query"}
+			measure := []metric.Measure{}
 			if requestErr == "" {
-				measure.AddField(metric.Field{
-					Name:  "latency",
+				measure = append(measure, metric.Measure{
+					Name:  "query:latency",
 					Value: float64(latency.Nanoseconds()),
 					Type:  metric.HistogramType(metric.UnitDuration),
 				})
 			} else {
-				measure.AddField(metric.Field{
-					Name:  "error",
+				measure = append(measure, metric.Measure{
+					Name:  "query:error",
 					Value: 1,
 					Type:  metric.CounterType(metric.UnitShort),
 				})
 			}
-			collector.Send(measure)
+			collector.Send(measure...)
 		}
 	}()
 	// Path params

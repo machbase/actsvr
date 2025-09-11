@@ -25,42 +25,29 @@ func Collector(outputFunc metric.OutputFunc) *metric.Collector {
 		if outputFunc != nil {
 			collector.AddOutputFunc(outputFunc)
 		}
-		collector.AddInputFunc(func(g metric.Gather) {
-			m := metric.Measurement{Name: "runtime"}
-
+		collector.AddInputFunc(func(g *metric.Gather) error {
 			memStats := runtime.MemStats{}
 			runtime.ReadMemStats(&memStats)
 			gorutine := runtime.NumGoroutine()
-			m.Fields = []metric.Field{
-				{
-					Name:  "heap_inuse",
-					Value: float64(memStats.HeapInuse),
-					Type:  metric.GaugeType(metric.UnitBytes),
-				},
-				{
-					Name:  "goroutines",
-					Value: float64(gorutine),
-					Type:  metric.GaugeType(metric.UnitShort),
-				},
-			}
-			g.AddMeasurement(m)
+			g.Add("runtime:heap_inuse", float64(memStats.HeapInuse), metric.GaugeType(metric.UnitBytes))
+			g.Add("runtime:goroutines", float64(gorutine), metric.GaugeType(metric.UnitShort))
+			return nil
 		})
 	}
 	return collector
 }
 
 func CollectorHandler() http.Handler {
-	lastOnlyFilter := metric.MustCompile([]string{"*(last)"})
-	httpStatusFilter := metric.MustCompile([]string{"metrics:http:status_[1-5]xx"}, ':')
+	lastOnlyFilter := metric.MustCompile([]string{"*#last"})
 
 	dash := metric.NewDashboard(collector)
 	dash.PageTitle = "Seoul IoT Server"
 	dash.ShowRemains = false
 	dash.SetTheme("light")
-	dash.AddChart(metric.Chart{Title: "Go Routines", MetricNames: []string{"metrics:runtime:goroutines"}, ValueSelector: lastOnlyFilter})
-	dash.AddChart(metric.Chart{Title: "Go Heap In Use", MetricNames: []string{"metrics:runtime:heap_inuse"}, ValueSelector: lastOnlyFilter})
+	dash.AddChart(metric.Chart{Title: "Go Routines", MetricNames: []string{"metrics:runtime:goroutines"}, SeriesSelector: lastOnlyFilter})
+	dash.AddChart(metric.Chart{Title: "Go Heap In Use", MetricNames: []string{"metrics:runtime:heap_inuse"}, SeriesSelector: lastOnlyFilter})
 	dash.AddChart(metric.Chart{Title: "HTTP Latency", MetricNames: []string{"metrics:http:latency"}})
-	dash.AddChart(metric.Chart{Title: "HTTP Status", MetricNameFilter: httpStatusFilter, Type: metric.ChartTypeBarStack})
+	dash.AddChart(metric.Chart{Title: "HTTP Status", MetricNames: []string{"metrics:http:status_[1-5]xx"}, Type: metric.ChartTypeBarStack})
 	dash.AddChart(metric.Chart{Title: "Query Latency", MetricNames: []string{"metrics:query:latency"}})
 	dash.AddChart(metric.Chart{Title: "Query Error", MetricNames: []string{"metrics:query:error"}})
 	dash.AddChart(metric.Chart{Title: "Insert Packet", MetricNames: []string{"metrics:packet_data:insert_latency"}})
@@ -76,40 +63,40 @@ type StatRec struct {
 	Val  float64
 }
 
-func (s *HttpServer) onProduct(pd metric.Product) {
+func (s *HttpServer) onProduct(pd metric.Product) error {
 	var result []StatRec
 	switch p := pd.Value.(type) {
 	case *metric.CounterValue:
 		if p.Samples == 0 {
-			return // Skip zero counters
+			return nil // Skip zero counters
 		}
-		result = []StatRec{{fmt.Sprintf("metrics:%s:%s", pd.Measure, pd.Field), pd.Time, p.Value}}
+		result = []StatRec{{fmt.Sprintf("metrics:%s", pd.Name), pd.Time, p.Value}}
 	case *metric.GaugeValue:
 		if p.Samples == 0 {
-			return // Skip zero gauges
+			return nil // Skip zero gauges
 		}
-		result = []StatRec{{fmt.Sprintf("metrics:%s:%s", pd.Measure, pd.Field), pd.Time, p.Value}}
+		result = []StatRec{{fmt.Sprintf("metrics:%s", pd.Name), pd.Time, p.Value}}
 	case *metric.MeterValue:
 		if p.Samples == 0 {
-			return // Skip zero meters
+			return nil // Skip zero meters
 		}
 		result = []StatRec{
-			{fmt.Sprintf("metrics:%s:%s:avg", pd.Measure, pd.Field), pd.Time, p.Sum / float64(p.Samples)},
-			{fmt.Sprintf("metrics:%s:%s:max", pd.Measure, pd.Field), pd.Time, p.Max},
-			{fmt.Sprintf("metrics:%s:%s:min", pd.Measure, pd.Field), pd.Time, p.Min},
+			{fmt.Sprintf("metrics:%s:avg", pd.Name), pd.Time, p.Sum / float64(p.Samples)},
+			{fmt.Sprintf("metrics:%s:max", pd.Name), pd.Time, p.Max},
+			{fmt.Sprintf("metrics:%s:min", pd.Name), pd.Time, p.Min},
 		}
 	case *metric.TimerValue:
 		if p.Samples == 0 {
-			return // Skip zero timers
+			return nil // Skip zero timers
 		}
 		result = []StatRec{
-			{fmt.Sprintf("metrics:%s:%s:avg", pd.Measure, pd.Field), pd.Time, float64(int64(p.SumDuration) / p.Samples)},
-			{fmt.Sprintf("metrics:%s:%s:max", pd.Measure, pd.Field), pd.Time, float64(p.MaxDuration)},
-			{fmt.Sprintf("metrics:%s:%s:min", pd.Measure, pd.Field), pd.Time, float64(p.MinDuration)},
+			{fmt.Sprintf("metrics:%s:avg", pd.Name), pd.Time, float64(int64(p.SumDuration) / p.Samples)},
+			{fmt.Sprintf("metrics:%s:max", pd.Name), pd.Time, float64(p.MaxDuration)},
+			{fmt.Sprintf("metrics:%s:min", pd.Name), pd.Time, float64(p.MinDuration)},
 		}
 	case *metric.HistogramValue:
 		if p.Samples == 0 {
-			return // Skip zero meters
+			return nil // Skip zero histograms
 		}
 		for i, x := range p.P {
 			pct := fmt.Sprintf("%d", int(x*1000))
@@ -117,24 +104,24 @@ func (s *HttpServer) onProduct(pd metric.Product) {
 				pct = pct[:len(pct)-1]
 			}
 			result = append(result, StatRec{
-				Name: fmt.Sprintf("metrics:%s:%s:p%s", pd.Measure, pd.Field, pct),
+				Name: fmt.Sprintf("metrics:%s:p%s", pd.Name, pct),
 				Time: pd.Time,
 				Val:  p.Values[i],
 			})
 		}
 	case *metric.OdometerValue:
 		if p.Samples == 0 {
-			return // Skip zero odometers
+			return nil // Skip zero odometers
 		}
-		result = []StatRec{{fmt.Sprintf("metrics:%s:%s", pd.Measure, pd.Field), pd.Time, p.Diff()}}
+		result = []StatRec{{fmt.Sprintf("metrics:%s", pd.Name), pd.Time, p.Diff()}}
 	default:
 		defaultLog.Warnf("metrics unknown type: %T", p)
-		return
+		return nil
 	}
 	conn, err := s.openConn(context.TODO())
 	if err != nil {
 		defaultLog.Error("metrics open conn; ", err)
-		return
+		return err
 	}
 	defer conn.Close()
 
@@ -142,9 +129,10 @@ func (s *HttpServer) onProduct(pd metric.Product) {
 		result := conn.Exec(context.TODO(), "INSERT INTO TAG (name, time, value) VALUES (?, ?, ?)", m.Name, m.Time.UnixNano(), m.Val)
 		if err := result.Err(); err != nil {
 			defaultLog.Warnf("metrics inserting: %v", err)
-			return
+			return fmt.Errorf("metrics insert: %w", err)
 		}
 	}
+	return nil
 }
 
 func CollectorMiddleware(c *gin.Context) {
@@ -155,21 +143,21 @@ func CollectorMiddleware(c *gin.Context) {
 		return
 	}
 	latency := time.Since(tick)
-	measure := metric.Measurement{Name: "http"}
-	measure.AddField(metric.Field{
-		Name:  "requests",
+	measure := []metric.Measure{}
+	measure = append(measure, metric.Measure{
+		Name:  "http:requests",
 		Value: 1,
 		Type:  metric.CounterType(metric.UnitShort),
 	})
-	measure.AddField(metric.Field{
-		Name:  "latency",
+	measure = append(measure, metric.Measure{
+		Name:  "http:latency",
 		Value: float64(latency.Nanoseconds()),
 		Type:  metric.HistogramType(metric.UnitDuration),
 	})
-	measure.AddField(metric.Field{
-		Name:  fmt.Sprintf("status_%dxx", c.Writer.Status()/100),
+	measure = append(measure, metric.Measure{
+		Name:  fmt.Sprintf("http:status_%dxx", c.Writer.Status()/100),
 		Value: 1,
 		Type:  metric.CounterType(metric.UnitShort),
 	})
-	collector.Send(measure)
+	collector.Send(measure...)
 }

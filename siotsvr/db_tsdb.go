@@ -183,28 +183,28 @@ func (s *HttpServer) loopRawPacket() {
 			s.errPacketCh <- data
 		}
 		if collector != nil {
-			measure := metric.Measurement{Name: "packet_data"}
+			measure := []metric.Measure{}
 			if insertErr == nil {
-				measure.AddField(metric.Field{
-					Name:  "insert_latency",
+				measure = append(measure, metric.Measure{
+					Name:  "packet_data:insert_latency",
 					Value: float64(insertLatency.Nanoseconds()),
 					Type:  metric.HistogramType(metric.UnitDuration),
 				})
 			} else {
-				measure.AddField(metric.Field{
-					Name:  "insert_error",
+				measure = append(measure, metric.Measure{
+					Name:  "packet_data:insert_error",
 					Value: 1,
 					Type:  metric.CounterType(metric.UnitShort),
 				})
 			}
 			if parseErr != nil {
-				measure.AddField(metric.Field{
-					Name:  "parse_error",
+				measure = append(measure, metric.Measure{
+					Name:  "packet_data:parse_error",
 					Value: 1,
 					Type:  metric.CounterType(metric.UnitShort),
 				})
 			}
-			collector.Send(measure)
+			collector.Send(measure...)
 		}
 	}
 }
@@ -248,21 +248,21 @@ func (s *HttpServer) loopErrPacket() {
 			s.log.Errorf("%d Failed to insert NTB_ERR_LOG: %v, data: %#v", data.PacketSeq, insertErr, data)
 		}
 		if collector != nil {
-			measure := metric.Measurement{Name: "packet_err"}
+			measure := []metric.Measure{}
 			if insertErr == nil {
-				measure.AddField(metric.Field{
-					Name:  "insert_latency",
+				measure = append(measure, metric.Measure{
+					Name:  "packet_err:insert_latency",
 					Value: float64(insertLatency.Nanoseconds()),
 					Type:  metric.HistogramType(metric.UnitDuration),
 				})
 			} else {
-				measure.AddField(metric.Field{
-					Name:  "insert_error",
+				measure = append(measure, metric.Measure{
+					Name:  "packet_err:insert_error",
 					Value: 1,
 					Type:  metric.CounterType(metric.UnitShort),
 				})
 			}
-			collector.Send(measure)
+			collector.Send(measure...)
 		}
 	}
 }
@@ -324,21 +324,21 @@ func (s *HttpServer) loopParsPacket() {
 
 		if collector != nil {
 			latency := time.Since(tick)
-			measure := metric.Measurement{Name: "pars_data"}
+			measure := []metric.Measure{}
 			if insertErr == nil {
-				measure.AddField(metric.Field{
-					Name:  "insert_latency",
+				measure = append(measure, metric.Measure{
+					Name:  "pars_data:insert_latency",
 					Value: float64(latency.Nanoseconds()),
 					Type:  metric.HistogramType(metric.UnitDuration),
 				})
 			} else {
-				measure.AddField(metric.Field{
-					Name:  "insert_error",
+				measure = append(measure, metric.Measure{
+					Name:  "pars_data:insert_error",
 					Value: 1,
 					Type:  metric.CounterType(metric.UnitShort),
 				})
 			}
-			collector.Send(measure)
+			collector.Send(measure...)
 		}
 	}
 }
@@ -431,21 +431,21 @@ func (s *HttpServer) loopReplicaRawPacket() {
 
 			if collector != nil {
 				latency := time.Since(tick)
-				measure := metric.Measurement{Name: "rdb_packet_data"}
+				measure := []metric.Measure{}
 				if insertErr == nil {
-					measure.AddField(metric.Field{
-						Name:  "insert_latency",
+					measure = append(measure, metric.Measure{
+						Name:  "rdb_packet_data:insert_latency",
 						Value: float64(latency.Nanoseconds()),
 						Type:  metric.HistogramType(metric.UnitDuration),
 					})
 				} else {
-					measure.AddField(metric.Field{
-						Name:  "insert_error",
+					measure = append(measure, metric.Measure{
+						Name:  "rdb_packet_data:insert_error",
 						Value: 1,
 						Type:  metric.CounterType(metric.UnitShort),
 					})
 				}
-				collector.Send(measure)
+				collector.Send(measure...)
 			}
 		}
 		rows.Close()
@@ -596,21 +596,21 @@ func (s *HttpServer) loopReplicaParsPacket() {
 
 			if collector != nil {
 				latency := time.Since(tick)
-				measure := metric.Measurement{Name: "rdb_pars_data"}
+				measure := []metric.Measure{}
 				if insertErr == nil {
-					measure.AddField(metric.Field{
-						Name:  "insert_latency",
+					measure = append(measure, metric.Measure{
+						Name:  "rdb_pars_data:insert_latency",
 						Value: float64(latency.Nanoseconds()),
 						Type:  metric.HistogramType(metric.UnitDuration),
 					})
 				} else {
-					measure.AddField(metric.Field{
-						Name:  "insert_error",
+					measure = append(measure, metric.Measure{
+						Name:  "rdb_pars_data:insert_error",
 						Value: 1,
 						Type:  metric.CounterType(metric.UnitShort),
 					})
 				}
-				collector.Send(measure)
+				collector.Send(measure...)
 			}
 		}
 		rows.Close()
