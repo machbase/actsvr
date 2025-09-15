@@ -576,6 +576,18 @@ func SelectMaxPacketSeq(db *sql.DB) (int64, error) {
 	}
 	var maxPacketSeq int64
 	if err := row.Scan(&maxPacketSeq); err != nil {
+		crow := db.QueryRow(fmt.Sprintf(`SELECT count(*) FROM %s`, tableName("TB_RECPTN_PACKET_DATA")))
+		if cerr := crow.Err(); cerr != nil {
+			return 0, cerr
+		}
+		var cnt int64
+		if cerr := crow.Scan(&cnt); cerr != nil {
+			return 0, cerr
+		}
+		if cnt == 0 {
+			// no records
+			return 1000, nil
+		}
 		return 0, err
 	}
 	return maxPacketSeq, nil
@@ -588,6 +600,18 @@ func SelectMaxPacketParsSeq(db *sql.DB) (int64, error) {
 	}
 	var maxPacketParsSeq int64
 	if err := row.Scan(&maxPacketParsSeq); err != nil {
+		crow := db.QueryRow(fmt.Sprintf(`SELECT count(*) FROM %s`, tableName("TB_PACKET_PARS_DATA")))
+		if cerr := crow.Err(); cerr != nil {
+			return 0, cerr
+		}
+		var cnt int64
+		if cerr := crow.Scan(&cnt); cerr != nil {
+			return 0, cerr
+		}
+		if cnt == 0 {
+			// no records
+			return 1000, nil
+		}
 		return 0, err
 	}
 	return maxPacketParsSeq, nil
