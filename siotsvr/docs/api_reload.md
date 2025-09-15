@@ -21,6 +21,12 @@ GET http://127.0.0.1:5680/db/admin/reload?target=orgkey
 GET http://127.0.0.1:5680/db/admin/reload?target=model
 ```
 
+### TB_MODL_DQM_INFO
+
+```http
+GET http://127.0.0.1:5680/db/admin/reload?target=model_dqm
+```
+
 ### TB_MODL_INSTALL_INFO and TB_AREA_CODE
 
 ```http

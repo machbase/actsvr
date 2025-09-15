@@ -16,6 +16,8 @@ var cachePacketDefinition map[string]*PacketDefinition // key: trnsmit_server_no
 var cachePacketDefinitionMutex sync.RWMutex
 var cacheModelAreaCode map[string]string // key: {{model_serial}}_{{tsn}}_{{data_no}}, value: area_code
 var cacheModelAreaCodeMutex sync.RWMutex
+var cacheModelDqmInfo map[int64]*ModelDqmInfo // key: trnsmit_server_no
+var cacheModelDqmInfoMutex sync.RWMutex
 
 func reloadModelAreaCode() error {
 	rdb, err := rdbConfig.Connect()
@@ -84,8 +86,6 @@ type PacketDefinition struct {
 	HeaderSize      int                     `json:"headerSize"`
 	DataSize        int                     `json:"dataSize"`
 	Fields          []PacketFieldDefinition `json:"fields"`
-	Public          bool                    `json:"public"`
-	Masking         bool                    `json:"masking"`
 }
 
 type PacketFieldDefinition struct {
@@ -270,8 +270,6 @@ func reloadPacketDefinition() error {
 			PacketSize:      int(master.PacketSize.Int64),
 			HeaderSize:      int(master.HderSize.Int64),
 			DataSize:        int(master.DataSize.Int64),
-			Public:          master.Public.Valid && master.Public.String == "Y",
-			Masking:         master.Masking.Valid && master.Masking.String == "Y",
 			Fields:          fields,
 		}
 	}
@@ -294,4 +292,41 @@ func getPacketDefinition(tsn int64, dataNo int) *PacketDefinition {
 		return nil
 	}
 	return def
+}
+
+func reloadModelDqmInfo() error {
+	rdb, err := rdbConfig.Connect()
+	if err != nil {
+		return fmt.Errorf("failed to open RDB connection: %w", err)
+	}
+	defer rdb.Close()
+	if err := rdb.Ping(); err != nil {
+		return fmt.Errorf("failed to ping RDB: %w", err)
+	}
+	dqms := map[int64]*ModelDqmInfo{}
+	err = SelectModelDqmInfo(rdb, func(dqm *ModelDqmInfo) bool {
+		dqms[dqm.TrnsmitServerNo] = dqm
+		return true // Continue processing other records
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize ModelDqmInfo: %w", err)
+	}
+	cacheModelDqmInfoMutex.Lock()
+	cacheModelDqmInfo = dqms
+	defaultLog.Infof("Loaded %d model DQM info", len(dqms))
+	cacheModelDqmInfoMutex.Unlock()
+	return nil
+}
+
+func getModelDqmInfo(tsn int64) *ModelDqmInfo {
+	cacheModelDqmInfoMutex.RLock()
+	defer cacheModelDqmInfoMutex.RUnlock()
+	if cacheModelDqmInfo == nil {
+		return nil
+	}
+	ret, ok := cacheModelDqmInfo[tsn]
+	if !ok {
+		return nil
+	}
+	return ret
 }

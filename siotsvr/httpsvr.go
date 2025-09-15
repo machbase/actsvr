@@ -211,6 +211,8 @@ func (s *HttpServer) handleAdminReload(c *gin.Context) {
 		err = reloadPacketDefinition()
 	case "model_areacode":
 		err = reloadModelAreaCode()
+	case "model_dqm":
+		err = reloadModelDqmInfo()
 	case "packet_seq":
 		err = s.reloadPacketSeq()
 	case "packet_parse_seq":

@@ -188,8 +188,9 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 		c.JSON(http.StatusNotFound, ApiErrorServer)
 		return
 	}
-	if !definition.Public {
-		defaultLog.Errorf("Packet definition is not public for tsn: %d and data_no: %d", tsn, dataNo)
+	dqmInfo := getModelDqmInfo(tsn)
+	if dqmInfo != nil && !dqmInfo.Public {
+		defaultLog.Errorf("Packet is not public for tsn: %d and data_no: %d", tsn, dataNo)
 		c.JSON(http.StatusForbidden, ApiErrorNonPublic)
 		return
 	}
@@ -312,7 +313,7 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 				c.Writer.WriteString(",")
 			}
 			if fd := definition.Fields[i]; fd.Public {
-				if definition.Masking {
+				if dqmInfo != nil && dqmInfo.Masking {
 					value = MaskingStrValue
 				}
 				fmt.Fprintf(c.Writer, `%q`, value)

@@ -8,6 +8,47 @@ import (
 	"time"
 )
 
+type ModelDqmInfo struct {
+	TrnsmitServerNo int64 `sql:"trnsmit_server_no"`
+	Masking         bool  `sql:"maskng_yn"`
+	Public          bool  `sql:"public_yn"`
+}
+
+func SelectModelDqmInfo(db *sql.DB, callback func(*ModelDqmInfo) bool) error {
+	sqlText := strings.Join([]string{
+		"SELECT",
+		"TRNSMIT_SERVER_NO,",
+		"MASKNG_YN,",
+		"PUBLIC_YN",
+		"FROM",
+		tableName("TB_MODL_DQM_INFO"),
+	}, " ")
+	rows, err := db.Query(sqlText)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var md ModelDqmInfo
+		var public sql.NullString
+		var masking sql.NullString
+		err := rows.Scan(
+			&md.TrnsmitServerNo,
+			&masking,
+			&public)
+		if err != nil {
+			return err
+		}
+		md.Public = public.Valid && public.String == "Y"
+		md.Masking = masking.Valid && masking.String == "Y"
+		if !callback(&md) {
+			break
+		}
+	}
+	return nil
+}
+
 type ModelPacketMaster struct {
 	PacketMasterSeq int64          `sql:"packet_master_seq"` // primary key
 	TrnsmitServerNo sql.NullInt64  `sql:"trnsmit_server_no"`
@@ -15,8 +56,6 @@ type ModelPacketMaster struct {
 	PacketSize      sql.NullInt64  `sql:"packet_size"`
 	HderSize        sql.NullInt64  `sql:"hder_size"`
 	DataSize        sql.NullInt64  `sql:"data_size"`
-	Masking         sql.NullString `sql:"maskng_yn"`
-	Public          sql.NullString `sql:"public_yn"`
 	RegisterNo      sql.NullString `sql:"register_no"`
 	RegistDt        sql.NullTime   `sql:"regist_dt"`
 	UpdusrNo        sql.NullString `sql:"updusr_no"`
@@ -32,8 +71,6 @@ func SelectModelPacketMaster(db *sql.DB, callback func(*ModelPacketMaster) bool)
 		"PACKET_SIZE,",
 		"HDER_SIZE,",
 		"DATA_SIZE,",
-		"MASKNG_YN,",
-		"PUBLIC_YN,",
 		"REGISTER_NO,",
 		"REGIST_DT,",
 		"UPDUSR_NO,",
@@ -56,8 +93,6 @@ func SelectModelPacketMaster(db *sql.DB, callback func(*ModelPacketMaster) bool)
 			&mp.PacketSize,
 			&mp.HderSize,
 			&mp.DataSize,
-			&mp.Masking,
-			&mp.Public,
 			&mp.RegisterNo,
 			&mp.RegistDt,
 			&mp.UpdusrNo,
