@@ -201,7 +201,8 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 	for i := range definition.Fields {
 		sb.WriteString(fmt.Sprintf(", COLUMN%d", i))
 	}
-	sb.WriteString(` FROM TB_PACKET_PARS_DATA`)
+	sb.WriteString(` FROM `)
+	sb.WriteString(tableName(`TB_PACKET_PARS_DATA`))
 	if dataNo == 1 {
 		sb.WriteString(` WHERE REGIST_DT >= ? AND REGIST_DT <= ?`)
 		args = append(args, startTime.UnixNano(), endTime.UnixNano())
@@ -331,7 +332,8 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 	var arrivalTime time.Time
 
 	sb.WriteString(`SELECT _ARRIVAL_TIME, PACKET_SEQ, MODL_SERIAL, REGIST_DT, AREA_CODE, PACKET`)
-	sb.WriteString(` FROM TB_RECPTN_PACKET_DATA`)
+	sb.WriteString(` FROM `)
+	sb.WriteString(tableName(`TB_RECPTN_PACKET_DATA`))
 	if dataNo == 1 {
 		sb.WriteString(` WHERE REGIST_DT >= ? AND REGIST_DT <= ?`)
 		sb.WriteString(` AND TRNSMIT_SERVER_NO = ?`)

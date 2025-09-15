@@ -1,9 +1,9 @@
 
 ---------------------------------------
--- TB_RECPTN_PACKET_DATA
+-- NTB_RECPTN_PACKET_DATA
 ---------------------------------------
 
-CREATE TABLE IF NOT EXISTS TB_RECPTN_PACKET_DATA (
+CREATE TABLE IF NOT EXISTS NTB_RECPTN_PACKET_DATA (
     PACKET_SEQ             long,
     TRNSMIT_SERVER_NO      int,
     DATA_NO                int,
@@ -22,27 +22,21 @@ CREATE TABLE IF NOT EXISTS TB_RECPTN_PACKET_DATA (
     REGIST_DT              datetime
 );
 
-create index IDX_TB_RECPTN_PACKET_DATA_01 
-on TB_RECPTN_PACKET_DATA(TRNSMIT_SERVER_NO);
+create index IDX_NTB_RECPTN_PACKET_DATA_01 
+on NTB_RECPTN_PACKET_DATA(TRNSMIT_SERVER_NO);
 
-create index IDX_TB_RECPTN_PACKET_DATA_02 
-on TB_RECPTN_PACKET_DATA(PACKET_SEQ);
+create index IDX_NTB_RECPTN_PACKET_DATA_02 
+on NTB_RECPTN_PACKET_DATA(PACKET_SEQ);
 
-create index IDX_TB_RECPTN_PACKET_DATA_03
-on TB_RECPTN_PACKET_DATA(REGIST_DT);
-
--- create index TB_RECPTN_PACKET_DATA_MODEL_SERIAL
--- on TB_RECPTN_PACKET_DATA(MODL_SERIAL);
-
--- create index TB_RECPTN_PACKET_DATA_AREA_CODE
--- on TB_RECPTN_PACKET_DATA(AREA_CODE);
+create index IDX_NTB_RECPTN_PACKET_DATA_03
+on NTB_RECPTN_PACKET_DATA(REGIST_DT);
 
 
 ---------------------------------------
--- TB_PACKET_PARS_DATA
+-- NTB_PACKET_PARS_DATA
 ---------------------------------------
 
-CREATE TABLE IF NOT EXISTS TB_PACKET_PARS_DATA (
+CREATE TABLE IF NOT EXISTS NTB_PACKET_PARS_DATA (
     PACKET_PARS_SEQ   long,
     PACKET_SEQ        long,
     TRNSMIT_SERVER_NO int,
@@ -119,34 +113,24 @@ CREATE TABLE IF NOT EXISTS TB_PACKET_PARS_DATA (
     COLUMN63          varchar(10)
 );
 
-create index IDX_PACKET_PARS_DATA_01 
-on TB_PACKET_PARS_DATA(TRNSMIT_SERVER_NO);
+create index IDX_NTB_PACKET_PARS_DATA_01 
+on NTB_PACKET_PARS_DATA(TRNSMIT_SERVER_NO);
 
-create index IDX_PACKET_PARS_DATA_02
-on TB_PACKET_PARS_DATA(PACKET_PARS_SEQ);
+create index IDX_NTB_PACKET_PARS_DATA_02
+on NTB_PACKET_PARS_DATA(PACKET_PARS_SEQ);
 
-create index IDX_PACKET_PARS_DATA_03
-on TB_PACKET_PARS_DATA(REGIST_DT);
+create index IDX_NTB_PACKET_PARS_DATA_03
+on NTB_PACKET_PARS_DATA(REGIST_DT);
 
-create index IDX_PACKET_PARS_DATA_04
-on TB_PACKET_PARS_DATA(PACKET_SEQ);
-
-
--- create index TB_PACKET_PARS_DATA_MODL_SERIAL
--- on TB_PACKET_PARS_DATA(MODL_SERIAL);
-
--- create index IDX_TB_PACKET_PARS_DATA
--- on TB_PACKET_PARS_DATA(SERVICE_SEQ);
-
--- create index TB_PACKET_PARS_DATA_AREA_CODE
--- on TB_PACKET_PARS_DATA(AREA_CODE);
+create index IDX_NTB_PACKET_PARS_DATA_04
+on NTB_PACKET_PARS_DATA(PACKET_SEQ);
 
 
 ---------------------------------------
--- TB_RESLT_USE_DATA
+-- NTB_RESLT_USE_DATA
 ---------------------------------------
 
-CREATE TABLE IF NOT EXISTS TB_RESLT_USE_DATA (
+CREATE TABLE IF NOT EXISTS NTB_RESLT_USE_DATA (
     CERTKEY_SEQ            int,
     TRNSMIT_SERVER_NO      int,
     RQST_URL               varchar(100),
@@ -157,10 +141,10 @@ CREATE TABLE IF NOT EXISTS TB_RESLT_USE_DATA (
 );
 
 ---------------------------------------
--- TB_ERR_LOG
+-- NTB_ERR_LOG
 ---------------------------------------
 
-CREATE TABLE IF NOT EXISTS TB_ERR_LOG (
+CREATE TABLE IF NOT EXISTS NTB_ERR_LOG (
     PACKET_SEQ             long,
     TRNSMIT_SERVER_NO      int,
     DATA_NO                int,
@@ -173,21 +157,11 @@ CREATE TABLE IF NOT EXISTS TB_ERR_LOG (
     REGIST_DT              datetime
 );
 
-create index IDX_TB_ERR_LOG_01 
-on TB_ERR_LOG(TRNSMIT_SERVER_NO);
+create index IDX_NTB_ERR_LOG_01 
+on NTB_ERR_LOG(TRNSMIT_SERVER_NO);
 
-create index IDX_TB_ERR_LOG_02 
-on TB_ERR_LOG(PACKET_SEQ);
+create index IDX_NTB_ERR_LOG_02 
+on NTB_ERR_LOG(PACKET_SEQ);
 
-create index IDX_TB_ERR_LOG_03
-on TB_ERR_LOG(REGIST_DT);
-
----------------------------------------
--- TAG TAble
----------------------------------------
-
-CREATE TAG TABLE IF NOT EXISTS TAG (
-    NAME    varchar(100) primary key,
-    TIME    datetime basetime,
-    VALUE   double
-);
+create index IDX_NTB_ERR_LOG_03
+on NTB_ERR_LOG(REGIST_DT);

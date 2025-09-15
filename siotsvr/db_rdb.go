@@ -24,20 +24,24 @@ type ModelPacketMaster struct {
 }
 
 func SelectModelPacketMaster(db *sql.DB, callback func(*ModelPacketMaster) bool) error {
-	rows, err := db.Query(`SELECT
-		PACKET_MASTR_SEQ,
-		TRNSMIT_SERVER_NO,
-		DATA_NO,
-		PACKET_SIZE,
-		HDER_SIZE,
-		DATA_SIZE,
-		MASKNG_YN,
-		PUBLIC_YN,
-		REGISTER_NO,
-		REGIST_DT,
-		UPDUSR_NO,
-		UPDT_DT
-	FROM TB_MODL_PACKET_MASTR`)
+	sqlText := strings.Join([]string{
+		"SELECT",
+		"PACKET_MASTR_SEQ,",
+		"TRNSMIT_SERVER_NO,",
+		"DATA_NO,",
+		"PACKET_SIZE,",
+		"HDER_SIZE,",
+		"DATA_SIZE,",
+		"MASKNG_YN,",
+		"PUBLIC_YN,",
+		"REGISTER_NO,",
+		"REGIST_DT,",
+		"UPDUSR_NO,",
+		"UPDT_DT",
+		"FROM",
+		"TB_MODL_PACKET_MASTR",
+	}, " ")
+	rows, err := db.Query(sqlText)
 	if err != nil {
 		return err
 	}
@@ -95,37 +99,39 @@ type ModelPacketDetail struct {
 }
 
 func SelectModelPacketDetail(db *sql.DB, masterSeq int64, callback func(*ModelPacketDetail) bool) error {
-	rows, err := db.Query(`SELECT
-		PACKET_DETAIL_SEQ,
-		PACKET_MASTR_SEQ,
-		PACKET_SE_CODE,
-		PACKET_NM,
-		DATA_CD,
-		PACKET_BYTE,
-		PACKET_UNIT,
-		VALD_RULE_TYPE,
-		MAX_VALUE,
-		MIN_VALUE,
-		ARR_VALUE,
-		PACKET_CTGRY,
-		DC,
-		PUBLIC_YN,
-		DQM_YN,
-		GRAPH_YN,
-		LIMIT_VALUE,
-		CECK_PTTRN,
-		SORT_ORDR,
-		REGISTER_NO,
-		REGIST_DT,
-		UPDUSR_NO,
-		UPDT_DT
-	FROM
-		TB_MODL_PACKET_DETAIL
-	WHERE
-		PACKET_MASTR_SEQ = ?
-	ORDER BY
-		PACKET_DETAIL_SEQ`,
-		masterSeq)
+	sqlText := strings.Join([]string{
+		"SELECT",
+		"PACKET_DETAIL_SEQ,",
+		"PACKET_MASTR_SEQ,",
+		"PACKET_SE_CODE,",
+		"PACKET_NM,",
+		"DATA_CD,",
+		"PACKET_BYTE,",
+		"PACKET_UNIT,",
+		"VALD_RULE_TYPE,",
+		"MAX_VALUE,",
+		"MIN_VALUE,",
+		"ARR_VALUE,",
+		"PACKET_CTGRY,",
+		"DC,",
+		"PUBLIC_YN,",
+		"DQM_YN,",
+		"GRAPH_YN,",
+		"LIMIT_VALUE,",
+		"CECK_PTTRN,",
+		"SORT_ORDR,",
+		"REGISTER_NO,",
+		"REGIST_DT,",
+		"UPDUSR_NO,",
+		"UPDT_DT",
+		"FROM",
+		tableName("TB_MODL_PACKET_DETAIL"),
+		"WHERE",
+		"PACKET_MASTR_SEQ = ?",
+		"ORDER BY",
+		"PACKET_DETAIL_SEQ",
+	}, " ")
+	rows, err := db.Query(sqlText, masterSeq)
 	if err != nil {
 		return err
 	}
@@ -183,18 +189,22 @@ type CertKey struct {
 }
 
 func SelectCertKey(db *sql.DB, callback func(*CertKey) bool) error {
-	rows, err := db.Query(`SELECT
-		CERTKEY_SEQ,
-		TRNSMIT_SERVER_NO,
-		CRTFC_KEY,
-		BEGIN_VALID_DE,
-		END_VALID_DE,
-		STTUS_CODE,
-		REGISTER_NO,
-		REGIST_DT,
-		UPDUSR_NO,
-		UPDT_DT
-	FROM TB_CERTKEY`)
+	sqlText := strings.Join([]string{
+		"SELECT",
+		"CERTKEY_SEQ,",
+		"TRNSMIT_SERVER_NO,",
+		"CRTFC_KEY,",
+		"BEGIN_VALID_DE,",
+		"END_VALID_DE,",
+		"STTUS_CODE,",
+		"REGISTER_NO,",
+		"REGIST_DT,",
+		"UPDUSR_NO,",
+		"UPDT_DT",
+		"FROM",
+		"TB_CERTKEY",
+	}, " ")
+	rows, err := db.Query(sqlText)
 	if err != nil {
 		return err
 	}
@@ -254,19 +264,23 @@ type OrgKey struct {
 }
 
 func SelectOrgKey(db *sql.DB, callback func(*OrgKey) bool) error {
-	rows, err := db.Query(`SELECT
-		CERTKEY_SEQ,
-		CRTFC_KEY,
-		ORGAN_NM,
-		ORGAN_CN,
-		BEGIN_VALID_DE,
-		END_VALID_DE,
-		STTUS_CODE,
-		REGISTER_NO,
-		REGIST_DT,
-		UPDUSR_NO,
-		UPDT_DT
-	FROM TB_CERTKEY_INTEGRATION`)
+	sqlText := strings.Join([]string{
+		"SELECT",
+		"CERTKEY_SEQ,",
+		"CRTFC_KEY,",
+		"ORGAN_NM,",
+		"ORGAN_CN,",
+		"BEGIN_VALID_DE,",
+		"END_VALID_DE,",
+		"STTUS_CODE,",
+		"REGISTER_NO,",
+		"REGIST_DT,",
+		"UPDUSR_NO,",
+		"UPDT_DT",
+		"FROM",
+		"TB_CERTKEY_INTEGRATION",
+	}, " ")
+	rows, err := db.Query(sqlText)
 	if err != nil {
 		return err
 	}
@@ -333,17 +347,21 @@ type AreaCode struct {
 }
 
 func SelectAreaCode(db *sql.DB, callback func(*AreaCode) bool) error {
-	rows, err := db.Query(`SELECT
-		AREA_SEQ,
-		AREA_CODE,
-		AREA_NM,
-		LA,
-		LO,
-		REGISTER_NO,
-		REGIST_DT,
-		UPDUSR_NO,
-		UPDT_DT
-	FROM TB_AREA_CODE`)
+	sqlText := strings.Join([]string{
+		"SELECT",
+		"AREA_SEQ,",
+		"AREA_CODE,",
+		"AREA_NM,",
+		"LA,",
+		"LO,",
+		"REGISTER_NO,",
+		"REGIST_DT,",
+		"UPDUSR_NO,",
+		"UPDT_DT",
+		"FROM",
+		"TB_AREA_CODE",
+	}, " ")
+	rows, err := db.Query(sqlText)
 	if err != nil {
 		return err
 	}
@@ -397,30 +415,34 @@ type ModelInstallInfo struct {
 }
 
 func SelectModelInstallInfo(db *sql.DB, callback func(*ModelInstallInfo, error) bool) error {
-	rows, err := db.Query(`SELECT
-		MODL_SERIAL,
-		TRNSMIT_SERVER_NO,
-		DATA_NO,
-		AREA_SEQ,
-		POST_NO,
-		ADRES,
-		ADRES_DETAIL,
-		CRDNT_CODE,
-		LA,
-		LO,
-		ANTCTY,
-		BULD_NM,
-		INSTL_FLOOR,
-		INSTL_HO_NO,
-		RM,
-		USE_YN,
-		SORT_ORDR,
-		LAST_RECPTN_DT,
-		REGISTER_NO,
-		REGIST_DT,
-		UPDUSR_NO,
-		UPDT_DT
-	FROM TB_MODL_INSTL_INFO`)
+	sqlText := strings.Join([]string{
+		"SELECT",
+		"MODL_SERIAL,",
+		"TRNSMIT_SERVER_NO,",
+		"DATA_NO,",
+		"AREA_SEQ,",
+		"POST_NO,",
+		"ADRES,",
+		"ADRES_DETAIL,",
+		"CRDNT_CODE,",
+		"LA,",
+		"LO,",
+		"ANTCTY,",
+		"BULD_NM,",
+		"INSTL_FLOOR,",
+		"INSTL_HO_NO,",
+		"RM,",
+		"USE_YN,",
+		"SORT_ORDR,",
+		"LAST_RECPTN_DT,",
+		"REGISTER_NO,",
+		"REGIST_DT,",
+		"UPDUSR_NO,",
+		"UPDT_DT",
+		"FROM",
+		"TB_MODL_INSTL_INFO",
+	}, " ")
+	rows, err := db.Query(sqlText)
 	if err != nil {
 		return err
 	}
@@ -513,7 +535,7 @@ func stringToDate(dateStr string) (time.Time, error) {
 }
 
 func SelectMaxPacketSeq(db *sql.DB) (int64, error) {
-	row := db.QueryRow(`SELECT MAX(PACKET_SEQ) FROM TB_RECPTN_PACKET_DATA`)
+	row := db.QueryRow(fmt.Sprintf(`SELECT MAX(PACKET_SEQ) FROM %s`, tableName("TB_RECPTN_PACKET_DATA")))
 	if err := row.Err(); err != nil {
 		return 0, err
 	}
@@ -525,7 +547,7 @@ func SelectMaxPacketSeq(db *sql.DB) (int64, error) {
 }
 
 func SelectMaxPacketParsSeq(db *sql.DB) (int64, error) {
-	row := db.QueryRow(`SELECT MAX(PACKET_PARS_SEQ) FROM TB_PACKET_PARS_DATA`)
+	row := db.QueryRow(fmt.Sprintf(`SELECT MAX(PACKET_PARS_SEQ) FROM %s`, tableName("TB_PACKET_PARS_DATA")))
 	if err := row.Err(); err != nil {
 		return 0, err
 	}

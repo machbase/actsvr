@@ -60,7 +60,7 @@ func (s *HttpServer) reloadPacketSeq() error {
 		panic(err)
 	}
 	defer conn.Close()
-	row := conn.QueryRow(ctx, "SELECT MAX(PACKET_SEQ) FROM TB_RECPTN_PACKET_DATA")
+	row := conn.QueryRow(ctx, fmt.Sprintf("SELECT MAX(PACKET_SEQ) FROM %s", tableName("TB_RECPTN_PACKET_DATA")))
 	if err := row.Err(); err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (s *HttpServer) reloadPacketParseSeq() error {
 		panic(err)
 	}
 	defer conn.Close()
-	row := conn.QueryRow(ctx, "SELECT MAX(PACKET_PARS_SEQ) FROM TB_PACKET_PARS_DATA")
+	row := conn.QueryRow(ctx, fmt.Sprintf("SELECT MAX(PACKET_PARS_SEQ) FROM %s", tableName("TB_PACKET_PARS_DATA")))
 	if err := row.Err(); err != nil {
 		return err
 	}
@@ -134,7 +134,9 @@ func (s *HttpServer) loopRawPacket() {
 	defer conn.Close()
 
 	sqlText := strings.Join([]string{
-		"INSERT INTO TB_RECPTN_PACKET_DATA(",
+		"INSERT INTO",
+		tableName("TB_RECPTN_PACKET_DATA"),
+		"(",
 		"PACKET_SEQ,",
 		"TRNSMIT_SERVER_NO,",
 		"DATA_NO,",
@@ -218,7 +220,9 @@ func (s *HttpServer) loopErrPacket() {
 	defer conn.Close()
 
 	sqlText := strings.Join([]string{
-		"INSERT INTO NTB_ERR_LOG(",
+		"INSERT INTO",
+		tableName("TB_ERR_LOG"),
+		"(",
 		"PACKET_SEQ,",
 		"TRNSMIT_SERVER_NO,",
 		"DATA_NO,",
@@ -245,7 +249,8 @@ func (s *HttpServer) loopErrPacket() {
 		insertLatency := time.Since(tick)
 
 		if insertErr != nil {
-			s.log.Errorf("%d Failed to insert NTB_ERR_LOG: %v, data: %#v", data.PacketSeq, insertErr, data)
+			s.log.Errorf("%d Failed to insert %s: %v, data: %#v",
+				data.PacketSeq, tableName("TB_ERR_LOG"), insertErr, data)
 		}
 		if collector != nil {
 			measure := []metric.Measure{}
@@ -281,7 +286,9 @@ func (s *HttpServer) loopParsPacket() {
 		}
 		tick := time.Now()
 		sqlBuilder := strings.Builder{}
-		sqlBuilder.WriteString(`INSERT INTO TB_PACKET_PARS_DATA(`)
+		sqlBuilder.WriteString(`INSERT INTO`)
+		sqlBuilder.WriteString(tableName(`TB_PACKET_PARS_DATA`))
+		sqlBuilder.WriteString(`(`)
 		sqlBuilder.WriteString(`PACKET_PARS_SEQ,`)
 		sqlBuilder.WriteString(`PACKET_SEQ,`)
 		sqlBuilder.WriteString(`TRNSMIT_SERVER_NO,`)
@@ -369,34 +376,49 @@ func (s *HttpServer) loopReplicaRawPacket() {
 	}
 	defer conn.Close()
 
+	sqlText := strings.Join([]string{
+		"SELECT",
+		"PACKET_SEQ,",
+		"TRNSMIT_SERVER_NO,",
+		"DATA_NO,",
+		"PK_SEQ,",
+		"AREA_CODE,",
+		"MODL_SERIAL,",
+		"DQMCRR_OP,",
+		"PACKET,",
+		"PACKET_STTUS_CODE,",
+		"RECPTN_RESULT_CODE,",
+		"RECPTN_RESULT_MSSAGE,",
+		"PARS_SE_CODE,",
+		"REGIST_DE,",
+		"REGIST_TIME,",
+		"REGIST_DT",
+		"FROM",
+		tableName("TB_RECPTN_PACKET_DATA"),
+		"WHERE PACKET_SEQ > ?",
+		"ORDER BY PACKET_SEQ",
+		"LIMIT ?",
+	}, " ")
 	for s.replicaAlive {
 		if replicaRowsPerRun <= 0 {
 			time.Sleep(3 * time.Second)
 			continue
 		}
-		rows, err := conn.Query(ctx, `SELECT
-			PACKET_SEQ,
-			TRNSMIT_SERVER_NO,
-			DATA_NO,
-			PK_SEQ,
-			AREA_CODE,
-			MODL_SERIAL,
-			DQMCRR_OP,
-			PACKET,
-			PACKET_STTUS_CODE,
-			RECPTN_RESULT_CODE,
-			RECPTN_RESULT_MSSAGE,
-			PARS_SE_CODE,
-			REGIST_DE,
-			REGIST_TIME,
-			REGIST_DT
-		FROM TB_RECPTN_PACKET_DATA
-		WHERE PACKET_SEQ > ?
-		ORDER BY PACKET_SEQ
-		LIMIT ?`, lastSeq, replicaRowsPerRun)
+		rows, err := conn.Query(ctx, sqlText, lastSeq, replicaRowsPerRun)
 		if err != nil {
 			panic(err)
 		}
+		sqlText := strings.Join([]string{
+			"INSERT INTO",
+			tableName("TB_RECPTN_PACKET_DATA"),
+			"(",
+			"PACKET_SEQ, TRNSMIT_SERVER_NO, DATA_NO,",
+			"PK_SEQ, MODL_SERIAL, PACKET,",
+			"PACKET_STTUS_CODE, RECPTN_RESULT_CODE, RECPTN_RESULT_MSSAGE,",
+			"PARS_SE_CODE, PARS_DT, REGIST_DE,",
+			"REGIST_TIME, REGIST_DT",
+			") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		}, " ")
 		cnt := 0
 		for rows.Next() {
 			cnt++
@@ -412,14 +434,8 @@ func (s *HttpServer) loopReplicaRawPacket() {
 			}
 
 			tick := nowFunc()
-			_, insertErr := rdb.ExecContext(ctx, `INSERT INTO TB_RECPTN_PACKET_DATA(
-				PACKET_SEQ, TRNSMIT_SERVER_NO, DATA_NO,
-				PK_SEQ, MODL_SERIAL, PACKET,
-				PACKET_STTUS_CODE, RECPTN_RESULT_CODE, RECPTN_RESULT_MSSAGE,
-				PARS_SE_CODE, PARS_DT, REGIST_DE,
-				REGIST_TIME, REGIST_DT
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			`, data.PacketSeq, data.TrnsmitServerNo, data.DataNo,
+			_, insertErr := rdb.ExecContext(ctx, sqlText,
+				data.PacketSeq, data.TrnsmitServerNo, data.DataNo,
 				data.PkSeq, data.ModlSerial, data.Packet,
 				data.PacketSttusCode, data.RecptnResultCode, data.RecptnResultMssage,
 				data.ParsSeCode, nowFunc(), data.RegistDe,
@@ -483,32 +499,65 @@ func (s *HttpServer) loopReplicaParsPacket() {
 	}
 	defer conn.Close()
 
+	selectSqlText := strings.Join([]string{
+		"SELECT",
+		"PACKET_PARS_SEQ, PACKET_SEQ, TRNSMIT_SERVER_NO, DATA_NO,",
+		"REGIST_DT, REGIST_DE,",
+		"SERVICE_SEQ, AREA_CODE, MODL_SERIAL, DQMCRR_OP,",
+		"COLUMN0, COLUMN1, COLUMN2, COLUMN3, COLUMN4,",
+		"COLUMN5, COLUMN6, COLUMN7, COLUMN8, COLUMN9,",
+		"COLUMN10, COLUMN11, COLUMN12, COLUMN13, COLUMN14,",
+		"COLUMN15, COLUMN16, COLUMN17, COLUMN18, COLUMN19,",
+		"COLUMN20, COLUMN21, COLUMN22, COLUMN23, COLUMN24,",
+		"COLUMN25, COLUMN26, COLUMN27, COLUMN28, COLUMN29,",
+		"COLUMN30, COLUMN31, COLUMN32, COLUMN33, COLUMN34,",
+		"COLUMN35, COLUMN36, COLUMN37, COLUMN38, COLUMN39,",
+		"COLUMN40, COLUMN41, COLUMN42, COLUMN43, COLUMN44,",
+		"COLUMN45, COLUMN46, COLUMN47, COLUMN48, COLUMN49,",
+		"COLUMN50, COLUMN51, COLUMN52, COLUMN53, COLUMN54,",
+		"COLUMN55, COLUMN56, COLUMN57, COLUMN58, COLUMN59,",
+		"COLUMN60, COLUMN61, COLUMN62, COLUMN63",
+		"FROM",
+		tableName("TB_PACKET_PARS_DATA"),
+		"WHERE PACKET_PARS_SEQ > ?",
+		"ORDER BY PACKET_PARS_SEQ",
+		"LIMIT ?",
+	}, " ")
+	insertSqlText := strings.Join([]string{
+		"INSERT INTO",
+		tableName("TB_PACKET_PARS_DATA"),
+		"(",
+		"PACKET_PARS_SEQ, PACKET_SEQ, TRNSMIT_SERVER_NO, DATA_NO,",
+		//	"SERVICE_SEQ, AREA_CODE, MODL_SERIAL, DQMCRR_OP,",
+		"REGIST_DT, REGIST_DE,",
+		"COLUMN0, COLUMN1, COLUMN2, COLUMN3, COLUMN4,",
+		"COLUMN5, COLUMN6, COLUMN7, COLUMN8, COLUMN9, COLUMN10,",
+		"COLUMN11, COLUMN12, COLUMN13, COLUMN14, COLUMN15, COLUMN16,",
+		"COLUMN17, COLUMN18, COLUMN19, COLUMN20, COLUMN21, COLUMN22,",
+		"COLUMN23, COLUMN24, COLUMN25, COLUMN26, COLUMN27, COLUMN28,",
+		"COLUMN29, COLUMN30, COLUMN31, COLUMN32, COLUMN33, COLUMN34,",
+		"COLUMN35, COLUMN36, COLUMN37, COLUMN38, COLUMN39, COLUMN40,",
+		"COLUMN41, COLUMN42, COLUMN43, COLUMN44, COLUMN45, COLUMN46,",
+		"COLUMN47, COLUMN48, COLUMN49, COLUMN50, COLUMN51, COLUMN52,",
+		"COLUMN53, COLUMN54, COLUMN55, COLUMN56, COLUMN57, COLUMN58,",
+		"COLUMN59, COLUMN60, COLUMN61, COLUMN62, COLUMN63",
+		") VALUES (",
+		"?, ?, ?, ?, ?, ?,", //?, ?, ?, ?,
+		"?, ?, ?, ?, ?, ?, ?, ?,",
+		"?, ?, ?, ?, ?, ?, ?, ?,",
+		"?, ?, ?, ?, ?, ?, ?, ?,",
+		"?, ?, ?, ?, ?, ?, ?, ?,",
+		"?, ?, ?, ?, ?, ?, ?, ?,",
+		"?, ?, ?, ?, ?, ?, ?, ?,",
+		"?, ?, ?, ?, ?, ?, ?, ?,",
+		"?, ?, ?, ?, ?, ?, ?, ?)",
+	}, " ")
 	for s.replicaAlive {
 		if replicaRowsPerRun <= 0 {
 			time.Sleep(3 * time.Second)
 			continue
 		}
-		rows, err := conn.Query(ctx, `SELECT
-			PACKET_PARS_SEQ, PACKET_SEQ, TRNSMIT_SERVER_NO, DATA_NO,
-			REGIST_DT, REGIST_DE,
-			SERVICE_SEQ, AREA_CODE, MODL_SERIAL, DQMCRR_OP,
-			COLUMN0, COLUMN1, COLUMN2, COLUMN3, COLUMN4,
-			COLUMN5, COLUMN6, COLUMN7, COLUMN8, COLUMN9,
-			COLUMN10, COLUMN11, COLUMN12, COLUMN13, COLUMN14,
-			COLUMN15, COLUMN16, COLUMN17, COLUMN18, COLUMN19,
-			COLUMN20, COLUMN21, COLUMN22, COLUMN23, COLUMN24,
-			COLUMN25, COLUMN26, COLUMN27, COLUMN28, COLUMN29,
-			COLUMN30, COLUMN31, COLUMN32, COLUMN33, COLUMN34,
-			COLUMN35, COLUMN36, COLUMN37, COLUMN38, COLUMN39,
-			COLUMN40, COLUMN41, COLUMN42, COLUMN43, COLUMN44,
-			COLUMN45, COLUMN46, COLUMN47, COLUMN48, COLUMN49,
-			COLUMN50, COLUMN51, COLUMN52, COLUMN53, COLUMN54,
-			COLUMN55, COLUMN56, COLUMN57, COLUMN58, COLUMN59,
-			COLUMN60, COLUMN61, COLUMN62, COLUMN63
-		FROM TB_PACKET_PARS_DATA
-		WHERE PACKET_PARS_SEQ > ?
-		ORDER BY PACKET_PARS_SEQ
-		LIMIT ?`, lastParsSeq, replicaRowsPerRun)
+		rows, err := conn.Query(ctx, selectSqlText, lastParsSeq, replicaRowsPerRun)
 		if err != nil {
 			panic(err)
 		}
@@ -547,32 +596,8 @@ func (s *HttpServer) loopReplicaParsPacket() {
 			}
 
 			tick := nowFunc()
-			_, insertErr := rdb.ExecContext(ctx, `INSERT INTO TB_PACKET_PARS_DATA (`+
-				`PACKET_PARS_SEQ, PACKET_SEQ, TRNSMIT_SERVER_NO, DATA_NO,`+
-				//	SERVICE_SEQ, AREA_CODE, MODL_SERIAL, DQMCRR_OP,
-				`REGIST_DT, REGIST_DE, 
-				COLUMN0, COLUMN1, COLUMN2, COLUMN3, COLUMN4,
-				COLUMN5, COLUMN6, COLUMN7, COLUMN8, COLUMN9, COLUMN10,
-				COLUMN11, COLUMN12, COLUMN13, COLUMN14, COLUMN15, COLUMN16,
-				COLUMN17, COLUMN18, COLUMN19, COLUMN20, COLUMN21, COLUMN22,
-				COLUMN23, COLUMN24, COLUMN25, COLUMN26, COLUMN27, COLUMN28,
-				COLUMN29, COLUMN30, COLUMN31, COLUMN32, COLUMN33, COLUMN34,
-				COLUMN35, COLUMN36, COLUMN37, COLUMN38, COLUMN39, COLUMN40,
-				COLUMN41, COLUMN42, COLUMN43, COLUMN44, COLUMN45, COLUMN46,
-				COLUMN47, COLUMN48, COLUMN49, COLUMN50, COLUMN51, COLUMN52,
-				COLUMN53, COLUMN54, COLUMN55, COLUMN56, COLUMN57, COLUMN58,
-				COLUMN59, COLUMN60, COLUMN61, COLUMN62, COLUMN63
-			) VALUES (
-			 	?, ?, ?, ?, ?, ?,`+ //?, ?, ?, ?,
-				`?, ?, ?, ?, ?, ?, ?, ?,
-				?, ?, ?, ?, ?, ?, ?, ?,
-				?, ?, ?, ?, ?, ?, ?, ?,
-				?, ?, ?, ?, ?, ?, ?, ?,
-				?, ?, ?, ?, ?, ?, ?, ?,
-				?, ?, ?, ?, ?, ?, ?, ?,
-				?, ?, ?, ?, ?, ?, ?, ?,
-				?, ?, ?, ?, ?, ?, ?, ?)
-			`, data.PacketParsSeq, data.PacketSeq, data.TrnsmitServerNo, data.DataNo,
+			_, insertErr := rdb.ExecContext(ctx, insertSqlText,
+				data.PacketParsSeq, data.PacketSeq, data.TrnsmitServerNo, data.DataNo,
 				// data.ServiceSeq, data.AreaCode, data.ModlSerial, data.DqmCrrOp,
 				data.RegistDt, data.RegistDe,
 				snull(data.Column0), snull(data.Column1), snull(data.Column2), snull(data.Column3), snull(data.Column4),
@@ -735,9 +760,12 @@ func (s *HttpServer) loopStatData() {
 	}
 	defer conn.Close()
 
-	logSqlText := "INSERT INTO NTB_RESLT_USE_DATA " +
-		"(CERTKEY_SEQ, TRNSMIT_SERVER_NO, RQST_URL, USE_CNT, REGIST_DE, REGIST_DT, RESLT_DT) " +
-		"VALUES (?, ?, ?, ?, ?, ?, ?)"
+	logSqlText := strings.Join([]string{
+		"INSERT INTO",
+		tableName("TB_RESLT_USE_DATA"),
+		"(CERTKEY_SEQ, TRNSMIT_SERVER_NO, RQST_URL, USE_CNT, REGIST_DE, REGIST_DT, RESLT_DT)",
+		"VALUES (?, ?, ?, ?, ?, ?, ?)",
+	}, " ")
 	statSqlText := fmt.Sprintf("INSERT INTO %s (NAME, TIME, VALUE) VALUES (?, ?, ?)", statTagTable)
 	for data := range s.statCh {
 		if data == nil {

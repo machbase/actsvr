@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -25,6 +26,7 @@ var arrivalQueryLimit int = 1000
 var DefaultTZ *time.Location
 var statTagTable string = "TAG"
 var disableUpdateArrivalTime = false
+var devMode = false
 
 const MaskingStrValue = "***"
 
@@ -52,6 +54,7 @@ func Main() int {
 
 	httpSvr := NewHttpServer()
 	flag.StringVar(&pid, "pid", pid, "the file to store the process ID")
+	flag.BoolVar(&devMode, "dev", devMode, "enable development mode")
 	// Machbase configuration
 	flag.StringVar(&machConfig.dbHost, "db-host", machConfig.dbHost, "Database host")
 	flag.IntVar(&machConfig.dbPort, "db-port", machConfig.dbPort, "Database port")
@@ -149,6 +152,14 @@ type RDBConfig struct {
 	user string
 	pass string
 	db   string
+}
+
+func tableName(base string) string {
+	base = strings.ToUpper(base)
+	if devMode {
+		return fmt.Sprintf("N%s", base)
+	}
+	return base
 }
 
 func (c RDBConfig) Connect() (*sql.DB, error) {
