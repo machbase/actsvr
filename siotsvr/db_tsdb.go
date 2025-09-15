@@ -153,7 +153,7 @@ func (s *HttpServer) loopRawPacket() {
 		"REGIST_TIME,",
 		"REGIST_DT",
 		") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-	}, "")
+	}, " ")
 	for data := range s.rawPacketCh {
 		if data == nil {
 			break
@@ -234,7 +234,7 @@ func (s *HttpServer) loopErrPacket() {
 		"REGIST_DE,",
 		"REGIST_DT",
 		") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-	}, "")
+	}, " ")
 	for data := range s.errPacketCh {
 		if data == nil {
 			break
@@ -286,7 +286,7 @@ func (s *HttpServer) loopParsPacket() {
 		}
 		tick := time.Now()
 		sqlBuilder := strings.Builder{}
-		sqlBuilder.WriteString(`INSERT INTO`)
+		sqlBuilder.WriteString(`INSERT INTO `)
 		sqlBuilder.WriteString(tableName(`TB_PACKET_PARS_DATA`))
 		sqlBuilder.WriteString(`(`)
 		sqlBuilder.WriteString(`PACKET_PARS_SEQ,`)
