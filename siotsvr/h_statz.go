@@ -13,12 +13,16 @@ import (
 
 var collector *metric.Collector
 
+const SERIES_ID_FINEST = "METRIC_2H"
+
 func Collector(outputFunc metric.OutputFunc) *metric.Collector {
 	if collector == nil {
+		m2h, _ := metric.NewSeriesID(SERIES_ID_FINEST, "2h | 1m", 60*time.Second, 120)
+		m2d12h, _ := metric.NewSeriesID("METRIC_2D12H", "2d12h | 30m", 30*time.Minute, 120)
+
 		collector = metric.NewCollector(
 			metric.WithSamplingInterval(10*time.Second),
-			metric.WithSeries("2h", 60*time.Second, 120),
-			metric.WithSeries("2d12h", 30*time.Minute, 120),
+			metric.WithSeries(m2h, m2d12h),
 			metric.WithPrefix("metrics"),
 			metric.WithInputBuffer(50),
 		)
@@ -38,21 +42,24 @@ func Collector(outputFunc metric.OutputFunc) *metric.Collector {
 }
 
 func CollectorHandler() http.Handler {
-	lastOnlyFilter := metric.MustCompile([]string{"*#last"})
-
 	dash := metric.NewDashboard(collector)
 	dash.PageTitle = "Seoul IoT Server"
 	dash.ShowRemains = false
 	dash.SetTheme("light")
-	dash.AddChart(metric.Chart{Title: "Go Routines", MetricNames: []string{"runtime:goroutines"}, SeriesSelector: lastOnlyFilter})
-	dash.AddChart(metric.Chart{Title: "Go Heap In Use", MetricNames: []string{"runtime:heap_inuse"}, SeriesSelector: lastOnlyFilter})
+	dash.AddChart(metric.Chart{Title: "Go Routines", MetricNames: []string{"runtime:goroutines"}, FieldNames: []string{"last"}})
+	dash.AddChart(metric.Chart{Title: "Go Heap In Use", MetricNames: []string{"runtime:heap_inuse"}, FieldNames: []string{"last"}})
 	dash.AddChart(metric.Chart{Title: "HTTP Latency", MetricNames: []string{"http:latency"}})
 	dash.AddChart(metric.Chart{Title: "HTTP Status", MetricNames: []string{"http:status_[1-5]xx"}, Type: metric.ChartTypeBarStack})
+	dash.AddChart(metric.Chart{Title: "Query Count", MetricNames: []string{"query:count"}})
 	dash.AddChart(metric.Chart{Title: "Query Latency", MetricNames: []string{"query:latency"}})
 	dash.AddChart(metric.Chart{Title: "Query Error", MetricNames: []string{"query:error"}})
+	dash.AddChart(metric.Chart{Title: "Insert Packet Count", MetricNames: []string{"packet_data:insert_count"}})
 	dash.AddChart(metric.Chart{Title: "Insert Packet", MetricNames: []string{"packet_data:insert_latency"}})
+	dash.AddChart(metric.Chart{Title: "Insert Parse Count", MetricNames: []string{"pars_data:insert_count"}})
 	dash.AddChart(metric.Chart{Title: "Insert Parse", MetricNames: []string{"pars_data:insert_latency"}})
+	dash.AddChart(metric.Chart{Title: "Insert Packet RDB Count", MetricNames: []string{"rdb_packet_data:insert_count"}})
 	dash.AddChart(metric.Chart{Title: "Insert Packet RDB", MetricNames: []string{"rdb_packet_data:insert_latency"}})
+	dash.AddChart(metric.Chart{Title: "Insert Parse RDB Count", MetricNames: []string{"rdb_pars_data:insert_count"}})
 	dash.AddChart(metric.Chart{Title: "Insert Parse RDB", MetricNames: []string{"rdb_pars_data:insert_latency"}})
 	return dash
 }
@@ -64,6 +71,12 @@ type StatRec struct {
 }
 
 func (s *HttpServer) onProduct(pd metric.Product) error {
+	if pd.Value == nil {
+		return nil
+	}
+	if pd.SeriesID != SERIES_ID_FINEST {
+		return nil
+	}
 	var result []StatRec
 	switch p := pd.Value.(type) {
 	case *metric.CounterValue:

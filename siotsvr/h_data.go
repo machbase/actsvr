@@ -66,6 +66,10 @@ func (s *HttpServer) handleData(c *gin.Context) {
 			measure := []metric.Measure{}
 			if requestErr == "" {
 				measure = append(measure, metric.Measure{
+					Name:  "query:count",
+					Value: 1,
+					Type:  metric.CounterType(metric.UnitShort),
+				}, metric.Measure{
 					Name:  "query:latency",
 					Value: float64(latency.Nanoseconds()),
 					Type:  metric.HistogramType(metric.UnitDuration),

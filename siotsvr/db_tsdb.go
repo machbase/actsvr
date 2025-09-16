@@ -188,6 +188,10 @@ func (s *HttpServer) loopRawPacket() {
 			measure := []metric.Measure{}
 			if insertErr == nil {
 				measure = append(measure, metric.Measure{
+					Name:  "packet_data:insert_count",
+					Value: 1,
+					Type:  metric.CounterType(metric.UnitShort),
+				}, metric.Measure{
 					Name:  "packet_data:insert_latency",
 					Value: float64(insertLatency.Nanoseconds()),
 					Type:  metric.HistogramType(metric.UnitDuration),
@@ -334,6 +338,10 @@ func (s *HttpServer) loopParsPacket() {
 			measure := []metric.Measure{}
 			if insertErr == nil {
 				measure = append(measure, metric.Measure{
+					Name:  "pars_data:insert_count",
+					Value: 1,
+					Type:  metric.CounterType(metric.UnitShort),
+				}, metric.Measure{
 					Name:  "pars_data:insert_latency",
 					Value: float64(latency.Nanoseconds()),
 					Type:  metric.HistogramType(metric.UnitDuration),
@@ -450,6 +458,10 @@ func (s *HttpServer) loopReplicaRawPacket() {
 				measure := []metric.Measure{}
 				if insertErr == nil {
 					measure = append(measure, metric.Measure{
+						Name:  "rdb_packet_data:insert_count",
+						Value: 1,
+						Type:  metric.CounterType(metric.UnitShort),
+					}, metric.Measure{
 						Name:  "rdb_packet_data:insert_latency",
 						Value: float64(latency.Nanoseconds()),
 						Type:  metric.HistogramType(metric.UnitDuration),
@@ -624,6 +636,10 @@ func (s *HttpServer) loopReplicaParsPacket() {
 				measure := []metric.Measure{}
 				if insertErr == nil {
 					measure = append(measure, metric.Measure{
+						Name:  "rdb_pars_data:insert_count",
+						Value: 1,
+						Type:  metric.CounterType(metric.UnitShort),
+					}, metric.Measure{
 						Name:  "rdb_pars_data:insert_latency",
 						Value: float64(latency.Nanoseconds()),
 						Type:  metric.HistogramType(metric.UnitDuration),
