@@ -73,6 +73,12 @@ func (s *HttpServer) Start(ctx context.Context) error {
 	if err := reloadModelAreaCode(); err != nil {
 		return err
 	}
+	if err := reloadModelDqmInfo(); err != nil {
+		return err
+	}
+	if err := reloadModelOrgnPublic(); err != nil {
+		return err
+	}
 	if err := s.openDatabase(); err != nil {
 		return err
 	}
@@ -213,6 +219,8 @@ func (s *HttpServer) handleAdminReload(c *gin.Context) {
 		err = reloadModelAreaCode()
 	case "model_dqm":
 		err = reloadModelDqmInfo()
+	case "orgnpublic":
+		err = reloadModelOrgnPublic()
 	case "packet_seq":
 		err = s.reloadPacketSeq()
 	case "packet_parse_seq":
@@ -463,6 +471,18 @@ var (
 		ResultStats: ApiResultStats{
 			ResultCode: "ERROR-640",
 			ResultMsg:  "일일 전송량 초과입니다.",
+		},
+	}
+	ApiErrorDqmNonPublic = ApiResult{
+		ResultStats: ApiResultStats{
+			ResultCode: "ERROR-650",
+			ResultMsg:  "비공개 데이터입니다.",
+		},
+	}
+	ApiErrorOrgnNonRetrive = ApiResult{
+		ResultStats: ApiResultStats{
+			ResultCode: "ERROR-660",
+			ResultMsg:  "비공개 데이터입니다.",
 		},
 	}
 	ApiErrorInvalidParameters = ApiResult{

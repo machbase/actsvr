@@ -616,3 +616,47 @@ func SelectMaxPacketParsSeq(db *sql.DB) (int64, error) {
 	}
 	return maxPacketParsSeq, nil
 }
+
+type ModlOrgnPublic struct {
+	CertKeySeq      int64 `sql:"certkey_seq"` // primary key
+	TrnsmitServerNo int64 `sql:"trnsmit_server_no"`
+	Retrive         bool  `sql:"retriv_yn"`
+	Masking         bool  `sql:"maskng_yn"`
+}
+
+func SelectModelOrganizationPublic(db *sql.DB, callback func(*ModlOrgnPublic) bool) error {
+	sqlText := strings.Join([]string{
+		"SELECT",
+		"CERTKEY_SEQ,",
+		"TRNSMIT_SERVER_NO,",
+		"RETRIV_YN,",
+		"MASKNG_YN",
+		"FROM",
+		tableName("TB_MODL_ORGN_PUBLIC"),
+	}, " ")
+	rows, err := db.Query(sqlText)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var mo ModlOrgnPublic
+		var retrive sql.NullString
+		var masking sql.NullString
+		err := rows.Scan(
+			&mo.CertKeySeq,
+			&mo.TrnsmitServerNo,
+			&retrive,
+			&masking)
+		if err != nil {
+			return err
+		}
+		mo.Masking = masking.Valid && masking.String == "Y"
+		mo.Retrive = retrive.Valid && retrive.String == "Y"
+		if !callback(&mo) {
+			break
+		}
+	}
+	return nil
+}

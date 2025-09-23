@@ -15,6 +15,12 @@ GET http://127.0.0.1:5680/db/admin/reload?target=certkey
 GET http://127.0.0.1:5680/db/admin/reload?target=orgkey
 ```
 
+### TB_MODL_ORGN_PUBLIC
+
+```http
+GET http://127.0.0.1:5680/db/admin/reload?target=orgnpublic
+```
+
 ### TB_MODL_PACKET_MASTR and TB_MODL_PACKET_DETAIL
 
 ```http

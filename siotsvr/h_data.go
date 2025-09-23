@@ -18,14 +18,14 @@ func (s *HttpServer) handleData(c *gin.Context) {
 	var requestErr string
 	cancel := false
 	var nrow int = 0
-	var orgId int64 = -1
+	var certKeySeq int64 = -1
 	var orgName string = ""
 	var tsn int64 = -1
 	defer func() {
 		// Stat
-		if orgId > 0 && tsn > 0 && nrow > 0 {
+		if certKeySeq > 0 && tsn > 0 && nrow > 0 {
 			s.statCh <- &StatDatum{
-				orgId: orgId,
+				orgId: certKeySeq,
 				tsn:   tsn,
 				nrow:  nrow,
 				ts:    tick,
@@ -37,7 +37,7 @@ func (s *HttpServer) handleData(c *gin.Context) {
 		if c.Request.URL.RawQuery != "" {
 			req += "?" + c.Request.URL.RawQuery
 		}
-		reply := fmt.Sprintf("%q org:%d tsn:%d nrow:%d", orgName, orgId, tsn, nrow)
+		reply := fmt.Sprintf("%q org:%d tsn:%d nrow:%d", orgName, certKeySeq, tsn, nrow)
 		if requestErr != "" {
 			reply = requestErr
 		}
@@ -118,7 +118,7 @@ func (s *HttpServer) handleData(c *gin.Context) {
 			c.JSON(http.StatusForbidden, ApiErrorExpiredCertkey)
 			return
 		}
-		orgId = key.CertkeySeq
+		certKeySeq = key.CertkeySeq
 		orgName = key.OrgName
 		if key.OrgCName != "" {
 			orgName = orgName + "(" + key.OrgCName + ")"
@@ -178,13 +178,13 @@ func (s *HttpServer) handleData(c *gin.Context) {
 	defer conn.Close()
 
 	if isPars {
-		nrow, cancel = handleParsData(c, conn, tsn, dataNo, startTime, endTime, modelSerial, areaCode)
+		nrow, cancel = handleParsData(c, conn, certKeySeq, tsn, dataNo, startTime, endTime, modelSerial, areaCode)
 	} else {
 		nrow, cancel = handleRawData(c, conn, tsn, dataNo, startTime, endTime, modelSerial, areaCode)
 	}
 }
 
-func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTime time.Time, endTime time.Time, modelSerial string, areaCode string) (nrow int, cancel bool) {
+func handleParsData(c *gin.Context, conn api.Conn, certKeySeq int64, tsn int64, dataNo int, startTime time.Time, endTime time.Time, modelSerial string, areaCode string) (nrow int, cancel bool) {
 	searchDataNo := 1 // always use data_no = 1 for model data
 	definition := getPacketDefinition(tsn, searchDataNo)
 	if definition == nil {
@@ -192,12 +192,31 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 		c.JSON(http.StatusNotFound, ApiErrorServer)
 		return
 	}
+
+	activateMasking := false
 	dqmInfo := getModelDqmInfo(tsn)
-	if dqmInfo != nil && !dqmInfo.Public {
+	if dqmInfo == nil || !dqmInfo.Public {
+		// MODL_DQM_INFO PUBLIC_YN = 'N' 인 경우: ERROR-650
 		defaultLog.Errorf("Packet is not public for tsn: %d and data_no: %d", tsn, dataNo)
-		c.JSON(http.StatusForbidden, ApiErrorNonPublic)
+		c.JSON(http.StatusForbidden, ApiErrorDqmNonPublic)
 		return
 	}
+
+	orgnPublic := getModelOrgnPublic(certKeySeq)
+	if orgnPublic == nil || !orgnPublic.Retrive {
+		// MODL_ORGN_PUBLIC RETRIVE_YN = 'N' 인 경우: ERROR-660
+		defaultLog.Errorf("Packet is not public for tsn: %d and data_no: %d", tsn, dataNo)
+		c.JSON(http.StatusForbidden, ApiErrorOrgnNonRetrive)
+		return
+	}
+
+	if dqmInfo.Masking && orgnPublic.Masking {
+		activateMasking = true
+	} else {
+		activateMasking = false
+	}
+	_ = activateMasking
+
 	sb := &strings.Builder{}
 	args := []any{}
 	var arrivalTime time.Time
@@ -316,13 +335,12 @@ func handleParsData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startT
 			if cntField > 0 {
 				c.Writer.WriteString(",")
 			}
-			if fd := definition.Fields[i]; fd.Public {
-				if dqmInfo != nil && dqmInfo.Masking {
-					value = MaskingStrValue
-				}
-				fmt.Fprintf(c.Writer, `%q`, value)
-				cntField++
+			fd := definition.Fields[i]
+			if !fd.Public {
+				value = MaskingStrValue
 			}
+			fmt.Fprintf(c.Writer, `%q`, value)
+			cntField++
 		}
 		c.Writer.WriteString(`]}`)
 		nrow++

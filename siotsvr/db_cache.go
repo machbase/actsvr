@@ -18,6 +18,8 @@ var cacheModelAreaCode map[string]string // key: {{model_serial}}_{{tsn}}_{{data
 var cacheModelAreaCodeMutex sync.RWMutex
 var cacheModelDqmInfo map[int64]*ModelDqmInfo // key: trnsmit_server_no
 var cacheModelDqmInfoMutex sync.RWMutex
+var cacheModelOrgnPublic map[int64]*ModlOrgnPublic // key: CertKeySeq
+var cacheModelOrgnPublicMutex sync.RWMutex
 
 func reloadModelAreaCode() error {
 	rdb, err := rdbConfig.Connect()
@@ -325,6 +327,43 @@ func getModelDqmInfo(tsn int64) *ModelDqmInfo {
 		return nil
 	}
 	ret, ok := cacheModelDqmInfo[tsn]
+	if !ok {
+		return nil
+	}
+	return ret
+}
+
+func reloadModelOrgnPublic() error {
+	rdb, err := rdbConfig.Connect()
+	if err != nil {
+		return fmt.Errorf("failed to open RDB connection: %w", err)
+	}
+	defer rdb.Close()
+	if err := rdb.Ping(); err != nil {
+		return fmt.Errorf("failed to ping RDB: %w", err)
+	}
+	orgns := map[int64]*ModlOrgnPublic{}
+	err = SelectModelOrganizationPublic(rdb, func(orgn *ModlOrgnPublic) bool {
+		orgns[orgn.CertKeySeq] = orgn
+		return true // Continue processing other records
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize ModelOrgnPublic: %w", err)
+	}
+	cacheModelOrgnPublicMutex.Lock()
+	cacheModelOrgnPublic = orgns
+	defaultLog.Infof("Loaded %d model organization public info", len(orgns))
+	cacheModelOrgnPublicMutex.Unlock()
+	return nil
+}
+
+func getModelOrgnPublic(certKeySeq int64) *ModlOrgnPublic {
+	cacheModelOrgnPublicMutex.RLock()
+	defer cacheModelOrgnPublicMutex.RUnlock()
+	if cacheModelOrgnPublic == nil {
+		return nil
+	}
+	ret, ok := cacheModelOrgnPublic[certKeySeq]
 	if !ok {
 		return nil
 	}
