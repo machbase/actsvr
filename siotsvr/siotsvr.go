@@ -29,6 +29,7 @@ var disableUpdateArrivalTime = false
 var devMode = false
 
 const MaskingStrValue = "***"
+const InvalidValueMarker = byte('@')
 
 var machConfig = MachConfig{
 	dbHost: "127.0.0.1",

@@ -215,7 +215,6 @@ func handleParsData(c *gin.Context, conn api.Conn, certKeySeq int64, tsn int64, 
 	} else {
 		activateMasking = false
 	}
-	_ = activateMasking
 
 	sb := &strings.Builder{}
 	args := []any{}
@@ -338,6 +337,13 @@ func handleParsData(c *gin.Context, conn api.Conn, certKeySeq int64, tsn int64, 
 			fd := definition.Fields[i]
 			if !fd.Public {
 				value = MaskingStrValue
+			}
+			if len(value) > 0 && value[0] == InvalidValueMarker {
+				if activateMasking {
+					value = MaskingStrValue
+				} else {
+					value = value[1:]
+				}
 			}
 			fmt.Fprintf(c.Writer, `%q`, value)
 			cntField++

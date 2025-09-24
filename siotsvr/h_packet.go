@@ -213,15 +213,28 @@ func removeLeadingZeros(s string) string {
 
 type ValidateError struct {
 	TransmitServerNo int64
-	FieldName        string
-	RuleType         string
-	Rule             string
-	FailedValue      string
+	Fields           []ValidateErrorField
+}
+
+type ValidateErrorField struct {
+	Field       string `json:"field"`
+	RuleType    string `json:"rule_type"`
+	Rule        string `json:"rule"`
+	FailedValue string `json:"failed_value"`
+}
+
+func (pe *ValidateError) String() string {
+	return pe.Error()
 }
 
 func (pe *ValidateError) Error() string {
-	return fmt.Sprintf("packet validation error, tsn:%d, field:%s, value:%s, rule:%s(%s)",
-		pe.TransmitServerNo, pe.FieldName, pe.FailedValue, pe.RuleType, pe.Rule)
+	fields := make([]string, len(pe.Fields))
+	for i, f := range pe.Fields {
+		fields[i] = fmt.Sprintf("{field:%s, value:%s, rule:%s(%s)}",
+			f.Field, f.FailedValue, f.RuleType, f.Rule)
+	}
+	return fmt.Sprintf("packet validation error, tsn:%d, %s",
+		pe.TransmitServerNo, strings.Join(fields, ", "))
 }
 
 var _ error = (*ValidateError)(nil)
@@ -232,6 +245,9 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) (*ParsedPacketData, err
 	definition := getPacketDefinition(data.TrnsmitServerNo, searchDataNo)
 	if definition == nil {
 		return nil, fmt.Errorf("no packet definition found for transmit server number: %d", data.TrnsmitServerNo)
+	}
+	validErr := &ValidateError{
+		TransmitServerNo: data.TrnsmitServerNo,
 	}
 	packet := data.Packet
 	// split packet into values
@@ -258,36 +274,40 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) (*ParsedPacketData, err
 		case "VAL_ITV":
 			v, err := strconv.ParseFloat(val, 64) // just check if it's numeric
 			if err != nil {
-				return nil, &ValidateError{
-					TransmitServerNo: data.TrnsmitServerNo,
-					FieldName:        field.PacketName,
-					RuleType:         field.RuleType,
-					Rule:             "not a numeric value",
-					FailedValue:      val,
-				}
-			}
-			if v < field.MinValue || v > field.MaxValue {
-				return nil, &ValidateError{
-					TransmitServerNo: data.TrnsmitServerNo,
-					FieldName:        field.PacketName,
-					RuleType:         field.RuleType,
-					Rule:             fmt.Sprintf("%v~%v", field.MinValue, field.MaxValue),
-					FailedValue:      val,
-				}
+				validErr.Fields = append(validErr.Fields, ValidateErrorField{
+					Field:       field.PacketName,
+					RuleType:    field.RuleType,
+					Rule:        "not a numeric value",
+					FailedValue: val,
+				})
+				val = string(InvalidValueMarker) + val // mark invalid value
+			} else if v < field.MinValue || v > field.MaxValue {
+				validErr.Fields = append(validErr.Fields, ValidateErrorField{
+					Field:       field.PacketName,
+					RuleType:    field.RuleType,
+					Rule:        fmt.Sprintf("%v~%v", field.MinValue, field.MaxValue),
+					FailedValue: val,
+				})
+				val = string(InvalidValueMarker) + val // mark invalid value
 			}
 		case "VAL_ARR":
 			arr := strings.Split(field.ArrValue, ",")
 			if !slices.Contains(arr, val) {
-				return nil, &ValidateError{
-					TransmitServerNo: data.TrnsmitServerNo,
-					FieldName:        field.PacketName,
-					RuleType:         field.RuleType,
-					Rule:             field.ArrValue,
-					FailedValue:      val,
-				}
+				validErr.Fields = append(validErr.Fields, ValidateErrorField{
+					Field:       field.PacketName,
+					RuleType:    field.RuleType,
+					Rule:        field.ArrValue,
+					FailedValue: val,
+				})
+				val = string(InvalidValueMarker) + val // mark invalid value
 			}
 		}
 		values[i] = val
+	}
+
+	var returnErr error
+	if len(validErr.Fields) > 0 {
+		returnErr = validErr
 	}
 
 	// log packet parsing
@@ -315,7 +335,7 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) (*ParsedPacketData, err
 		DqmCrrOp:        data.DqmCrrOp,
 		Values:          values,
 	}
-	return parsed, nil
+	return parsed, returnErr
 }
 
 func (s *HttpServer) handleServerStat(c *gin.Context) {

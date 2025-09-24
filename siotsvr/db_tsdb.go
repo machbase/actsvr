@@ -169,9 +169,11 @@ func (s *HttpServer) loopRawPacket() {
 
 		var parseErr error
 		if insertErr == nil && data.RecptnResultCode == ApiReceiveSuccess.ResultStats.ResultCode {
-			if parsed, err := s.parseRawPacket(data); err != nil {
+			parsed, err := s.parseRawPacket(data)
+			if err != nil {
 				parseErr = err
-			} else {
+			}
+			if parsed != nil {
 				s.parsPacketCh <- parsed
 			}
 		}
