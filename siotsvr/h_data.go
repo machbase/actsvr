@@ -304,8 +304,10 @@ func handleParsData(c *gin.Context, conn api.Conn, certKeySeq int64, tsn int64, 
 	fmt.Fprintf(c.Writer, `"resultdata":[`)
 
 	go func() {
-		<-c.Done()
-		cancel = true
+		if done := c.Request.Context().Done(); done != nil {
+			<-done
+			cancel = true
+		}
 	}()
 
 	for rows.Next() && !cancel {
