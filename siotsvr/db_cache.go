@@ -18,7 +18,7 @@ var cacheModelAreaCode map[string]string // key: {{model_serial}}_{{tsn}}_{{data
 var cacheModelAreaCodeMutex sync.RWMutex
 var cacheModelDqmInfo map[int64]*ModelDqmInfo // key: trnsmit_server_no
 var cacheModelDqmInfoMutex sync.RWMutex
-var cacheModelOrgnPublic map[int64]*ModlOrgnPublic // key: CertKeySeq
+var cacheModelOrgnPublic map[string]*ModlOrgnPublic // key: {{CertKeySeq}}_{{tsn}}
 var cacheModelOrgnPublicMutex sync.RWMutex
 
 func reloadModelAreaCode() error {
@@ -342,9 +342,10 @@ func reloadModelOrgnPublic() error {
 	if err := rdb.Ping(); err != nil {
 		return fmt.Errorf("failed to ping RDB: %w", err)
 	}
-	orgns := map[int64]*ModlOrgnPublic{}
+	orgns := map[string]*ModlOrgnPublic{}
 	err = SelectModelOrganizationPublic(rdb, func(orgn *ModlOrgnPublic) bool {
-		orgns[orgn.CertKeySeq] = orgn
+		key := fmt.Sprintf("%d_%d", orgn.CertKeySeq, orgn.TrnsmitServerNo)
+		orgns[key] = orgn
 		return true // Continue processing other records
 	})
 	if err != nil {
@@ -357,13 +358,14 @@ func reloadModelOrgnPublic() error {
 	return nil
 }
 
-func getModelOrgnPublic(certKeySeq int64) *ModlOrgnPublic {
+func getModelOrgnPublic(certKeySeq int64, tsn int64) *ModlOrgnPublic {
 	cacheModelOrgnPublicMutex.RLock()
 	defer cacheModelOrgnPublicMutex.RUnlock()
 	if cacheModelOrgnPublic == nil {
 		return nil
 	}
-	ret, ok := cacheModelOrgnPublic[certKeySeq]
+	key := fmt.Sprintf("%d_%d", certKeySeq, tsn)
+	ret, ok := cacheModelOrgnPublic[key]
 	if !ok {
 		return nil
 	}

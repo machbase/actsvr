@@ -202,7 +202,7 @@ func handleParsData(c *gin.Context, conn api.Conn, certKeySeq int64, tsn int64, 
 		return
 	}
 
-	orgnPublic := getModelOrgnPublic(certKeySeq)
+	orgnPublic := getModelOrgnPublic(certKeySeq, tsn)
 	if orgnPublic == nil || !orgnPublic.Retrive {
 		// MODL_ORGN_PUBLIC RETRIVE_YN = 'N' 인 경우: ERROR-660
 		defaultLog.Errorf("Packet is not public for tsn: %d and data_no: %d", tsn, dataNo)
