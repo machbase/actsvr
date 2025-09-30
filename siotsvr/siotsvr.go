@@ -28,7 +28,7 @@ var statTagTable string = "TAG"
 var disableUpdateArrivalTime = false
 var devMode = false
 
-const MaskingStrValue = "***"
+const MaskingStrValue = "*"
 const InvalidValueMarker = byte('@')
 
 var machConfig = MachConfig{

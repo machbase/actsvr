@@ -210,7 +210,7 @@ func handleParsData(c *gin.Context, conn api.Conn, certKeySeq int64, tsn int64, 
 		return
 	}
 
-	if dqmInfo.Masking && orgnPublic.Masking {
+	if dqmInfo.Masking || orgnPublic.Masking {
 		activateMasking = true
 	} else {
 		activateMasking = false
@@ -333,16 +333,21 @@ func handleParsData(c *gin.Context, conn api.Conn, certKeySeq int64, tsn int64, 
 			seq, modelSerial, date.In(DefaultTZ).Format("2006-01-02 15:04:05"), areaCode)
 		cntField := 0
 		for i, value := range values {
+			fd := definition.Fields[i]
+			if !fd.Public {
+				continue
+			}
 			if cntField > 0 {
 				c.Writer.WriteString(",")
 			}
-			fd := definition.Fields[i]
-			if !fd.Public {
-				value = MaskingStrValue
-			}
 			if len(value) > 0 && value[0] == InvalidValueMarker {
 				if activateMasking {
-					value = MaskingStrValue
+					// 결측치 마스킹 처리
+					width := len(value) - 1
+					if width == 0 {
+						width = 1
+					}
+					value = strings.Repeat(MaskingStrValue, width)
 				} else {
 					value = value[1:]
 				}

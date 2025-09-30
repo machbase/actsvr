@@ -118,7 +118,7 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 
 	// check packet length
 	if len(packet) != definition.PacketSize {
-		ret = ApiErrorInvalidPacketLength
+		ret = ApiErrorInvalidPacket
 		ret.ResultStats.ResultMsg = fmt.Sprintf("%s 패킷정의길이:%d(H:%d/T:%d),수신패킷길이:%d",
 			ret.ResultStats.ResultMsg,
 			definition.PacketSize,

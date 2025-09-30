@@ -485,6 +485,12 @@ var (
 			ResultMsg:  "비공개 데이터입니다.",
 		},
 	}
+	ApiErrorInvalidValue = ApiResult{
+		ResultStats: ApiResultStats{
+			ResultCode: "ERROR-670",
+			ResultMsg:  "측정값 이상",
+		},
+	}
 	ApiErrorInvalidParameters = ApiResult{
 		ResultStats: ApiResultStats{
 			ResultCode: "ERROR-700",

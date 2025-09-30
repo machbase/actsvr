@@ -181,8 +181,13 @@ func (s *HttpServer) loopRawPacket() {
 			s.log.Errorf("%d Failed to insert RecptnPacketData: %v, data: %#v", data.PacketSeq, insertErr, data)
 		}
 		if parseErr != nil {
-			// if err is *ValidateError, it means validation error
+			// If parseErr is *ValidateError, it means that value validation failed,
 			// otherwise packet length error
+			if _, ok := parseErr.(*ValidateError); ok {
+				data.RecptnResultCode = ApiErrorInvalidValue.ResultStats.ResultCode
+			} else {
+				data.RecptnResultCode = ApiErrorInvalidPacket.ResultStats.ResultCode
+			}
 			s.log.Errorf("%d %v", data.PacketSeq, parseErr)
 			s.errPacketCh <- data
 		}
