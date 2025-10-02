@@ -33,5 +33,11 @@
     }
   ],
   "workerCount": 10,
-  "bufferSize": 2000
+  "bufferSize": 2000,
+  "http": {
+    "enabled": true,
+    "host": "0.0.0.0",
+    "port": 8080,
+    "path": "/health"
+  }
 }

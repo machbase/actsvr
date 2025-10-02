@@ -15,9 +15,9 @@ import (
 var (
 	// General flags
 	configFile  = flag.String("config", "", "Path to configuration file (JSON)")
-	logFilename = flag.String("log-file", "", "Log file path (default: stdout)")
+	logFilename = flag.String("log-file", "-", "Log file path (default: stdout)")
 	logLevel    = flag.Int("log-level", 1, "Log verbosity level (0=quiet, 1=info, 2=debug)")
-	pidFile     = flag.String("pid", "./k2mbroker.pid", "PID file path")
+	pidFile     = flag.String("pid", "", "PID file path")
 
 	// Kafka flags
 	kafkaBrokers  = flag.String("kafka-brokers", "localhost:9092", "Comma-separated list of Kafka brokers")
@@ -40,6 +40,11 @@ var (
 	// Worker flags
 	workerCount = flag.Int("workers", 5, "Number of message processing workers")
 	bufferSize  = flag.Int("buffer-size", 1000, "Message buffer size")
+
+	// Health check flags
+	httpEnabled = flag.Bool("http-enabled", false, "Enable HTTP server")
+	httpHost    = flag.String("http-host", "", "HTTP server host")
+	httpPort    = flag.Int("http-port", 8080, "HTTP server port")
 )
 
 func main() {
@@ -49,11 +54,13 @@ func main() {
 	logger := createLogger()
 
 	// Write PID file
-	if err := writePIDFile(*pidFile); err != nil {
-		logger.Errorf("Failed to write PID file: %v", err)
-		os.Exit(1)
+	if *pidFile != "" {
+		if err := writePIDFile(*pidFile); err != nil {
+			logger.Errorf("Failed to write PID file: %v", err)
+			os.Exit(1)
+		}
+		defer removePIDFile(*pidFile)
 	}
-	defer removePIDFile(*pidFile)
 
 	// Load configuration
 	config, err := loadConfiguration(*configFile)
@@ -170,6 +177,17 @@ func applyCommandLineFlags(config *k2m.K2MConfig) {
 	}
 	if flag.Lookup("buffer-size").Value.String() != flag.Lookup("buffer-size").DefValue {
 		config.BufferSize = *bufferSize
+	}
+
+	// Health check configuration
+	if flag.Lookup("http-enabled").Value.String() != flag.Lookup("http-enabled").DefValue {
+		config.HttpConfig.Enabled = *httpEnabled
+	}
+	if flag.Lookup("http-host").Value.String() != flag.Lookup("http-host").DefValue && *httpHost != "" {
+		config.HttpConfig.Host = *httpHost
+	}
+	if flag.Lookup("http-port").Value.String() != flag.Lookup("http-port").DefValue {
+		config.HttpConfig.Port = *httpPort
 	}
 }
 

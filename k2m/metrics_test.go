@@ -165,10 +165,9 @@ func TestMetricsUptime(t *testing.T) {
 func TestHealthChecker(t *testing.T) {
 	// Create a test broker with mock components
 	config := DefaultConfig()
-	config.HealthCheck.Enabled = true
-	config.HealthCheck.Host = "localhost"
-	config.HealthCheck.Port = 0 // Use random port for testing
-	config.HealthCheck.Path = "/test-health"
+	config.HttpConfig.Enabled = true
+	config.HttpConfig.Host = "localhost"
+	config.HttpConfig.Port = 0 // Use random port for testing
 
 	logger := &util.Log{}
 	broker, err := NewK2MBroker(config, logger)
@@ -181,10 +180,10 @@ func TestHealthChecker(t *testing.T) {
 	broker.metrics.IncrementMessagesReceived()
 
 	// Create health checker
-	healthChecker := NewHealthChecker(broker, config.HealthCheck)
+	healthChecker := NewHealthChecker(broker, config.HttpConfig)
 
 	// Test health check endpoint
-	req := httptest.NewRequest(http.MethodGet, "/test-health", nil)
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	w := httptest.NewRecorder()
 
 	healthChecker.handleHealthCheck(w, req)
@@ -209,7 +208,7 @@ func TestHealthCheckerMetricsEndpoint(t *testing.T) {
 	broker, err := NewK2MBroker(config, logger)
 	require.NoError(t, err)
 
-	healthChecker := NewHealthChecker(broker, config.HealthCheck)
+	healthChecker := NewHealthChecker(broker, config.HttpConfig)
 
 	req := httptest.NewRequest(http.MethodGet, "/health/metrics", nil)
 	w := httptest.NewRecorder()
@@ -236,7 +235,7 @@ func TestHealthCheckerStatusEndpoint(t *testing.T) {
 	broker.metrics.SetKafkaConnected(false)
 	broker.metrics.SetMQTTConnected(false)
 
-	healthChecker := NewHealthChecker(broker, config.HealthCheck)
+	healthChecker := NewHealthChecker(broker, config.HttpConfig)
 
 	req := httptest.NewRequest(http.MethodGet, "/health/status", nil)
 	w := httptest.NewRecorder()
@@ -259,7 +258,7 @@ func TestHealthChecks(t *testing.T) {
 	broker, err := NewK2MBroker(config, logger)
 	require.NoError(t, err)
 
-	healthChecker := NewHealthChecker(broker, config.HealthCheck)
+	healthChecker := NewHealthChecker(broker, config.HttpConfig)
 
 	// Test with healthy state
 	broker.metrics.SetKafkaConnected(true)
@@ -291,7 +290,7 @@ func TestHealthChecksUnhealthyStates(t *testing.T) {
 	broker, err := NewK2MBroker(config, logger)
 	require.NoError(t, err)
 
-	healthChecker := NewHealthChecker(broker, config.HealthCheck)
+	healthChecker := NewHealthChecker(broker, config.HttpConfig)
 
 	// Test with unhealthy states
 	broker.metrics.SetKafkaConnected(false)
@@ -349,7 +348,7 @@ func BenchmarkHealthCheck(b *testing.B) {
 	broker.metrics.SetMQTTConnected(true)
 	broker.metrics.SetActiveWorkers(5)
 
-	healthChecker := NewHealthChecker(broker, config.HealthCheck)
+	healthChecker := NewHealthChecker(broker, config.HttpConfig)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

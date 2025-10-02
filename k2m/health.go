@@ -7,18 +7,17 @@ import (
 	"time"
 )
 
-// HealthCheckConfig holds configuration for health check HTTP server
-type HealthCheckConfig struct {
+// HttpConfig holds configuration for health check HTTP server
+type HttpConfig struct {
 	Enabled bool   `json:"enabled"`
 	Host    string `json:"host"`
 	Port    int    `json:"port"`
-	Path    string `json:"path"`
 }
 
 // HealthChecker provides HTTP endpoints for health checks and metrics
 type HealthChecker struct {
 	broker *K2MBroker
-	config HealthCheckConfig
+	config HttpConfig
 	server *http.Server
 }
 
@@ -43,7 +42,7 @@ type ComponentCheck struct {
 }
 
 // NewHealthChecker creates a new health checker
-func NewHealthChecker(broker *K2MBroker, config HealthCheckConfig) *HealthChecker {
+func NewHealthChecker(broker *K2MBroker, config HttpConfig) *HealthChecker {
 	return &HealthChecker{
 		broker: broker,
 		config: config,
@@ -57,7 +56,7 @@ func (hc *HealthChecker) Start() error {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc(hc.config.Path, hc.healthHandler)
+	mux.HandleFunc("/healthz", hc.healthHandler)
 	mux.HandleFunc("/metrics", hc.metricsHandler)
 	mux.HandleFunc("/status", hc.statusHandler)
 

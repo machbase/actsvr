@@ -27,7 +27,7 @@ type K2MConfig struct {
 	WorkerCount int `json:"workerCount"`
 	BufferSize  int `json:"bufferSize"`
 	// Health check configuration
-	HealthCheck HealthCheckConfig `json:"healthCheck"`
+	HttpConfig HttpConfig `json:"http"`
 }
 
 // KafkaConfig holds Kafka consumer settings
@@ -130,14 +130,25 @@ func DefaultConfig() *K2MConfig {
 			ConnectRetry:         true,
 			MaxReconnectInterval: 10 * time.Minute,
 		},
+		TopicMappings: []TopicMapping{
+			{
+				KafkaTopic: "sensor-data",
+				MQTTTopic:  "iot/sensors/{key}",
+				Transform:  "json",
+			},
+			{
+				KafkaTopic: "user-events",
+				MQTTTopic:  "events/users/{kafkaTopic}",
+				Transform:  "none",
+			},
+		},
 		Routes:      DefaultRouteConfig(),
 		WorkerCount: 5,
 		BufferSize:  1000,
-		HealthCheck: HealthCheckConfig{
-			Enabled: true,
+		HttpConfig: HttpConfig{
+			Enabled: false,
 			Host:    "0.0.0.0",
 			Port:    8080,
-			Path:    "/health",
 		},
 	}
 }
@@ -193,7 +204,7 @@ func NewK2MBroker(config *K2MConfig, logger *util.Log) (*K2MBroker, error) {
 	broker.router = router
 
 	// Initialize health checker
-	broker.healthChecker = NewHealthChecker(broker, config.HealthCheck)
+	broker.healthChecker = NewHealthChecker(broker, config.HttpConfig)
 
 	return broker, nil
 }
