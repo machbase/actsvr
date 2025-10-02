@@ -106,7 +106,7 @@ func (hc *HealthChecker) metricsHandler(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Content-Type", "application/json")
 
 	metrics := hc.broker.metrics.GetSnapshot()
-	json.NewEncoder(w).Encode(metrics)
+	json.NewEncoder(w).Encode(&metrics)
 }
 
 // statusHandler handles the status endpoint
