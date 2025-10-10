@@ -1,0 +1,43 @@
+{
+  "kafka": {
+    "brokers": ["localhost:9092"],
+    "topics": ["sensor-data", "user-events"],
+    "consumerGroup": "k2m-production",
+    "returnErrors": true,
+    "offsetOldest": true,
+    "sessionTimeout": "10s",
+    "heartbeatInterval": "3s"
+  },
+  "mqtt": {
+    "broker": "tcp://localhost:1883",
+    "clientId": "k2m-broker",
+    "username": "",
+    "password": "",
+    "qos": 1,
+    "retained": false,
+    "keepAlive": "60s",
+    "pingTimeout": "1s",
+    "connectTimeout": "3s",
+    "connectRetry": true,
+    "maxReconnectInterval": "10m"
+  },
+  "topicMappings": [
+    {
+      "kafkaTopic": "sensor-data",
+      "mqttTopic": "iot/sensors/{key}",
+      "transform": "json"
+    },
+    {
+      "kafkaTopic": "user-events",
+      "mqttTopic": "events/users/{kafkaTopic}",
+      "transform": "none"
+    }
+  ],
+  "workerCount": 10,
+  "bufferSize": 2000,
+  "http": {
+    "enabled": true,
+    "host": "0.0.0.0",
+    "port": 8080
+  }
+}
