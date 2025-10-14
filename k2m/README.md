@@ -188,8 +188,7 @@ go build -o k2mbroker ./cmd/k2mbroker
   "healthCheck": {
     "enabled": true,
     "host": "0.0.0.0",
-    "port": 8080,
-    "path": "/health"
+    "port": 8080
   }
 }
 ```
