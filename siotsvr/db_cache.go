@@ -69,7 +69,7 @@ func getModelAreaCode(modlSerial string, tsn int64, dataNo int) (string, error) 
 		return "", fmt.Errorf("model area codes not loaded")
 	}
 	// Model Serial of TB_MODL_INSTL_INFO
-	// should be compared in case-insentive ways
+	// should be compared in case-insensitive ways
 	modlSerial = strings.ToUpper(modlSerial) // use upper cases
 
 	key := fmt.Sprintf("%s_%d_%d", modlSerial, tsn, dataNo)
