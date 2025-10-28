@@ -329,7 +329,7 @@ func handleParsData(c *gin.Context, conn api.Conn, certKeySeq int64, tsn int64, 
 		if nrow > 0 {
 			c.Writer.WriteString(",")
 		}
-		fmt.Fprintf(c.Writer, `{"seq":%d,"serial":"%s","date":"%s","areaCode":"%s","pars":[`,
+		fmt.Fprintf(c.Writer, `{"seq":%d,"serial":"%s","date":"%s","areaCode":"%s","pars":{`,
 			seq, modelSerial, date.In(DefaultTZ).Format("2006-01-02 15:04:05"), areaCode)
 		cntField := 0
 		for i, value := range values {
@@ -340,6 +340,7 @@ func handleParsData(c *gin.Context, conn api.Conn, certKeySeq int64, tsn int64, 
 			if cntField > 0 {
 				c.Writer.WriteString(",")
 			}
+			name := fd.PacketName
 			if len(value) > 0 && value[0] == InvalidValueMarker {
 				if activateMasking {
 					// 결측치 마스킹 처리
@@ -352,10 +353,10 @@ func handleParsData(c *gin.Context, conn api.Conn, certKeySeq int64, tsn int64, 
 					value = value[1:]
 				}
 			}
-			fmt.Fprintf(c.Writer, `%q`, value)
+			fmt.Fprintf(c.Writer, `%q:%q`, name, value)
 			cntField++
 		}
-		c.Writer.WriteString(`]}`)
+		c.Writer.WriteString(`}}`)
 		nrow++
 	}
 	c.Writer.WriteString(`]}`)
