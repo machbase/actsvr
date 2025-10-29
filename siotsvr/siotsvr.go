@@ -46,6 +46,8 @@ var rdbConfig = RDBConfig{
 	db:   "iotdb",
 }
 
+var Version = "dev"
+
 func Main() int {
 	if tz, err := time.LoadLocation("Asia/Seoul"); err != nil {
 		panic(fmt.Sprintf("failed to load timezone: %v", err))
@@ -53,9 +55,11 @@ func Main() int {
 		DefaultTZ = tz
 	}
 
+	var showVersion = false
 	httpSvr := NewHttpServer()
 	flag.StringVar(&pid, "pid", pid, "the file to store the process ID")
 	flag.BoolVar(&devMode, "dev", devMode, "enable development mode")
+	flag.BoolVar(&showVersion, "version", showVersion, "show version and exit")
 	// Machbase configuration
 	flag.StringVar(&machConfig.dbHost, "db-host", machConfig.dbHost, "Database host")
 	flag.IntVar(&machConfig.dbPort, "db-port", machConfig.dbPort, "Database port")
@@ -98,6 +102,10 @@ func Main() int {
 	flag.IntVar(&logConf.Verbose, "log-verbose", logConf.Verbose, "0: no debug, 1: info, 2: debug")
 
 	flag.Parse()
+	if showVersion {
+		fmt.Printf("siotsvr ver. %s\n", Version)
+		return 0
+	}
 	defaultLog = util.NewLog(logConf)
 
 	if pid != "" {

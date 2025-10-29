@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"runtime"
+	"time"
 
 	"github.com/magefile/mage/sh"
 )
@@ -29,7 +30,14 @@ func Build(bin string) error {
 		env["CGO_LDFLAGS"] = "-pthread"
 	}
 
-	return sh.RunWithV(env, "go", "build", "-o", "./tmp/"+bin, "./cmd/"+bin)
+	tz, _ := time.LoadLocation("Asia/Seoul")
+	flagX := fmt.Sprintf("-X main.version=%s", time.Now().In(tz).Format("20060102.150405"))
+	args := []string{"build",
+		"-ldflags", flagX,
+		"-o", "./tmp/" + bin,
+		"./cmd/" + bin,
+	}
+	return sh.RunWithV(env, "go", args...)
 }
 
 func Protoc() error {
