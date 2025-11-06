@@ -31,13 +31,6 @@ on TB_RECPTN_PACKET_DATA(PACKET_SEQ);
 create index IDX_TB_RECPTN_PACKET_DATA_03
 on TB_RECPTN_PACKET_DATA(REGIST_DT);
 
--- create index TB_RECPTN_PACKET_DATA_MODEL_SERIAL
--- on TB_RECPTN_PACKET_DATA(MODL_SERIAL);
-
--- create index TB_RECPTN_PACKET_DATA_AREA_CODE
--- on TB_RECPTN_PACKET_DATA(AREA_CODE);
-
-
 ---------------------------------------
 -- TB_PACKET_PARS_DATA
 ---------------------------------------
@@ -130,17 +123,6 @@ on TB_PACKET_PARS_DATA(REGIST_DT);
 
 create index IDX_PACKET_PARS_DATA_04
 on TB_PACKET_PARS_DATA(PACKET_SEQ);
-
-
--- create index TB_PACKET_PARS_DATA_MODL_SERIAL
--- on TB_PACKET_PARS_DATA(MODL_SERIAL);
-
--- create index IDX_TB_PACKET_PARS_DATA
--- on TB_PACKET_PARS_DATA(SERVICE_SEQ);
-
--- create index TB_PACKET_PARS_DATA_AREA_CODE
--- on TB_PACKET_PARS_DATA(AREA_CODE);
-
 
 ---------------------------------------
 -- TB_RESLT_USE_DATA
