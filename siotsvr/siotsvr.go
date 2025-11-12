@@ -82,7 +82,7 @@ func Main() int {
 	flag.StringVar(&httpSvr.Host, "http-host", httpSvr.Host, "the host to bind the HTTP server to")
 	flag.IntVar(&httpSvr.Port, "http-port", httpSvr.Port, "the port to bind the HTTP server to")
 	flag.IntVar(&httpSvr.KeepAlive, "http-keepalive", 60, "the keep-alive period in seconds for HTTP connections")
-	flag.StringVar(&httpSvr.DataDir, "http-data", httpSvr.DataDir, "the data directory")
+	flag.StringVar(&httpSvr.DataDir, "http-datadir", httpSvr.DataDir, "the data directory")
 
 	// replica configuration
 	flag.IntVar(&replicaRowsPerRun, "replica-rows", replicaRowsPerRun, "number of rows to process in each replica sync run")
