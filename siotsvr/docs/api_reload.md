@@ -87,3 +87,10 @@ GET http://127.0.0.1:5680/db/admin/reload?target=last_pars&new_value=2006-01-02 
 ```http
 GET http://127.0.0.1:5680/db/admin/reload?target=last_packet&new_value=2006-01-02 15:04:05.000000000
 ```
+
+## Machbase -> RDB replication
+
+
+```http
+GET http://127.0.0.1:5680/db/admin/replica?rows=0
+```

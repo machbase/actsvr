@@ -124,6 +124,9 @@ on TB_PACKET_PARS_DATA(REGIST_DT);
 create index IDX_PACKET_PARS_DATA_04
 on TB_PACKET_PARS_DATA(PACKET_SEQ);
 
+create index IDX_PACKET_PARS_DATA_05
+on TB_PACKET_PARS_DATA(REGIST_DE);
+
 ---------------------------------------
 -- TB_RESLT_USE_DATA
 ---------------------------------------
