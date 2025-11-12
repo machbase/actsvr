@@ -5,12 +5,30 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestPkSeq(t *testing.T) {
+	pkSeqStr := "2025-11-12_17:07:00940123"
+	pkSeqStr = strings.Map(func(r rune) rune {
+		if r == '-' || r == '_' || r == ':' {
+			return -1
+		}
+		return r
+	}, pkSeqStr)
+	maxPkSeqLen := 18
+	if len(pkSeqStr) > maxPkSeqLen {
+		pkSeqStr = pkSeqStr[:maxPkSeqLen]
+	}
+	pkSeq, err := strconv.ParseInt(pkSeqStr, 10, 64)
+	require.NoError(t, err, len(pkSeqStr))
+	require.True(t, pkSeq > 0, "pkSeq should be greater than 0")
+}
 
 func TestPacketSend(t *testing.T) {
 	defaultLog = DefaultLog()
