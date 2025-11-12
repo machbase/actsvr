@@ -60,7 +60,12 @@ func (s *HttpServer) reloadPacketSeq() error {
 		panic(err)
 	}
 	defer conn.Close()
-	row := conn.QueryRow(ctx, fmt.Sprintf("SELECT MAX(PACKET_SEQ) FROM %s", tableName("TB_RECPTN_PACKET_DATA")))
+	// since max(packet_seq) takes long time on large log table, use alternative way
+	//row := conn.QueryRow(ctx, fmt.Sprintf("SELECT MAX(PACKET_SEQ) FROM %s", tableName("TB_RECPTN_PACKET_DATA")))
+	//
+	// alternative way:
+	row := conn.QueryRow(ctx, fmt.Sprintf("SELECT /*+ SCAN_BACKWARD(%s) */ PACKET_SEQ FROM %s LIMIT 1",
+		tableName("TB_RECPTN_PACKET_DATA"), tableName("TB_RECPTN_PACKET_DATA")))
 	if err := row.Err(); err != nil {
 		return err
 	}
@@ -99,7 +104,12 @@ func (s *HttpServer) reloadPacketParseSeq() error {
 		panic(err)
 	}
 	defer conn.Close()
-	row := conn.QueryRow(ctx, fmt.Sprintf("SELECT MAX(PACKET_PARS_SEQ) FROM %s", tableName("TB_PACKET_PARS_DATA")))
+	// since max(packet_pars_seq) takes long time on large log table, use alternative way
+	// row := conn.QueryRow(ctx, fmt.Sprintf("SELECT MAX(PACKET_PARS_SEQ) FROM %s", tableName("TB_PACKET_PARS_DATA")))
+	//
+	// alternative way:
+	row := conn.QueryRow(ctx, fmt.Sprintf("SELECT /*+ SCAN_BACKWARD(%s) */ PACKET_PARS_SEQ FROM %s LIMIT 1",
+		tableName("TB_PACKET_PARS_DATA"), tableName("TB_PACKET_PARS_DATA")))
 	if err := row.Err(); err != nil {
 		return err
 	}
@@ -365,24 +375,11 @@ func (s *HttpServer) loopParsPacket() {
 	}
 }
 
-var replicaRowsPerRun = 200
+var replicaRowsPerRun = 2000
 
 func (s *HttpServer) loopReplicaRawPacket() {
 	s.replicaWg.Add(1)
 	defer s.replicaWg.Done()
-
-	rdb, err := rdbConfig.Connect()
-	if err != nil {
-		panic(err)
-	}
-	defer rdb.Close()
-	lastSeq, err := SelectMaxPacketSeq(rdb)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			panic(err)
-		}
-		lastSeq = 0
-	}
 
 	var ctx context.Context = context.Background()
 	conn, err := s.openConn(ctx)
@@ -393,6 +390,7 @@ func (s *HttpServer) loopReplicaRawPacket() {
 
 	sqlText := strings.Join([]string{
 		"SELECT",
+		fmt.Sprintf("/*+ SCAN_FORWARD(%s) */", tableName("TB_RECPTN_PACKET_DATA")),
 		"PACKET_SEQ,",
 		"TRNSMIT_SERVER_NO,",
 		"DATA_NO,",
@@ -411,14 +409,41 @@ func (s *HttpServer) loopReplicaRawPacket() {
 		"FROM",
 		tableName("TB_RECPTN_PACKET_DATA"),
 		"WHERE PACKET_SEQ > ?",
-		"ORDER BY PACKET_SEQ",
 		"LIMIT ?",
 	}, " ")
+
+	var rdb *sql.DB = nil
+	defer func() {
+		if rdb != nil {
+			rdb.Close()
+		}
+	}()
+
 	for s.replicaAlive {
 		if replicaRowsPerRun <= 0 {
 			time.Sleep(3 * time.Second)
 			continue
 		}
+
+		if rdb == nil {
+			if db, err := rdbConfig.Connect(); err != nil {
+				s.log.Errorf("rdb connect error: %s", err.Error())
+				time.Sleep(3 * time.Second)
+				continue
+			} else {
+				rdb = db
+			}
+		}
+		lastSeq, err := SelectMaxPacketSeq(rdb)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				s.log.Errorf("rdb select max packet seq error: %s", err.Error())
+				rdb.Close()
+				rdb = nil
+				continue
+			}
+		}
+
 		rows, err := conn.Query(ctx, sqlText, lastSeq, replicaRowsPerRun)
 		if err != nil {
 			panic(err)
@@ -456,9 +481,8 @@ func (s *HttpServer) loopReplicaRawPacket() {
 				data.ParsSeCode, nowFunc(), data.RegistDe,
 				data.RegistTime, data.RegistDt)
 			if insertErr != nil {
-				defaultLog.Errorf("%d failed to insert row: %v", data.PacketSeq, insertErr)
+				defaultLog.Errorf("%d failed to insert recptn packet row: %v", data.PacketSeq, insertErr)
 			}
-			lastSeq = data.PacketSeq
 
 			if collector != nil {
 				latency := time.Since(tick)
@@ -498,19 +522,6 @@ func (s *HttpServer) loopReplicaParsPacket() {
 	s.replicaWg.Add(1)
 	defer s.replicaWg.Done()
 
-	rdb, err := rdbConfig.Connect()
-	if err != nil {
-		panic(err)
-	}
-	defer rdb.Close()
-	lastParsSeq, err := SelectMaxPacketParsSeq(rdb)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			panic(err)
-		}
-		lastParsSeq = 0
-	}
-
 	var ctx context.Context = context.Background()
 	conn, err := s.openConn(ctx)
 	if err != nil {
@@ -520,6 +531,7 @@ func (s *HttpServer) loopReplicaParsPacket() {
 
 	selectSqlText := strings.Join([]string{
 		"SELECT",
+		fmt.Sprintf("/*+ SCAN_FORWARD(%s) */", tableName("TB_PACKET_PARS_DATA")),
 		"PACKET_PARS_SEQ, PACKET_SEQ, TRNSMIT_SERVER_NO, DATA_NO,",
 		"REGIST_DT, REGIST_DE,",
 		"SERVICE_SEQ, AREA_CODE, MODL_SERIAL, DQMCRR_OP,",
@@ -539,7 +551,6 @@ func (s *HttpServer) loopReplicaParsPacket() {
 		"FROM",
 		tableName("TB_PACKET_PARS_DATA"),
 		"WHERE PACKET_PARS_SEQ > ?",
-		"ORDER BY PACKET_PARS_SEQ",
 		"LIMIT ?",
 	}, " ")
 	insertSqlText := strings.Join([]string{
@@ -571,11 +582,36 @@ func (s *HttpServer) loopReplicaParsPacket() {
 		"?, ?, ?, ?, ?, ?, ?, ?,",
 		"?, ?, ?, ?, ?, ?, ?, ?)",
 	}, " ")
+	var rdb *sql.DB = nil
+	defer func() {
+		if rdb != nil {
+			rdb.Close()
+		}
+	}()
 	for s.replicaAlive {
 		if replicaRowsPerRun <= 0 {
 			time.Sleep(3 * time.Second)
 			continue
 		}
+		if rdb == nil {
+			if db, err := rdbConfig.Connect(); err != nil {
+				s.log.Errorf("rdb connect error: %s", err.Error())
+				time.Sleep(3 * time.Second)
+				continue
+			} else {
+				rdb = db
+			}
+		}
+		lastParsSeq, err := SelectMaxPacketParsSeq(rdb)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				s.log.Errorf("rdb select max packet pars seq error: %s", err.Error())
+				rdb.Close()
+				rdb = nil
+				continue
+			}
+		}
+
 		rows, err := conn.Query(ctx, selectSqlText, lastParsSeq, replicaRowsPerRun)
 		if err != nil {
 			panic(err)
@@ -634,9 +670,8 @@ func (s *HttpServer) loopReplicaParsPacket() {
 				snull(data.Column60), snull(data.Column61), snull(data.Column62), snull(data.Column63),
 			)
 			if insertErr != nil {
-				defaultLog.Errorf("%d failed to insert row: %v", data.PacketSeq, insertErr)
+				defaultLog.Errorf("%d failed to insert packet pars row: %v", data.PacketSeq, insertErr)
 			}
-			lastParsSeq = data.PacketParsSeq
 
 			if collector != nil {
 				latency := time.Since(tick)

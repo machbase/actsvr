@@ -47,7 +47,7 @@
 | `-http-host <ip>`         | `0.0.0.0`     | listening addr  |
 | `-http-port <port>`       | `8888`        | listening port  |
 | `-http-keepalive <num>`   | `60`          | keep-alive period (seconds), 0: no keep-alive |
-| `-http-datadir <dir>`     | `/tmp`        | *Not Used* (ignore) |
+| `-http-data <dir>`        |               | content directory for `/data/*`, if set path to a directory |
 
 * Http Listener : NoDelay = true, SO_LINGER = 0
 

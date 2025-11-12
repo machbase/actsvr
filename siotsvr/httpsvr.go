@@ -47,7 +47,7 @@ func NewHttpServer() *HttpServer {
 	return &HttpServer{
 		Host:         "0.0.0.0",
 		Port:         8888,
-		DataDir:      "/tmp",
+		DataDir:      "", // content directory for /data/*, if not set, /data/* is not served
 		rawPacketCh:  make(chan *RawPacketData),
 		errPacketCh:  make(chan *RawPacketData),
 		parsPacketCh: make(chan *ParsedPacketData),
@@ -156,8 +156,17 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 	}
 	r := gin.New()
 	r.Use(gin.Recovery())
-	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusFound, "/static/") })
-	r.GET("/static/", gin.WrapF(http.FileServerFS(htmlFS).ServeHTTP))
+
+	rootPath := "/static/"
+	if s.DataDir != "" {
+		rootPath = "/data/"
+	}
+
+	r.GET("/", func(c *gin.Context) { c.Redirect(http.StatusFound, rootPath) })
+	r.GET("/static/*path", gin.WrapF(http.FileServerFS(htmlFS).ServeHTTP))
+	if s.DataDir != "" {
+		r.GET("/data/*path", gin.WrapF(http.FileServer(http.Dir(s.DataDir)).ServeHTTP))
+	}
 	r.GET("/db/admin/log", s.handleAdminLog)
 	r.GET("/db/admin/reload", s.handleAdminReload)
 	r.GET("/db/admin/stat/:begin_date/:end_date", s.handleAdminStat)

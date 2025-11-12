@@ -43,6 +43,9 @@ func Collector(outputFunc metric.OutputFunc) *metric.Collector {
 
 func CollectorHandler() http.Handler {
 	dash := metric.NewDashboard(collector)
+	dash.Option.JsSrc = []string{
+		"/static/echarts.min.js",
+	}
 	dash.PageTitle = "Seoul IoT Server"
 	dash.ShowRemains = false
 	dash.SetTheme("light")
@@ -54,12 +57,16 @@ func CollectorHandler() http.Handler {
 	dash.AddChart(metric.Chart{Title: "Query Latency", MetricNames: []string{"query:latency"}})
 	dash.AddChart(metric.Chart{Title: "Query Error", MetricNames: []string{"query:error"}})
 	dash.AddChart(metric.Chart{Title: "Insert Packet Count", MetricNames: []string{"packet_data:insert_count"}})
+	dash.AddChart(metric.Chart{Title: "Insert Packet Error", MetricNames: []string{"packet_data:insert_error"}})
 	dash.AddChart(metric.Chart{Title: "Insert Packet", MetricNames: []string{"packet_data:insert_latency"}})
 	dash.AddChart(metric.Chart{Title: "Insert Parse Count", MetricNames: []string{"pars_data:insert_count"}})
+	dash.AddChart(metric.Chart{Title: "Insert Parse Error", MetricNames: []string{"pars_data:insert_error"}})
 	dash.AddChart(metric.Chart{Title: "Insert Parse", MetricNames: []string{"pars_data:insert_latency"}})
 	dash.AddChart(metric.Chart{Title: "Insert Packet RDB Count", MetricNames: []string{"rdb_packet_data:insert_count"}})
+	dash.AddChart(metric.Chart{Title: "Insert Packet RDB Error", MetricNames: []string{"rdb_packet_data:insert_error"}})
 	dash.AddChart(metric.Chart{Title: "Insert Packet RDB", MetricNames: []string{"rdb_packet_data:insert_latency"}})
 	dash.AddChart(metric.Chart{Title: "Insert Parse RDB Count", MetricNames: []string{"rdb_pars_data:insert_count"}})
+	dash.AddChart(metric.Chart{Title: "Insert Parse RDB Error", MetricNames: []string{"rdb_pars_data:insert_error"}})
 	dash.AddChart(metric.Chart{Title: "Insert Parse RDB", MetricNames: []string{"rdb_pars_data:insert_latency"}})
 	return dash
 }
