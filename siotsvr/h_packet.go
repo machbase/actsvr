@@ -53,6 +53,13 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 		dataNo = no
 	}
 	// pkSeq should be a valid integer
+	// some client sends in '2024-10-14_17:30:200004'
+	pkSeqStr = strings.Map(func(r rune) rune {
+		if r == '-' || r == '_' || r == ':' {
+			return -1
+		}
+		return r
+	}, pkSeqStr)
 	pkSeq, err := strconv.ParseInt(pkSeqStr, 10, 64)
 	if err != nil {
 		requestErr = "invalid_pk_seq"
