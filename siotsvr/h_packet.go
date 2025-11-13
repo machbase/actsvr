@@ -37,6 +37,10 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	// Query params
 	dqmcrrOpStr := c.Query("DQMCRR_OP") // 100 | 200
 
+	// some clients may send extra spaces, trim them
+	// e.g. modelSerial = '111467101314   '
+	modelSerial = strings.TrimSpace(modelSerial)
+
 	// Validate required parameters
 	if certkey == "" || pkSeqStr == "" || modelSerial == "" || packet == "" || dataNoStr == "" {
 		requestErr = "empty_params"
@@ -52,10 +56,11 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 	} else {
 		dataNo = no
 	}
-	// pkSeq should be a valid integer
-	// some client sends in '2024-10-14_17:30:00940123'
+	// pkSeq should be a valid integer: '202511121710010000' <- correct format
+	// some clients send in pk_seq = '2024-10-14_17:30:111222333'
+	// some clients send in pk_seq = '2025111221          '
 	pkSeqStr = strings.Map(func(r rune) rune {
-		if r == '-' || r == '_' || r == ':' {
+		if r == '-' || r == '_' || r == ':' || r == ' ' {
 			return -1
 		}
 		return r
