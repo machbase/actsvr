@@ -275,12 +275,16 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) (*ParsedPacketData, err
 		// 		data.PacketSeq, definition.PacketMasterSeq, i, field.PacketSeCode, field.PacketName, field.PacketByte, packet[0:field.PacketByte], packet)
 		// }
 
-		val := strings.TrimSpace(packet[0:field.PacketByte])
+		orgVal := strings.TrimSpace(packet[0:field.PacketByte])
+		val := orgVal
 		packet = packet[field.PacketByte:]
 		if field.PacketSeCode != "H" {
 			// do not trim leading zeros if the field is "Header"
 			val = removeLeadingZeros(val)
+			// some clients send leading '@'
+			val = strings.TrimLeft(val, "@")
 		}
+
 		if val == "" {
 			// If the value is empty(=NULL), do not apply validation
 			continue
@@ -294,7 +298,7 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) (*ParsedPacketData, err
 					Field:       field.PacketName,
 					RuleType:    field.RuleType,
 					Rule:        "not a numeric value",
-					FailedValue: val,
+					FailedValue: orgVal,
 				})
 				val = string(InvalidValueMarker) + val // mark invalid value
 			} else if v < field.MinValue || v > field.MaxValue {
@@ -302,7 +306,7 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) (*ParsedPacketData, err
 					Field:       field.PacketName,
 					RuleType:    field.RuleType,
 					Rule:        fmt.Sprintf("%v~%v", field.MinValue, field.MaxValue),
-					FailedValue: val,
+					FailedValue: orgVal,
 				})
 				val = string(InvalidValueMarker) + val // mark invalid value
 			}
@@ -313,7 +317,7 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) (*ParsedPacketData, err
 					Field:       field.PacketName,
 					RuleType:    field.RuleType,
 					Rule:        field.ArrValue,
-					FailedValue: val,
+					FailedValue: orgVal,
 				})
 				val = string(InvalidValueMarker) + val // mark invalid value
 			}
