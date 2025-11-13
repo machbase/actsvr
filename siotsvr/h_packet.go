@@ -281,8 +281,6 @@ func (s *HttpServer) parseRawPacket(data *RawPacketData) (*ParsedPacketData, err
 		if field.PacketSeCode != "H" {
 			// do not trim leading zeros if the field is "Header"
 			val = removeLeadingZeros(val)
-			// some clients send leading '@'
-			val = strings.TrimLeft(val, "@")
 		}
 
 		if val == "" {
