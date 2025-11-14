@@ -48,6 +48,7 @@ var rdbConfig = RDBConfig{
 
 var logConfig = util.DefaultLogConfig()
 
+var trcLogfile string
 var Version = "dev"
 
 func Main() int {
@@ -101,6 +102,8 @@ func Main() int {
 	flag.BoolVar(&logConfig.Append, "log-append", logConfig.Append, "whether to append to the log file or overwrite it")
 	flag.StringVar(&logConfig.Timeformat, "log-timeformat", logConfig.Timeformat, "the time format to use in the log file")
 	flag.IntVar(&logConfig.Verbose, "log-verbose", logConfig.Verbose, "0: no debug, 1: info, 2: debug")
+	// log watching configuration
+	flag.StringVar(&trcLogfile, "log-trcfile", trcLogfile, "the log file to watch for tracing")
 
 	flag.Parse()
 	if showVersion {

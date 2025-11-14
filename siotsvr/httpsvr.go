@@ -179,6 +179,9 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 	if lf := logConfig.Filename; lf != "" && lf != "-" {
 		r.GET("/debug/logs/*path", gin.WrapH(tailer.Handler("/debug/logs/", lf)))
 	}
+	if trcLogfile != "" {
+		r.GET("/debug/trc/*path", gin.WrapH(tailer.Handler("/debug/trc/", trcLogfile)))
+	}
 	r.Use(CollectorMiddleware)
 	r.GET("/db/poi/nearby", s.handlePoiNearby)
 	r.GET("/n/api/serverstat/:certkey", s.handleServerStat)
