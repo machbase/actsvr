@@ -114,6 +114,8 @@ func (s *HttpServer) Start(ctx context.Context) error {
 
 func (s *HttpServer) Stop(ctx context.Context) (err error) {
 	if s.httpServer != nil {
+		// shutdown any background tailer tasks
+		tailer.Shutdown()
 		err = s.httpServer.Shutdown(ctx)
 	}
 	s.collector.Stop()
