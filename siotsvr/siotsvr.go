@@ -46,6 +46,8 @@ var rdbConfig = RDBConfig{
 	db:   "iotdb",
 }
 
+var logConfig = util.DefaultLogConfig()
+
 var Version = "dev"
 
 func Main() int {
@@ -88,25 +90,24 @@ func Main() int {
 	flag.IntVar(&replicaRowsPerRun, "replica-rows", replicaRowsPerRun, "number of rows to process in each replica sync run")
 
 	// logging configuration
-	logConf := util.DefaultLogConfig()
-	logConf.Timeformat = "2006-01-02 15:04:05.000"
-	logConf.UTC = false
-	flag.StringVar(&logConf.Filename, "log-filename", logConf.Filename, "the log file name")
-	flag.IntVar(&logConf.MaxSize, "log-max-size", logConf.MaxSize, "the maximum size of the log file in megabytes")
-	flag.IntVar(&logConf.MaxBackups, "log-max-backups", logConf.MaxBackups, "the maximum number of log file backups")
-	flag.IntVar(&logConf.MaxAge, "log-max-age", logConf.MaxAge, "the maximum age of the log file in days")
-	flag.BoolVar(&logConf.Compress, "log-compress", logConf.Compress, "whether to compress the log file")
-	flag.BoolVar(&logConf.UTC, "log-utc", logConf.UTC, "whether to use local time in the log file")
-	flag.BoolVar(&logConf.Append, "log-append", logConf.Append, "whether to append to the log file or overwrite it")
-	flag.StringVar(&logConf.Timeformat, "log-timeformat", logConf.Timeformat, "the time format to use in the log file")
-	flag.IntVar(&logConf.Verbose, "log-verbose", logConf.Verbose, "0: no debug, 1: info, 2: debug")
+	logConfig.Timeformat = "2006-01-02 15:04:05.000"
+	logConfig.UTC = false
+	flag.StringVar(&logConfig.Filename, "log-filename", logConfig.Filename, "the log file name")
+	flag.IntVar(&logConfig.MaxSize, "log-max-size", logConfig.MaxSize, "the maximum size of the log file in megabytes")
+	flag.IntVar(&logConfig.MaxBackups, "log-max-backups", logConfig.MaxBackups, "the maximum number of log file backups")
+	flag.IntVar(&logConfig.MaxAge, "log-max-age", logConfig.MaxAge, "the maximum age of the log file in days")
+	flag.BoolVar(&logConfig.Compress, "log-compress", logConfig.Compress, "whether to compress the log file")
+	flag.BoolVar(&logConfig.UTC, "log-utc", logConfig.UTC, "whether to use local time in the log file")
+	flag.BoolVar(&logConfig.Append, "log-append", logConfig.Append, "whether to append to the log file or overwrite it")
+	flag.StringVar(&logConfig.Timeformat, "log-timeformat", logConfig.Timeformat, "the time format to use in the log file")
+	flag.IntVar(&logConfig.Verbose, "log-verbose", logConfig.Verbose, "0: no debug, 1: info, 2: debug")
 
 	flag.Parse()
 	if showVersion {
 		fmt.Printf("siotsvr ver. %s\n", Version)
 		return 0
 	}
-	defaultLog = util.NewLog(logConf)
+	defaultLog = util.NewLog(logConfig)
 
 	if pid != "" {
 		if err := os.WriteFile(pid, []byte(fmt.Sprintf("%d", os.Getpid())), 0644); err != nil {

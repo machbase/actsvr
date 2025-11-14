@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/OutOfBedlam/tailer"
 	"github.com/gin-gonic/gin"
 	"github.com/machbase/neo-server/v8/api"
 	"github.com/machbase/neo-server/v8/api/machcli"
@@ -173,6 +174,9 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 	r.GET("/db/admin/replica", s.handleAdminReplica)
 	r.Any("/debug/pprof/*path", gin.WrapF(pprof.Index))
 	r.GET("/debug/dashboard", gin.WrapH(CollectorHandler()))
+	if lf := logConfig.Filename; lf != "" && lf != "-" {
+		r.GET("/debug/logs/*path", gin.WrapH(tailer.Handler("/debug/logs/", lf)))
+	}
 	r.Use(CollectorMiddleware)
 	r.GET("/db/poi/nearby", s.handlePoiNearby)
 	r.GET("/n/api/serverstat/:certkey", s.handleServerStat)
