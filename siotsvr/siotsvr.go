@@ -14,6 +14,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/OutOfBedlam/tailer"
 )
 
 var pid string = "./siotsvr.pid"
@@ -134,6 +136,9 @@ func Main() int {
 	interruptSignal := make(chan os.Signal, 1)
 	signal.Notify(interruptSignal, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	<-interruptSignal
+
+	// shutdown any background tasks
+	tailer.Shutdown()
 
 	if err := httpSvr.Stop(ctx); err != nil {
 		log.Printf("Error stopping HttpServer: %v", err)
