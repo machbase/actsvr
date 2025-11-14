@@ -5,7 +5,7 @@ go 1.24.5
 require (
 	fortio.org/progressbar v1.1.0
 	github.com/IBM/sarama v1.43.3
-	github.com/OutOfBedlam/tailer v0.0.0-20251114025513-f403ec2646d7
+	github.com/OutOfBedlam/tailer v0.0.0-20251114041700-3ebf099271ea
 	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-sql-driver/mysql v1.7.1

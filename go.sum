@@ -6,8 +6,8 @@ fortio.org/progressbar v1.1.0/go.mod h1:YOqRraul+IPFlGh5sVw6oGNLnRhasuvRoA3wNqJv
 github.com/DataDog/datadog-go v3.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
 github.com/IBM/sarama v1.43.3 h1:Yj6L2IaNvb2mRBop39N7mmJAHBVY3dTPncr3qGVkxPA=
 github.com/IBM/sarama v1.43.3/go.mod h1:FVIRaLrhK3Cla/9FfRF5X9Zua2KpS3SYIXxhac1H+FQ=
-github.com/OutOfBedlam/tailer v0.0.0-20251114025513-f403ec2646d7 h1:mG2/PViqrZGchVU6KkruGIoQ6SO8S8wV2iUn/zfx9N4=
-github.com/OutOfBedlam/tailer v0.0.0-20251114025513-f403ec2646d7/go.mod h1:KCesT4bAFIRj4GuIRKoyD1H44FArONI4zj4VzcrLaTs=
+github.com/OutOfBedlam/tailer v0.0.0-20251114041700-3ebf099271ea h1:PVr5m77K6UIdkEP2DMBEYUnhr1kaUhDwsDcyaAuYZdM=
+github.com/OutOfBedlam/tailer v0.0.0-20251114041700-3ebf099271ea/go.mod h1:KCesT4bAFIRj4GuIRKoyD1H44FArONI4zj4VzcrLaTs=
 github.com/RoaringBitmap/roaring v1.9.4 h1:yhEIoH4YezLYT04s1nHehNO64EKFTop/wBhxv2QzDdQ=
 github.com/RoaringBitmap/roaring v1.9.4/go.mod h1:6AXUsoIEzDTFFQCe1RbGA6uFONMhvejWj5rqITANK90=
 github.com/Workiva/go-datastructures v1.1.5 h1:5YfhQ4ry7bZc2Mc7R0YZyYwpf5c6t1cEFvdAhd6Mkf4=
