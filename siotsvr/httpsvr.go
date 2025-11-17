@@ -177,12 +177,12 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 	r.Any("/debug/pprof/*path", gin.WrapF(pprof.Index))
 	r.GET("/debug/dashboard", gin.WrapH(CollectorHandler()))
 	if lf := logConfig.Filename; lf != "" && lf != "-" {
-		h := tailer.NewHandler("/debug/logs/", lf)
+		h := tailer.NewHandler("/debug/logs/", lf, tailer.WithPlugins(tailer.NewColoring("default")))
 		h.TerminalOpts.FontSize = 11
 		r.GET("/debug/logs/*path", gin.WrapH(h))
 	}
 	if trcLogfile != "" {
-		h := tailer.NewHandler("/debug/trc/", trcLogfile)
+		h := tailer.NewHandler("/debug/trc/", trcLogfile, tailer.WithPlugins(tailer.NewColoring("default")))
 		h.TerminalOpts.FontSize = 11
 		r.GET("/debug/trc/*path", gin.WrapH(h))
 	}
