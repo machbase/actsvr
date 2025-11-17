@@ -124,6 +124,7 @@ func (s *HttpServer) Stop(ctx context.Context) (err error) {
 	s.closeDatabase()
 	close(s.parsPacketCh)
 	close(s.rawPacketCh)
+	close(s.errPacketCh)
 	close(s.statCh)
 	s.log.Infof("Stopping HTTP server on %s:%d", s.Host, s.Port)
 	return
