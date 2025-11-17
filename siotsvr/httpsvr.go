@@ -14,11 +14,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/OutOfBedlam/tailer"
 	"github.com/gin-gonic/gin"
 	"github.com/machbase/neo-server/v8/api"
 	"github.com/machbase/neo-server/v8/api/machcli"
 	"github.com/machbase/neo-server/v8/mods/util/metric"
+	"github.com/machbase/neo-server/v8/mods/util/tailer"
 	"github.com/tochemey/goakt/v3/log"
 )
 
@@ -177,10 +177,14 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 	r.Any("/debug/pprof/*path", gin.WrapF(pprof.Index))
 	r.GET("/debug/dashboard", gin.WrapH(CollectorHandler()))
 	if lf := logConfig.Filename; lf != "" && lf != "-" {
-		r.GET("/debug/logs/*path", gin.WrapH(tailer.Handler("/debug/logs/", lf)))
+		h := tailer.NewHandler("/debug/logs/", lf)
+		h.TerminalOpts.FontSize = 11
+		r.GET("/debug/logs/*path", gin.WrapH(h))
 	}
 	if trcLogfile != "" {
-		r.GET("/debug/trc/*path", gin.WrapH(tailer.Handler("/debug/trc/", trcLogfile)))
+		h := tailer.NewHandler("/debug/trc/", trcLogfile)
+		h.TerminalOpts.FontSize = 11
+		r.GET("/debug/trc/*path", gin.WrapH(h))
 	}
 	r.Use(CollectorMiddleware)
 	r.GET("/db/poi/nearby", s.handlePoiNearby)

@@ -110,9 +110,9 @@ func (s *HttpServer) onProduct(pd metric.Product) error {
 			return nil // Skip zero timers
 		}
 		result = []StatRec{
-			{fmt.Sprintf("metrics:%s:avg", pd.Name), pd.Time, float64(int64(p.SumDuration) / p.Samples)},
-			{fmt.Sprintf("metrics:%s:max", pd.Name), pd.Time, float64(p.MaxDuration)},
-			{fmt.Sprintf("metrics:%s:min", pd.Name), pd.Time, float64(p.MinDuration)},
+			{fmt.Sprintf("metrics:%s:avg", pd.Name), pd.Time, float64(int64(p.Sum) / p.Samples)},
+			{fmt.Sprintf("metrics:%s:max", pd.Name), pd.Time, float64(p.Max)},
+			{fmt.Sprintf("metrics:%s:min", pd.Name), pd.Time, float64(p.Min)},
 		}
 	case *metric.HistogramValue:
 		if p.Samples == 0 {
