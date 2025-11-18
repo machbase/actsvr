@@ -179,18 +179,18 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 	r.GET("/debug/dashboard", gin.WrapH(CollectorHandler()))
 	if lf := logConfig.Filename; lf != "" && lf != "-" {
 		h := tailer.NewHandler("/debug/logs/", lf,
-			tailer.WithLastN(50),
-			tailer.WithPlugins(tailer.NewColoring("default")),
+			tailer.WithLast(50),
+			tailer.WithSyntaxColoring("levels"),
 		)
-		h.TerminalOpts.FontSize = 11
+		h.TerminalOption.FontSize = 11
 		r.GET("/debug/logs/*path", gin.WrapH(h))
 	}
 	if trcLogfile != "" {
 		h := tailer.NewHandler("/debug/trc/", trcLogfile,
-			tailer.WithLastN(50),
-			tailer.WithPlugins(tailer.NewColoring("default")),
+			tailer.WithLast(50),
+			tailer.WithSyntaxColoring("levels"),
 		)
-		h.TerminalOpts.FontSize = 11
+		h.TerminalOption.FontSize = 11
 		r.GET("/debug/trc/*path", gin.WrapH(h))
 	}
 	r.Use(CollectorMiddleware)
