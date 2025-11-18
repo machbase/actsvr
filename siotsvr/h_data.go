@@ -329,14 +329,13 @@ func handleParsData(c *gin.Context, conn api.Conn, certKeySeq int64, tsn int64, 
 		if nrow > 0 {
 			c.Writer.WriteString(",")
 		}
-		fmt.Fprintf(c.Writer, `{"seq":%d,"serial":"%s","areaCode":"%s","pars":{"date":"%s"`,
-			seq, modelSerial, areaCode, date.In(DefaultTZ).Format("2006-01-02 15:04:05"))
+		fmt.Fprintf(c.Writer, `{"seq":%d,"serial":"%s","areaCode":"%s","pars":{`,
+			seq, modelSerial, areaCode)
 		for i, value := range values {
 			fd := definition.Fields[i]
 			if !fd.Public {
 				continue
 			}
-			c.Writer.WriteString(",")
 			name := fd.PacketName
 			if len(value) > 0 && value[0] == InvalidValueMarker {
 				if activateMasking {
@@ -350,9 +349,9 @@ func handleParsData(c *gin.Context, conn api.Conn, certKeySeq int64, tsn int64, 
 					value = value[1:]
 				}
 			}
-			fmt.Fprintf(c.Writer, `%q:%q`, name, value)
+			fmt.Fprintf(c.Writer, `%q:%q,`, name, value)
 		}
-		c.Writer.WriteString(`}}`)
+		fmt.Fprintf(c.Writer, `"date":"%s"}}`, date.In(DefaultTZ).Format("2006-01-02 15:04:05"))
 		nrow++
 	}
 	c.Writer.WriteString(`]}`)
