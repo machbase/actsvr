@@ -237,8 +237,8 @@ github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 h1:6E+4a0GO5zZEnZ
 github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0/go.mod h1:zJYVVT2jmtg6P3p1VtQj7WsuWi/y4VnjVBn7F8KPB3I=
 github.com/machbase/neo-engine/v8 v8.0.52 h1:zb7SctYKlhB726qYogbYKi/ei7u390WJm5GiEgd5Xk8=
 github.com/machbase/neo-engine/v8 v8.0.52/go.mod h1:Z2Ey5LqiXunFTTBsPBeeuoeQEJ/Rky92flsHyo6MkfA=
-github.com/machbase/neo-server/v8 v8.0.66-0.20251118045358-2533100ca74e h1:0IEWtnn6aCbvMucP8+Y0v59k00nMsu0doUO2O2ly/Yc=
-github.com/machbase/neo-server/v8 v8.0.66-0.20251118045358-2533100ca74e/go.mod h1:dtBjz5pZAWaE26PxoKhvY8rR5ayTJu29Mj4WT5OaN08=
+github.com/machbase/neo-server/v8 v8.0.66-0.20251120081537-186699ebccfe h1:7pWtupVVRHFO7iRSrAAwBfzIE6UvUb9BwA4Vl22wTjk=
+github.com/machbase/neo-server/v8 v8.0.66-0.20251120081537-186699ebccfe/go.mod h1:dtBjz5pZAWaE26PxoKhvY8rR5ayTJu29Mj4WT5OaN08=
 github.com/magefile/mage v1.15.0 h1:BvGheCMAsG3bWUDbZ8AyXXpCNwU9u5CB6sM+HNb9HYg=
 github.com/magefile/mage v1.15.0/go.mod h1:z5UZb/iS3GoOSn0JgWuiw7dxlurVYTu+/jHXqQg881A=
 github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=

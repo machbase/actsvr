@@ -115,7 +115,6 @@ func (s *HttpServer) Start(ctx context.Context) error {
 func (s *HttpServer) Stop(ctx context.Context) (err error) {
 	if s.httpServer != nil {
 		// shutdown any background tailer tasks
-		tailer.Shutdown()
 		err = s.httpServer.Shutdown(ctx)
 	}
 	s.collector.Stop()
@@ -177,22 +176,7 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 	r.GET("/db/admin/replica", s.handleAdminReplica)
 	r.Any("/debug/pprof/*path", gin.WrapF(pprof.Index))
 	r.GET("/debug/dashboard", gin.WrapH(CollectorHandler()))
-	if lf := logConfig.Filename; lf != "" && lf != "-" {
-		h := tailer.NewHandler("/debug/logs/", lf,
-			tailer.WithLast(50),
-			tailer.WithSyntaxColoring("levels"),
-		)
-		h.TerminalOption.FontSize = 11
-		r.GET("/debug/logs/*path", gin.WrapH(h))
-	}
-	if trcLogfile != "" {
-		h := tailer.NewHandler("/debug/trc/", trcLogfile,
-			tailer.WithLast(50),
-			tailer.WithSyntaxColoring("levels"),
-		)
-		h.TerminalOption.FontSize = 11
-		r.GET("/debug/trc/*path", gin.WrapH(h))
-	}
+	r.GET("/debug/logs/*path", gin.WrapH(makeLogTerminal(logConfig.Filename, trcLogfile)))
 	r.Use(CollectorMiddleware)
 	r.GET("/db/poi/nearby", s.handlePoiNearby)
 	r.GET("/n/api/serverstat/:certkey", s.handleServerStat)
@@ -203,6 +187,37 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 		c.String(http.StatusNotFound, "404 Not Found")
 	})
 	return r
+}
+
+func makeLogTerminal(logfile, tracefile string) http.Handler {
+	opts := []tailer.TerminalOption{}
+	if logfile != "" && logfile != "-" {
+		opts = append(opts, tailer.WithTailLabel(
+			tailer.Colorize("siotsvr_log", tailer.ColorOrange),
+			logfile,
+			tailer.WithSyntaxHighlighting("level"),
+			tailer.WithLast(50),
+		))
+	}
+	if trcLogfile != "" {
+		opts = append(opts, tailer.WithTailLabel(
+			tailer.Colorize("machbase_trc", tailer.ColorLime),
+			tracefile,
+			tailer.WithSyntaxHighlighting("level"),
+			tailer.WithLast(100),
+		))
+	}
+	if len(opts) == 0 {
+		return http.NotFoundHandler()
+	}
+	opts = append(opts,
+		tailer.WithFontSize(11),
+		tailer.WithTheme(tailer.ThemeDefault),
+		tailer.WithLocalization(map[string]string{
+			"Clear": "Reset",
+		}),
+	)
+	return tailer.NewTerminal(opts...).Handler("/debug/logs/")
 }
 
 func (s *HttpServer) VerifyCertkey(certkey string) (int64, error) {

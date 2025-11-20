@@ -9,7 +9,7 @@ require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/google/uuid v1.6.0
-	github.com/machbase/neo-server/v8 v8.0.66-0.20251118045358-2533100ca74e
+	github.com/machbase/neo-server/v8 v8.0.66-0.20251120081537-186699ebccfe
 	github.com/magefile/mage v1.15.0
 	github.com/stretchr/testify v1.10.0
 	github.com/tidwall/buntdb v1.3.2
