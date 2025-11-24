@@ -423,7 +423,7 @@ func (s *HttpServer) handleAdminStat(c *gin.Context) {
 }
 
 func fetchQueryStatRows(ctx context.Context, conn api.Conn, beginTime time.Time, endTime time.Time, name string, w io.Writer) error {
-	sqlText := fmt.Sprintf(`SELECT TO_CHAR(DATE_TRUNC('day', TIME, 1), 'YYYYMMDD') DATE, COUNT(*) CNT
+	sqlText := fmt.Sprintf(`SELECT TO_CHAR(DATE_TRUNC('day', TIME, 1), 'YYYYMMDD') DATE, COUNT(*) CNT, SUM(VALUE) RECS
 FROM (
     SELECT
         TIME, VALUE
