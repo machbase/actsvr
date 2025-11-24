@@ -42,6 +42,8 @@ type HttpServer struct {
 	replicaWg    sync.WaitGroup
 
 	collector *metric.Collector
+
+	onCloseHooks []func()
 }
 
 func NewHttpServer() *HttpServer {
@@ -115,6 +117,9 @@ func (s *HttpServer) Start(ctx context.Context) error {
 func (s *HttpServer) Stop(ctx context.Context) (err error) {
 	if s.httpServer != nil {
 		// shutdown any background tailer tasks
+		for _, hook := range s.onCloseHooks {
+			hook()
+		}
 		err = s.httpServer.Shutdown(ctx)
 	}
 	s.collector.Stop()
@@ -176,7 +181,7 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 	r.GET("/db/admin/replica", s.handleAdminReplica)
 	r.Any("/debug/pprof/*path", gin.WrapF(pprof.Index))
 	r.GET("/debug/dashboard", gin.WrapH(CollectorHandler()))
-	r.GET("/debug/logs/*path", gin.WrapH(makeLogTerminal(logConfig.Filename, trcLogfile)))
+	r.GET("/debug/logs/*path", gin.WrapH(s.makeLogTerminal(logConfig.Filename, trcLogfile)))
 	r.Use(CollectorMiddleware)
 	r.GET("/db/poi/nearby", s.handlePoiNearby)
 	r.GET("/n/api/serverstat/:certkey", s.handleServerStat)
@@ -189,7 +194,7 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 	return r
 }
 
-func makeLogTerminal(logfile, tracefile string) http.Handler {
+func (s *HttpServer) makeLogTerminal(logfile, tracefile string) http.Handler {
 	opts := []tailer.TerminalOption{}
 	if logfile != "" && logfile != "-" {
 		opts = append(opts, tailer.WithTailLabel(
@@ -217,7 +222,11 @@ func makeLogTerminal(logfile, tracefile string) http.Handler {
 			"Clear": "Reset",
 		}),
 	)
-	return tailer.NewTerminal(opts...).Handler("/debug/logs/")
+	term := tailer.NewTerminal(opts...)
+	s.onCloseHooks = append(s.onCloseHooks, func() {
+		term.Close()
+	})
+	return term.Handler("/debug/logs/")
 }
 
 func (s *HttpServer) VerifyCertkey(certkey string) (int64, error) {
