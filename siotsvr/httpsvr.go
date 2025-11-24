@@ -448,12 +448,12 @@ GROUP BY DATE`, statTagTable)
 	for rows.Next() {
 		var date string
 		var count int64
-		var value int64
+		var value float64 // SUM(VALUE) is double
 		if err := rows.Scan(&date, &count, &value); err != nil {
 			return err
 		}
 		// DATE,ORG,TSN,COUNT,RECORDS
-		fmt.Fprintf(w, "%s,%s,%s,%d,%d\n", date, nameParts[0], nameParts[1], count, value)
+		fmt.Fprintf(w, "%s,%s,%s,%d,%.f\n", date, nameParts[0], nameParts[1], count, value)
 	}
 	return nil
 }
