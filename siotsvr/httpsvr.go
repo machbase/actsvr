@@ -42,8 +42,6 @@ type HttpServer struct {
 	replicaWg    sync.WaitGroup
 
 	collector *metric.Collector
-
-	onCloseHooks []func()
 }
 
 func NewHttpServer() *HttpServer {
@@ -116,10 +114,6 @@ func (s *HttpServer) Start(ctx context.Context) error {
 
 func (s *HttpServer) Stop(ctx context.Context) (err error) {
 	if s.httpServer != nil {
-		// shutdown any background tailer tasks
-		for _, hook := range s.onCloseHooks {
-			hook()
-		}
 		err = s.httpServer.Shutdown(ctx)
 	}
 	s.collector.Stop()
@@ -223,7 +217,7 @@ func (s *HttpServer) makeLogTerminal(logfile, tracefile string) http.Handler {
 		}),
 	)
 	term := tailer.NewTerminal(opts...)
-	s.onCloseHooks = append(s.onCloseHooks, func() {
+	s.httpServer.RegisterOnShutdown(func() {
 		term.Close()
 	})
 	return term.Handler("/debug/logs/")
