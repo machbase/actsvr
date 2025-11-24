@@ -215,8 +215,9 @@ func (s *HttpServer) makeLogTerminal(logfile, tracefile string) http.Handler {
 		return http.NotFoundHandler()
 	}
 	opts = append(opts,
-		tailer.WithFontSize(11),
 		tailer.WithTheme(tailer.ThemeDefault),
+		tailer.WithFontSize(11),
+		tailer.WithControlBar(tailer.ControlBar{FontSize: 11, FontFamily: "Arial,sans-serif"}),
 		tailer.WithLocalization(map[string]string{
 			"Clear": "Reset",
 		}),
