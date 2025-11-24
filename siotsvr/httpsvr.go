@@ -52,7 +52,7 @@ func NewHttpServer() *HttpServer {
 		rawPacketCh:  make(chan *RawPacketData),
 		errPacketCh:  make(chan *RawPacketData),
 		parsPacketCh: make(chan *ParsedPacketData),
-		statCh:       make(chan *StatDatum),
+		statCh:       make(chan *StatDatum, 100),
 		replicaAlive: true,
 	}
 }
@@ -320,14 +320,23 @@ func (s *HttpServer) handleAdminReplica(c *gin.Context) {
 	})
 }
 
-func (s *HttpServer) loadStatNames(ctx context.Context) ([]string, error) {
+func (s *HttpServer) loadStatNames(ctx context.Context, kind StatKind) ([]string, error) {
 	conn, err := s.openConn(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer conn.Close()
 
-	sqlText := fmt.Sprintf("SELECT NAME FROM _%s_META WHERE NAME LIKE 'stat:nrow:%%' ORDER BY NAME", statTagTable)
+	kindPrefix := ""
+	switch kind {
+	case StatKindQuery:
+		kindPrefix = "stat:nrow"
+	case StatKindSend:
+		kindPrefix = "stat:send"
+	default:
+		return nil, fmt.Errorf("unsupported stat kind: %v", kind)
+	}
+	sqlText := fmt.Sprintf("SELECT NAME FROM _%s_META WHERE NAME LIKE '%s:%%' ORDER BY NAME", statTagTable, kindPrefix)
 	rows, err := conn.Query(ctx, sqlText)
 	if err != nil {
 		return nil, err
@@ -348,6 +357,18 @@ func (s *HttpServer) loadStatNames(ctx context.Context) ([]string, error) {
 func (s *HttpServer) handleAdminStat(c *gin.Context) {
 	beginDateStr := c.Param("begin_date") // inclusive
 	endDateStr := c.Param("end_date")     // exclusive
+	kindStr := c.Query("kind")
+	kind := StatKindQuery
+	switch strings.ToLower(kindStr) {
+	case "query":
+		kind = StatKindQuery
+	case "send":
+		kind = StatKindSend
+	default:
+		defaultLog.Errorf("Invalid kind parameter: %s", kindStr)
+		c.JSON(http.StatusBadRequest, ApiErrorInvalidParameters)
+		return
+	}
 
 	beginTime, err := time.ParseInLocation("20060102", beginDateStr, DefaultTZ)
 	if err != nil {
@@ -363,7 +384,7 @@ func (s *HttpServer) handleAdminStat(c *gin.Context) {
 	}
 	endTime = endTime.Add(24 * time.Hour) // Make end date inclusive by adding one day
 
-	names, err := s.loadStatNames(c)
+	names, err := s.loadStatNames(c, kind)
 	if err != nil {
 		defaultLog.Errorf("Failed to load stat names: %v", err)
 		c.String(http.StatusInternalServerError, "Failed to load stat names: %v", err)
@@ -378,19 +399,31 @@ func (s *HttpServer) handleAdminStat(c *gin.Context) {
 	defer conn.Close()
 
 	c.Header("Content-Type", "text/csv")
-	c.Writer.WriteString("DATE,ORG,TSN,COUNT,RECORDS\n")
-	for _, name := range names {
-		if err := fetchStatRows(c, conn, beginTime, endTime, name, c.Writer); err != nil {
-			defaultLog.Errorf("Failed to query stat %q: %v", name, err)
-			c.String(http.StatusInternalServerError, "Failed to execute query: %v", err)
-			return
+	switch kind {
+	case StatKindQuery:
+		c.Writer.WriteString("DATE,ORG,TSN,COUNT,RECORDS\n")
+		for _, name := range names {
+			if err := fetchQueryStatRows(c, conn, beginTime, endTime, name, c.Writer); err != nil {
+				defaultLog.Errorf("Failed to query stat %q: %v", name, err)
+				c.String(http.StatusInternalServerError, "Failed to execute query: %v", err)
+				return
+			}
+		}
+	case StatKindSend:
+		c.Writer.WriteString("DATE,TSN,DATA_NO,COUNT\n")
+		for _, name := range names {
+			if err := fetchSendStatRows(c, conn, beginTime, endTime, name, c.Writer); err != nil {
+				defaultLog.Errorf("Failed to query stat %q: %v", name, err)
+				c.String(http.StatusInternalServerError, "Failed to execute query: %v", err)
+				return
+			}
 		}
 	}
 	c.Writer.WriteString("\n")
 }
 
-func fetchStatRows(ctx context.Context, conn api.Conn, beginTime time.Time, endTime time.Time, name string, w io.Writer) error {
-	sqlText := fmt.Sprintf(`SELECT TO_CHAR(DATE_TRUNC('day', TIME, 1), 'YYYYMMDD') DATE, COUNT(*) CNT, SUM(VALUE) RECS
+func fetchQueryStatRows(ctx context.Context, conn api.Conn, beginTime time.Time, endTime time.Time, name string, w io.Writer) error {
+	sqlText := fmt.Sprintf(`SELECT TO_CHAR(DATE_TRUNC('day', TIME, 1), 'YYYYMMDD') DATE, COUNT(*) CNT
 FROM (
     SELECT
         TIME, VALUE
@@ -415,11 +448,47 @@ GROUP BY DATE`, statTagTable)
 	for rows.Next() {
 		var date string
 		var count int64
-		var value string
+		var value int64
 		if err := rows.Scan(&date, &count, &value); err != nil {
 			return err
 		}
-		fmt.Fprintf(w, "%s,%s,%s,%d,%s\n", date, nameParts[0], nameParts[1], count, value)
+		// DATE,ORG,TSN,COUNT,RECORDS
+		fmt.Fprintf(w, "%s,%s,%s,%d,%d\n", date, nameParts[0], nameParts[1], count, value)
+	}
+	return nil
+}
+
+func fetchSendStatRows(ctx context.Context, conn api.Conn, beginTime time.Time, endTime time.Time, name string, w io.Writer) error {
+	sqlText := fmt.Sprintf(`SELECT TO_CHAR(DATE_TRUNC('day', TIME, 1), 'YYYYMMDD') DATE, COUNT(*) CNT
+FROM (
+    SELECT
+        TIME, VALUE
+    FROM
+        %s
+    WHERE TIME >= ? AND TIME < ? AND NAME = ?
+	ORDER BY TIME
+)
+GROUP BY DATE`, statTagTable)
+
+	nameParts := strings.SplitN(strings.TrimPrefix(name, "stat:send:"), ":", 2)
+	if len(nameParts) != 2 {
+		return fmt.Errorf("invalid stat name format: %s", name)
+	}
+
+	rows, err := conn.Query(ctx, sqlText, beginTime.UnixNano(), endTime.UnixNano(), name)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var date string
+		var count int64
+		if err := rows.Scan(&date, &count); err != nil {
+			return err
+		}
+		// DATE,TSN,DATA_NO,COUNT
+		fmt.Fprintf(w, "%s,%s,%s,%d\n", date, nameParts[0], nameParts[1], count)
 	}
 	return nil
 }

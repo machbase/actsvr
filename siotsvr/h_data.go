@@ -25,11 +25,14 @@ func (s *HttpServer) handleData(c *gin.Context) {
 		// Stat
 		if certKeySeq > 0 && tsn > 0 && nrow > 0 {
 			s.statCh <- &StatDatum{
-				orgId: certKeySeq,
-				tsn:   tsn,
-				nrow:  nrow,
-				ts:    tick,
-				url:   c.Request.URL.Path + "?" + c.Request.URL.RawQuery,
+				kind: StatKindQuery,
+				query: &QueryStat{
+					orgId: certKeySeq,
+					tsn:   tsn,
+					nrow:  nrow,
+					ts:    tick,
+					url:   c.Request.URL.Path + "?" + c.Request.URL.RawQuery,
+				},
 			}
 		}
 		// Request의 패킷 정보를 로깅

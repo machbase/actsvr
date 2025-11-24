@@ -346,7 +346,15 @@ func (s *HttpServer) loopParsPacket() {
 		}
 		result := conn.Exec(ctx, sqlBuilder.String(), values...)
 		insertErr := result.Err()
-		if insertErr != nil {
+		if insertErr == nil {
+			s.statCh <- &StatDatum{
+				kind: StatKindSend,
+				send: &SendStat{
+					tsn:    data.TrnsmitServerNo,
+					dataNo: data.DataNo,
+				},
+			}
+		} else {
 			s.log.Error(data.PacketSeq, "Failed to insert PacketParsData:", insertErr)
 		}
 
@@ -803,11 +811,29 @@ type ReplicaParsPacketData struct {
 }
 
 type StatDatum struct {
+	kind  StatKind
+	query *QueryStat
+	send  *SendStat
+}
+
+type StatKind string
+
+const (
+	StatKindQuery StatKind = "query"
+	StatKindSend  StatKind = "send"
+)
+
+type QueryStat struct {
 	orgId int64
 	tsn   int64
 	nrow  int
 	url   string
 	ts    time.Time
+}
+
+type SendStat struct {
+	tsn    int64
+	dataNo int
 }
 
 func (s *HttpServer) loopStatData() {
@@ -818,31 +844,49 @@ func (s *HttpServer) loopStatData() {
 	}
 	defer conn.Close()
 
-	logSqlText := strings.Join([]string{
-		"INSERT INTO",
-		tableName("TB_RESLT_USE_DATA"),
-		"(CERTKEY_SEQ, TRNSMIT_SERVER_NO, RQST_URL, USE_CNT, REGIST_DE, REGIST_DT, RESLT_DT)",
-		"VALUES (?, ?, ?, ?, ?, ?, ?)",
-	}, " ")
-	statSqlText := fmt.Sprintf("INSERT INTO %s (NAME, TIME, VALUE) VALUES (?, ?, ?)", statTagTable)
-	for data := range s.statCh {
-		if data == nil {
+	for statData := range s.statCh {
+		if statData == nil {
 			break
 		}
-		if statTagTable != "" {
-			name := fmt.Sprintf("stat:nrow:%d:%d", data.orgId, data.tsn)
-			ts := time.Now()
-			value := data.nrow
-			result := conn.Exec(ctx, statSqlText, name, ts, value)
-			insertErr := result.Err()
-			if insertErr != nil {
-				s.log.Error("Failed to insert StatData:", insertErr)
-				continue
+		switch statData.kind {
+		case StatKindQuery:
+			data := statData.query
+			ts := nowFunc()
+			if statTagTable != "" {
+				name := fmt.Sprintf("stat:nrow:%d:%d", data.orgId, data.tsn)
+				value := data.nrow
+				statSqlText := fmt.Sprintf("INSERT INTO %s (NAME, TIME, VALUE) VALUES (?, ?, ?)", statTagTable)
+				result := conn.Exec(ctx, statSqlText, name, ts, value)
+				insertErr := result.Err()
+				if insertErr != nil {
+					s.log.Error("Failed to insert StatData:", insertErr)
+					continue
+				}
+			}
+			registDt := ts
+			requestDt := data.ts
+			requestDe := requestDt.Format("20060102")
+			logSqlText := strings.Join([]string{
+				"INSERT INTO",
+				tableName("TB_RESLT_USE_DATA"),
+				"(CERTKEY_SEQ, TRNSMIT_SERVER_NO, RQST_URL, USE_CNT, REGIST_DE, REGIST_DT, RESLT_DT)",
+				"VALUES (?, ?, ?, ?, ?, ?, ?)",
+			}, " ")
+			conn.Exec(ctx, logSqlText, data.orgId, data.tsn, data.url, data.nrow, requestDe, requestDt.UnixNano(), registDt.UnixNano())
+		case StatKindSend:
+			data := statData.send
+			name := fmt.Sprintf("stat:send:%d:%d", data.tsn, data.dataNo)
+			ts := nowFunc()
+			value := 1
+			if statTagTable != "" {
+				statSqlText := fmt.Sprintf("INSERT INTO %s (NAME, TIME, VALUE) VALUES (?, ?, ?)", statTagTable)
+				result := conn.Exec(ctx, statSqlText, name, ts, value)
+				insertErr := result.Err()
+				if insertErr != nil {
+					s.log.Error("Failed to insert StatData:", insertErr)
+					continue
+				}
 			}
 		}
-		registDt := nowFunc()
-		requestDt := data.ts
-		requestDe := requestDt.Format("20060102")
-		conn.Exec(ctx, logSqlText, data.orgId, data.tsn, data.url, data.nrow, requestDe, requestDt.UnixNano(), registDt.UnixNano())
 	}
 }
