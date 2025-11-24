@@ -172,7 +172,7 @@ func (s *HttpServer) buildRouter() *gin.Engine {
 	}
 	r.GET("/db/admin/log", s.handleAdminLog)
 	r.GET("/db/admin/reload", s.handleAdminReload)
-	r.GET("/db/admin/stat/:begin_date/:end_date", s.handleAdminStat)
+	r.GET("/db/admin/stat/:kind/:begin_date/:end_date", s.handleAdminStat)
 	r.GET("/db/admin/replica", s.handleAdminReplica)
 	r.Any("/debug/pprof/*path", gin.WrapF(pprof.Index))
 	r.GET("/debug/dashboard", gin.WrapH(CollectorHandler()))
@@ -331,8 +331,8 @@ func (s *HttpServer) loadStatNames(ctx context.Context, kind StatKind) ([]string
 	switch kind {
 	case StatKindQuery:
 		kindPrefix = "stat:nrow"
-	case StatKindSend:
-		kindPrefix = "stat:send"
+	case StatKindPars:
+		kindPrefix = "stat:pars"
 	default:
 		return nil, fmt.Errorf("unsupported stat kind: %v", kind)
 	}
@@ -357,28 +357,28 @@ func (s *HttpServer) loadStatNames(ctx context.Context, kind StatKind) ([]string
 func (s *HttpServer) handleAdminStat(c *gin.Context) {
 	beginDateStr := c.Param("begin_date") // inclusive
 	endDateStr := c.Param("end_date")     // exclusive
-	kindStr := c.Query("kind")
+	kindStr := c.Param("kind")
 	kind := StatKindQuery
 	switch strings.ToLower(kindStr) {
 	case "query":
 		kind = StatKindQuery
-	case "send":
-		kind = StatKindSend
+	case "pars":
+		kind = StatKindPars
 	default:
-		defaultLog.Errorf("Invalid kind parameter: %s", kindStr)
+		defaultLog.Errorf("Invalid stat kind: %s", kindStr)
 		c.JSON(http.StatusBadRequest, ApiErrorInvalidParameters)
 		return
 	}
 
 	beginTime, err := time.ParseInLocation("20060102", beginDateStr, DefaultTZ)
 	if err != nil {
-		defaultLog.Errorf("Invalid begin_date parameter: %v", err)
+		defaultLog.Errorf("Invalid stat begin_date parameter: %v", err)
 		c.JSON(http.StatusBadRequest, ApiErrorInvalidParameters)
 		return
 	}
 	endTime, err := time.ParseInLocation("20060102", endDateStr, DefaultTZ)
 	if err != nil {
-		defaultLog.Errorf("Invalid end_date parameter: %v", err)
+		defaultLog.Errorf("Invalid stat end_date parameter: %v", err)
 		c.JSON(http.StatusBadRequest, ApiErrorInvalidParameters)
 		return
 	}
@@ -409,11 +409,11 @@ func (s *HttpServer) handleAdminStat(c *gin.Context) {
 				return
 			}
 		}
-	case StatKindSend:
+	case StatKindPars:
 		c.Writer.WriteString("DATE,TSN,DATA_NO,COUNT\n")
 		for _, name := range names {
-			if err := fetchSendStatRows(c, conn, beginTime, endTime, name, c.Writer); err != nil {
-				defaultLog.Errorf("Failed to query stat %q: %v", name, err)
+			if err := fetchParsStatRows(c, conn, beginTime, endTime, name, c.Writer); err != nil {
+				defaultLog.Errorf("Failed to send stat %q: %v", name, err)
 				c.String(http.StatusInternalServerError, "Failed to execute query: %v", err)
 				return
 			}
@@ -458,7 +458,7 @@ GROUP BY DATE`, statTagTable)
 	return nil
 }
 
-func fetchSendStatRows(ctx context.Context, conn api.Conn, beginTime time.Time, endTime time.Time, name string, w io.Writer) error {
+func fetchParsStatRows(ctx context.Context, conn api.Conn, beginTime time.Time, endTime time.Time, name string, w io.Writer) error {
 	sqlText := fmt.Sprintf(`SELECT TO_CHAR(DATE_TRUNC('day', TIME, 1), 'YYYYMMDD') DATE, COUNT(*) CNT
 FROM (
     SELECT
@@ -470,7 +470,7 @@ FROM (
 )
 GROUP BY DATE`, statTagTable)
 
-	nameParts := strings.SplitN(strings.TrimPrefix(name, "stat:send:"), ":", 2)
+	nameParts := strings.SplitN(strings.TrimPrefix(name, "stat:pars:"), ":", 2)
 	if len(nameParts) != 2 {
 		return fmt.Errorf("invalid stat name format: %s", name)
 	}

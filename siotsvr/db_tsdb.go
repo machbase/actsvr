@@ -348,8 +348,8 @@ func (s *HttpServer) loopParsPacket() {
 		insertErr := result.Err()
 		if insertErr == nil {
 			s.statCh <- &StatDatum{
-				kind: StatKindSend,
-				send: &SendStat{
+				kind: StatKindPars,
+				pars: &ParsStat{
 					tsn:    data.TrnsmitServerNo,
 					dataNo: data.DataNo,
 				},
@@ -813,14 +813,14 @@ type ReplicaParsPacketData struct {
 type StatDatum struct {
 	kind  StatKind
 	query *QueryStat
-	send  *SendStat
+	pars  *ParsStat
 }
 
 type StatKind string
 
 const (
 	StatKindQuery StatKind = "query"
-	StatKindSend  StatKind = "send"
+	StatKindPars  StatKind = "pars"
 )
 
 type QueryStat struct {
@@ -831,7 +831,7 @@ type QueryStat struct {
 	ts    time.Time
 }
 
-type SendStat struct {
+type ParsStat struct {
 	tsn    int64
 	dataNo int
 }
@@ -873,9 +873,9 @@ func (s *HttpServer) loopStatData() {
 				"VALUES (?, ?, ?, ?, ?, ?, ?)",
 			}, " ")
 			conn.Exec(ctx, logSqlText, data.orgId, data.tsn, data.url, data.nrow, requestDe, requestDt.UnixNano(), registDt.UnixNano())
-		case StatKindSend:
-			data := statData.send
-			name := fmt.Sprintf("stat:send:%d:%d", data.tsn, data.dataNo)
+		case StatKindPars:
+			data := statData.pars
+			name := fmt.Sprintf("stat:pars:%d:%d", data.tsn, data.dataNo)
 			ts := nowFunc()
 			value := 1
 			if statTagTable != "" {
