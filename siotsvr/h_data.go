@@ -258,6 +258,7 @@ func handleParsData(c *gin.Context, conn api.Conn, certKeySeq int64, tsn int64, 
 		dqm, err := SelectModlPacketDqm(rdb, tableName("TB_PACKET_PARS_DATA"), tsn, dataNo)
 		if err != nil {
 			defaultLog.Errorf("Failed to get DQM info pars for tsn: %d and data_no: %d, error:%v", tsn, dataNo, err)
+			defaultLog.Errorf("error:%T %#v", err, err)
 			c.JSON(http.StatusInternalServerError, ApiErrorServer)
 			return
 		}
@@ -413,6 +414,7 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 		dqm, err := SelectModlPacketDqm(rdb, tableName("TB_RECPTN_PACKET_DATA"), tsn, dataNo)
 		if err != nil {
 			defaultLog.Errorf("Failed to get DQM info packet for tsn: %d and data_no: %d, error:%v", tsn, dataNo, err)
+			defaultLog.Errorf("error:%T %#v", err, err)
 			c.JSON(http.StatusInternalServerError, ApiErrorServer)
 			return
 		}
