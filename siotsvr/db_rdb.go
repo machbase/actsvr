@@ -687,9 +687,10 @@ func SelectModlPacketDqm(db *sql.DB, table string, tsn int64, dataNo int) (ModlP
 	}, " ")
 	row := db.QueryRow(sqlText, tsn, ret.TableName, dataNo)
 	if err := row.Err(); err != nil {
-		if err == sql.ErrNoRows || err.Error() == "sql: no rows in result set" {
+		if err == sql.ErrNoRows || err.Error() == "no rows in result set" {
 			return ret, nil
 		}
+		defaultLog.Infof("----sql error---> %q", err.Error())
 		return ret, err
 	}
 	var lastTime sql.NullString
