@@ -368,7 +368,8 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 	args := []any{}
 	var arrivalTime time.Time
 
-	sb.WriteString(`SELECT _ARRIVAL_TIME, PACKET_SEQ, MODL_SERIAL, REGIST_DT, AREA_CODE, PACKET`)
+	sb.WriteString(fmt.Sprintf("SELECT /*+ SCAN_FORWARD(%s) */ ", tableName("TB_RECPTN_PACKET_DATA")))
+	sb.WriteString(`_ARRIVAL_TIME, PACKET_SEQ, MODL_SERIAL, REGIST_DT, AREA_CODE, PACKET`)
 	sb.WriteString(` FROM `)
 	sb.WriteString(tableName(`TB_RECPTN_PACKET_DATA`))
 	if dataNo == 1 {
@@ -396,7 +397,7 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 		args = append(args, packetDataArrivalTime.Time)
 		sb.WriteString(` AND DATA_NO = ?`)
 		args = append(args, dataNo)
-		sb.WriteString(` ORDER BY _ARRIVAL_TIME`)
+		// sb.WriteString(` ORDER BY _ARRIVAL_TIME`)
 		if arrivalQueryLimit > 0 {
 			sb.WriteString(` LIMIT ?`)
 			args = append(args, arrivalQueryLimit)
