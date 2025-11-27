@@ -660,3 +660,61 @@ func SelectModelOrganizationPublic(db *sql.DB, callback func(*ModlOrgnPublic) bo
 	}
 	return nil
 }
+
+type ModlPacketDqm struct {
+	TableName       string
+	TrnsmitServerNo int64
+	DataNo          int
+	LastArrivalTime time.Time
+}
+
+func SelectModlPacketDqm(db *sql.DB, table string, tsn int64, dataNo int) (ModlPacketDqm, error) {
+	var ret = ModlPacketDqm{
+		TableName:       strings.ToUpper(table),
+		TrnsmitServerNo: tsn,
+		DataNo:          dataNo,
+		LastArrivalTime: time.Time{},
+	}
+	sqlText := strings.Join([]string{
+		"SELECT",
+		"LAST_TIME",
+		"FROM",
+		"TB_MODL_PACKET_DQM",
+		"WHERE",
+		"TRNSMIT_SERVER_NO = ?",
+		"AND TABLE_NM = ?",
+		"AND DATA_NO = ?",
+	}, " ")
+	row := db.QueryRow(sqlText, tsn, ret.TableName, dataNo)
+	if err := row.Err(); err != nil {
+		if err == sql.ErrNoRows {
+			return ret, nil
+		}
+		return ret, err
+	}
+	var lastTime sql.NullString
+	if err := row.Scan(&lastTime); err != nil {
+		return ret, err
+	}
+	if lastTime.Valid {
+		tm, err := time.ParseInLocation("2006-01-02 15:04:05.000000000", lastTime.String, DefaultTZ)
+		if err != nil {
+			return ret, err
+		}
+		ret.LastArrivalTime = tm
+	}
+	return ret, nil
+}
+
+func UpsertModlPacketDqm(db *sql.DB, data ModlPacketDqm) error {
+	sqlText := strings.Join([]string{
+		"INSERT INTO TB_MODL_PACKET_DQM",
+		"(TABLE_NM, TRNSMIT_SERVER_NO, DATA_NO, LAST_TIME)",
+		"VALUES (?, ?, ?, ?)",
+		"ON DUPLICATE KEY UPDATE",
+		"LAST_TIME = ?",
+	}, " ")
+	lastTime := data.LastArrivalTime.In(DefaultTZ).Format("2006-01-02 15:04:05.000000000")
+	_, err := db.Exec(sqlText, data.TableName, data.TrnsmitServerNo, data.DataNo, lastTime, lastTime)
+	return err
+}

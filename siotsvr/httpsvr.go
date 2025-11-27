@@ -279,30 +279,30 @@ func (s *HttpServer) handleAdminReload(c *gin.Context) {
 		err = s.reloadPacketSeq()
 	case "packet_parse_seq":
 		err = s.reloadPacketParseSeq()
-	case "last_packet":
-		packetDataArrivalTime.Lock()
-		newVal := c.Query("new_value")
-		if newVal == "" {
-			packetDataArrivalTime.Load()
-		} else if ts, err2 := time.ParseInLocation("2006-01-02 15:04:05.000000000", newVal, DefaultTZ); err2 == nil {
-			packetDataArrivalTime.Time = ts
-			packetDataArrivalTime.Save()
-		} else {
-			err = err2
-		}
-		packetDataArrivalTime.Unlock()
-	case "last_pars":
-		parsDataArrivalTime.Lock()
-		newVal := c.Query("new_value")
-		if newVal == "" {
-			parsDataArrivalTime.Load()
-		} else if ts, err2 := time.ParseInLocation("2006-01-02 15:04:05.000000000", newVal, DefaultTZ); err2 == nil {
-			parsDataArrivalTime.Time = ts
-			parsDataArrivalTime.Save()
-		} else {
-			err = err2
-		}
-		parsDataArrivalTime.Unlock()
+	// case "last_packet":
+	// 	packetDataArrivalTime.Lock()
+	// 	newVal := c.Query("new_value")
+	// 	if newVal == "" {
+	// 		packetDataArrivalTime.Load()
+	// 	} else if ts, err2 := time.ParseInLocation("2006-01-02 15:04:05.000000000", newVal, DefaultTZ); err2 == nil {
+	// 		packetDataArrivalTime.Time = ts
+	// 		packetDataArrivalTime.Save()
+	// 	} else {
+	// 		err = err2
+	// 	}
+	// 	packetDataArrivalTime.Unlock()
+	// case "last_pars":
+	// 	parsDataArrivalTime.Lock()
+	// 	newVal := c.Query("new_value")
+	// 	if newVal == "" {
+	// 		parsDataArrivalTime.Load()
+	// 	} else if ts, err2 := time.ParseInLocation("2006-01-02 15:04:05.000000000", newVal, DefaultTZ); err2 == nil {
+	// 		parsDataArrivalTime.Time = ts
+	// 		parsDataArrivalTime.Save()
+	// 	} else {
+	// 		err = err2
+	// 	}
+	// 	parsDataArrivalTime.Unlock()
 	default:
 		c.String(http.StatusNotFound, "Unknown reload target: %s", target)
 	}

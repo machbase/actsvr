@@ -67,6 +67,8 @@ GET http://127.0.0.1:5680/db/admin/reload?target=packet_parse_seq
 
 **reload**
 
+> Deprecated, it does nothing. replaced by using RDB, instead of text-files.
+
 ```http
 GET http://127.0.0.1:5680/db/admin/reload?target=last_pars
 ```

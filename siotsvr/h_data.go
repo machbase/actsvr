@@ -248,32 +248,44 @@ func handleParsData(c *gin.Context, conn api.Conn, certKeySeq int64, tsn int64, 
 			args = append(args, areaCode)
 		}
 	} else {
-		parsDataArrivalTime.Lock()
-		defer parsDataArrivalTime.Unlock()
-
+		rdb, err := rdbConfig.Connect()
+		if err != nil {
+			defaultLog.Errorf("RDB connection failed pars tsn: %d and data_no: %d, error:%v", tsn, dataNo, err)
+			c.JSON(http.StatusInternalServerError, ApiErrorServer)
+			return
+		}
+		defer rdb.Close()
+		dqm, err := SelectModlPacketDqm(rdb, tableName("TB_PACKET_PARS_DATA"), tsn, dataNo)
+		if err != nil {
+			defaultLog.Errorf("Failed to get DQM info pars for tsn: %d and data_no: %d, error:%v", tsn, dataNo, err)
+			c.JSON(http.StatusInternalServerError, ApiErrorServer)
+			return
+		}
 		sb.WriteString(` WHERE _ARRIVAL_TIME > ?`)
-		args = append(args, parsDataArrivalTime.Time)
+		args = append(args, dqm.LastArrivalTime)
 		sb.WriteString(` AND DATA_NO = ?`)
 		args = append(args, dataNo)
-		// sb.WriteString(` ORDER BY _ARRIVAL_TIME`)
 		if arrivalQueryLimit > 0 {
 			sb.WriteString(` LIMIT ?`)
 			args = append(args, arrivalQueryLimit)
 		}
 
 		defer func() {
-			if parsDataArrivalTime.Time.After(arrivalTime) {
+			if dqm.LastArrivalTime.After(arrivalTime) {
 				return
 			}
 			if disableUpdateArrivalTime {
 				// 시험을 위해 time을 update 하지 않음
 			} else {
-				parsDataArrivalTime.Time = arrivalTime
-				parsDataArrivalTime.Save()
+				dqm.LastArrivalTime = arrivalTime
+				if err := UpsertModlPacketDqm(rdb, dqm); err != nil {
+					defaultLog.Errorf("Failed to update DQM info for tsn: %d and data_no: %d, error:%v", tsn, dataNo, err)
+					return
+				}
 			}
 			if log := DefaultLog(); log != nil && log.InfoEnabled() {
-				log.Infof("last arrival time for pars data: %s",
-					parsDataArrivalTime.Time.In(DefaultTZ).Format("2006-01-02 15:04:05.000000000"))
+				log.Infof("last arrival time for pars data: %s tsn:%d data_no:%d",
+					dqm.LastArrivalTime.In(DefaultTZ).Format("2006-01-02 15:04:05.000000000"), tsn, dataNo)
 			}
 		}()
 	}
@@ -391,31 +403,44 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 			args = append(args, areaCode)
 		}
 	} else {
-		packetDataArrivalTime.Lock()
-		defer packetDataArrivalTime.Unlock()
+		rdb, err := rdbConfig.Connect()
+		if err != nil {
+			defaultLog.Errorf("RDB connection failed packet tsn: %d and data_no: %d, error:%v", tsn, dataNo, err)
+			c.JSON(http.StatusInternalServerError, ApiErrorServer)
+			return
+		}
+		defer rdb.Close()
+		dqm, err := SelectModlPacketDqm(rdb, tableName("TB_RECPTN_PACKET_DATA"), tsn, dataNo)
+		if err != nil {
+			defaultLog.Errorf("Failed to get DQM info packet for tsn: %d and data_no: %d, error:%v", tsn, dataNo, err)
+			c.JSON(http.StatusInternalServerError, ApiErrorServer)
+			return
+		}
 		sb.WriteString(` WHERE _ARRIVAL_TIME > ?`)
-		args = append(args, packetDataArrivalTime.Time)
+		args = append(args, dqm.LastArrivalTime)
 		sb.WriteString(` AND DATA_NO = ?`)
 		args = append(args, dataNo)
-		// sb.WriteString(` ORDER BY _ARRIVAL_TIME`)
 		if arrivalQueryLimit > 0 {
 			sb.WriteString(` LIMIT ?`)
 			args = append(args, arrivalQueryLimit)
 		}
 
 		defer func() {
-			if packetDataArrivalTime.Time.After(arrivalTime) {
+			if dqm.LastArrivalTime.After(arrivalTime) {
 				return
 			}
 			if disableUpdateArrivalTime {
 				// 시험을 위해 time을 update 하지 않음
 			} else {
-				packetDataArrivalTime.Time = arrivalTime
-				packetDataArrivalTime.Save()
+				dqm.LastArrivalTime = arrivalTime
+				if err := UpsertModlPacketDqm(rdb, dqm); err != nil {
+					defaultLog.Errorf("Failed to update DQM info for tsn: %d and data_no: %d, error:%v", tsn, dataNo, err)
+					return
+				}
 			}
 			if log := DefaultLog(); log != nil && log.InfoEnabled() {
 				log.Infof("last arrival time for packet data: %s",
-					packetDataArrivalTime.Time.In(DefaultTZ).Format("2006-01-02 15:04:05.000000000"))
+					dqm.LastArrivalTime.In(DefaultTZ).Format("2006-01-02 15:04:05.000000000"))
 			}
 		}()
 	}
