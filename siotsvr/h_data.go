@@ -223,7 +223,9 @@ func handleParsData(c *gin.Context, conn api.Conn, certKeySeq int64, tsn int64, 
 	args := []any{}
 	var arrivalTime time.Time
 
-	sb.WriteString(`SELECT _ARRIVAL_TIME, PACKET_PARS_SEQ, MODL_SERIAL, REGIST_DT, AREA_CODE`)
+	sb.WriteString(fmt.Sprintf("SELECT /*+ SCAN_FORWARD(%s) */ ", tableName("TB_PACKET_PARS_DATA")))
+	sb.WriteString(`_ARRIVAL_TIME, PACKET_PARS_SEQ, MODL_SERIAL, REGIST_DT, AREA_CODE`)
+
 	for i := range definition.Fields {
 		sb.WriteString(fmt.Sprintf(", COLUMN%d", i))
 	}
@@ -253,7 +255,7 @@ func handleParsData(c *gin.Context, conn api.Conn, certKeySeq int64, tsn int64, 
 		args = append(args, parsDataArrivalTime.Time)
 		sb.WriteString(` AND DATA_NO = ?`)
 		args = append(args, dataNo)
-		sb.WriteString(` ORDER BY _ARRIVAL_TIME`)
+		// sb.WriteString(` ORDER BY _ARRIVAL_TIME`)
 		if arrivalQueryLimit > 0 {
 			sb.WriteString(` LIMIT ?`)
 			args = append(args, arrivalQueryLimit)
