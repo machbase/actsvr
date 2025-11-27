@@ -25,7 +25,7 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 		if packetSeq != -1 {
 			defaultLog.Info(packetSeq, " ", c.Writer.Status(), " ", time.Since(tick), " ", req)
 		} else {
-			defaultLog.Warn(requestErr, " ", c.Writer.Status(), " ", time.Since(tick), " ", req)
+			defaultLog.Error(requestErr, " ", c.Writer.Status(), " ", time.Since(tick), " ", req)
 		}
 	}()
 	// Path params
@@ -124,7 +124,7 @@ func (s *HttpServer) handleSendPacket(c *gin.Context) {
 
 	// find AreaCode of the model by serial number
 	if code, err := getModelAreaCode(modelSerial, tsn, searchDataNo); err != nil {
-		defaultLog.Errorf("%d area code not found for model_serial:%s, tsn:%d, dataNo:%d", packetSeq, modelSerial, tsn, searchDataNo)
+		defaultLog.Warnf("%d area code not found for model_serial:%s, tsn:%d, dataNo:%d", packetSeq, modelSerial, tsn, searchDataNo)
 	} else {
 		data.AreaCode = code
 	}
