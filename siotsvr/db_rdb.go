@@ -687,21 +687,21 @@ func SelectModlPacketDqm(db *sql.DB, table string, tsn int64, dataNo int) (ModlP
 	}, " ")
 	row := db.QueryRow(sqlText, tsn, ret.TableName, dataNo)
 	if err := row.Err(); err != nil {
-		if err == sql.ErrNoRows || err.Error() == "no rows in result set" {
+		if err == sql.ErrNoRows || err.Error() == "sql: no rows in result set" {
 			return ret, nil
 		}
-		defaultLog.Infof("---1-sql error---> %q", err.Error())
 		return ret, err
 	}
 	var lastTime sql.NullString
 	if err := row.Scan(&lastTime); err != nil {
-		defaultLog.Infof("---2-sql error---> %q", err.Error())
+		if err == sql.ErrNoRows || err.Error() == "sql: no rows in result set" {
+			return ret, nil
+		}
 		return ret, err
 	}
 	if lastTime.Valid {
 		tm, err := time.ParseInLocation("2006-01-02 15:04:05.000000000", lastTime.String, DefaultTZ)
 		if err != nil {
-			defaultLog.Infof("---3-sql error---> %q", err.Error())
 			return ret, err
 		}
 		ret.LastArrivalTime = tm
