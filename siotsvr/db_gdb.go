@@ -5,6 +5,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
 
 	"encoding/json"
 
@@ -12,6 +13,7 @@ import (
 )
 
 var cachePoi *buntdb.DB
+var cachePoiMutex sync.RWMutex
 
 func reloadPoiData() error {
 	// Open the RDB connection
@@ -103,9 +105,11 @@ func reloadPoiData() error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize GeoDB from ModelInstallInfo: %w", err)
 	}
+	cachePoiMutex.Lock()
 	defaultLog.Infof("Loaded %d poi", poiCount)
 	oldGdb := cachePoi
 	cachePoi = gdb
+	cachePoiMutex.Unlock()
 	if oldGdb != nil {
 		if err := oldGdb.Close(); err != nil {
 			defaultLog.Warnf("Error closing old POI GeoDB: %v", err)
@@ -172,6 +176,7 @@ func FindNearby(gdb *buntdb.DB, lat, lon float64, maxN int) ([]NearbyResult, err
 	var results []NearbyResult
 	point := fmt.Sprintf("[%f %f]", lat, lon)
 	err := gdb.View(func(tx *buntdb.Tx) error {
+		var retErr error
 		// Query the GeoDB for nearby points of interest
 		tx.Nearby("poi", point, func(key, value string, dist0 float64) bool {
 			if len(results) >= maxN {
@@ -196,12 +201,18 @@ func FindNearby(gdb *buntdb.DB, lat, lon float64, maxN int) ([]NearbyResult, err
 				return false // Invalid longitude
 			}
 			dist := haversine(lat, lon, areaLat, areaLon)
-			rawData, err := POIFindData(gdb, poiKey)
+			keyData := fmt.Sprintf("poi:%s:data", poiKey)
+			rawData, err := tx.Get(keyData)
 			if err != nil {
+				retErr = fmt.Errorf("failed to get poi data for %q %w", keyData, err)
 				return false // Failed to get poi data
 			}
+			//rawData, err := POIFindData(gdb, poiKey)
+			// if err != nil {
+			// 	return false // Failed to get poi data
+			// }
 			data := map[string]any{}
-			if err := json.Unmarshal([]byte(rawData), &data); err != nil {
+			if retErr = json.Unmarshal([]byte(rawData), &data); retErr != nil {
 				return false // Failed to unmarshal poi data
 			}
 			data["la"] = areaLat
@@ -210,7 +221,7 @@ func FindNearby(gdb *buntdb.DB, lat, lon float64, maxN int) ([]NearbyResult, err
 			results = append(results, data)
 			return true // Continue iterating until we have n results
 		})
-		return nil
+		return retErr
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to query GeoDB: %w", err)

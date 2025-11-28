@@ -14,6 +14,8 @@ import (
 
 func (s *HttpServer) handlePoiNearby(c *gin.Context) {
 	tick := nowFunc()
+	cachePoiMutex.RLock()
+	defer cachePoiMutex.RUnlock()
 	defer func() {
 		req := c.Request.URL.Path
 		if c.Request.URL.RawQuery != "" {
