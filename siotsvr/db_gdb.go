@@ -5,7 +5,6 @@ import (
 	"math"
 	"strconv"
 	"strings"
-	"sync"
 
 	"encoding/json"
 
@@ -13,7 +12,6 @@ import (
 )
 
 var cachePoi *buntdb.DB
-var cachePoiMutex sync.RWMutex
 
 func reloadPoiData() error {
 	// Open the RDB connection
@@ -106,10 +104,8 @@ func reloadPoiData() error {
 		return fmt.Errorf("failed to initialize GeoDB from ModelInstallInfo: %w", err)
 	}
 	defaultLog.Infof("Loaded %d poi", poiCount)
-	cachePoiMutex.Lock()
 	oldGdb := cachePoi
 	cachePoi = gdb
-	cachePoiMutex.Unlock()
 	if oldGdb != nil {
 		if err := oldGdb.Close(); err != nil {
 			defaultLog.Warnf("Error closing old POI GeoDB: %v", err)

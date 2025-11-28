@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -12,13 +13,13 @@ import (
 )
 
 func (s *HttpServer) handlePoiNearby(c *gin.Context) {
-	cachePoiMutex.RLock()
+	tick := nowFunc()
 	defer func() {
-		cachePoiMutex.RUnlock()
-		if e := recover(); e != nil {
-			defaultLog.Error("handlePoiNearby panic: ", e)
-			c.String(http.StatusInternalServerError, "Internal server error: %v", e)
+		req := c.Request.URL.Path
+		if c.Request.URL.RawQuery != "" {
+			req += "?" + c.Request.URL.RawQuery
 		}
+		defaultLog.Info("nearby ", c.Writer.Status(), " ", time.Since(tick), " ", req)
 	}()
 
 	wantHtml := c.DefaultQuery("html", "false") == "true"
