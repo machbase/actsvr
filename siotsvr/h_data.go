@@ -263,6 +263,8 @@ func handleParsData(c *gin.Context, conn api.Conn, certKeySeq int64, tsn int64, 
 		}
 		sb.WriteString(` WHERE _ARRIVAL_TIME > ?`)
 		args = append(args, dqm.LastArrivalTime)
+		sb.WriteString(` AND TRNSMIT_SERVER_NO = ?`)
+		args = append(args, tsn)
 		sb.WriteString(` AND DATA_NO = ?`)
 		args = append(args, dataNo)
 		if arrivalQueryLimit > 0 {
@@ -418,6 +420,8 @@ func handleRawData(c *gin.Context, conn api.Conn, tsn int64, dataNo int, startTi
 		}
 		sb.WriteString(` WHERE _ARRIVAL_TIME > ?`)
 		args = append(args, dqm.LastArrivalTime)
+		sb.WriteString(` AND TRNSMIT_SERVER_NO = ?`)
+		args = append(args, tsn)
 		sb.WriteString(` AND DATA_NO = ?`)
 		args = append(args, dataNo)
 		if arrivalQueryLimit > 0 {
