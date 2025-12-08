@@ -315,7 +315,6 @@ func handleParsData(c *gin.Context, conn api.Conn, certKeySeq int64, tsn int64, 
 	}
 	c.Header("Content-Type", "application/json")
 	c.Writer.WriteString(`{`)
-	fmt.Fprintf(c.Writer, `"dataNo":"%d",`, dataNoOut)
 	fmt.Fprintf(c.Writer, `"datasetNo":"%d",`, tsn)
 	fmt.Fprintf(c.Writer, `"resultCode":"SUCC-000","resultMsg":"조회 완료",`)
 	fmt.Fprintf(c.Writer, `"startDateTime":"%s",`, startTime.In(DefaultTZ).Format("20060102150405"))
@@ -370,7 +369,7 @@ func handleParsData(c *gin.Context, conn api.Conn, certKeySeq int64, tsn int64, 
 			}
 			fmt.Fprintf(c.Writer, `%q:%q,`, name, value)
 		}
-		fmt.Fprintf(c.Writer, `"date":"%s"}}`, date.In(DefaultTZ).Format("2006-01-02 15:04:05"))
+		fmt.Fprintf(c.Writer, `"date":"%s","dataNo":"%d"}}`, date.In(DefaultTZ).Format("2006-01-02 15:04:05"), dataNoOut)
 		nrow++
 	}
 	c.Writer.WriteString(`]}`)
