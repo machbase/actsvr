@@ -10,7 +10,7 @@ import (
 
 func BuildAll() error {
 	fmt.Println("Building all binaries...")
-	binaries := []string{"loader", "siotsvr", "siotdata", "csvrev"}
+	binaries := []string{"loader", "siotdata", "csvrev"}
 	for _, bin := range binaries {
 		if err := Build(bin); err != nil {
 			return fmt.Errorf("failed to build %s: %w", bin, err)

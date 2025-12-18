@@ -12,7 +12,6 @@ require (
 	github.com/machbase/neo-server/v8 v8.0.66-0.20251124073818-1391b0e587ee
 	github.com/magefile/mage v1.15.0
 	github.com/stretchr/testify v1.10.0
-	github.com/tidwall/buntdb v1.3.2
 	github.com/tochemey/goakt/v3 v3.7.0
 	golang.org/x/text v0.27.0
 	google.golang.org/protobuf v1.36.6
@@ -112,13 +111,8 @@ require (
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/tidwall/btree v1.7.0 // indirect
-	github.com/tidwall/gjson v1.18.0 // indirect
-	github.com/tidwall/grect v0.1.4 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
-	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/redcon v1.6.2 // indirect
-	github.com/tidwall/rtred v0.1.2 // indirect
-	github.com/tidwall/tinyqueue v0.1.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.15 // indirect
 	github.com/tklauser/numcpus v0.10.0 // indirect
 	github.com/tochemey/olric v0.2.3 // indirect
